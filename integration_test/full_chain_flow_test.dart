@@ -7,6 +7,7 @@ import 'package:chameleon_gif/app/app.dart';
 import 'package:chameleon_gif/app/router.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/file_pick_port.dart';
+import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
 import 'package:chameleon_gif/domain/value_objects/task_state.dart';
 import 'package:chameleon_gif/features/converter/application/ffmpeg_service_engine.dart';
 import 'package:chameleon_gif/features/converter/infrastructure/ffprobe_parse_video_port.dart';
@@ -28,15 +29,21 @@ import 'package:isar_community/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test/fixtures/fake_player_port.dart';
+import '../test/fixtures/fake_settings_repository.dart';
 import '../test/fixtures/isar_test_helper.dart';
 
 /// P8 全链路集成测试(UI 驱动 + 真实引擎,需桌面环境 + 系统 ffmpeg):
 ///   flutter test -d linux integration_test/full_chain_flow_test.dart
 ///
 /// 真实链路:批量导入(3 夹具)→ 双槽并发(2 running + 1 queued)→
-/// 单任务取消(clip_long)→ 自动入库(2 completed + 1 cancelled)→ 历史页 2 行。
+/// 单任务取消(chameleon)→ 自动入库(2 completed + 1 cancelled)→ 历史页 2 行。
 /// 全部真实实现:Isar 临时实例、ProcessEngine + 系统 ffmpeg、ffprobe 解析;
 /// 仅 filePickPort 注入多选路径(文件对话框无法自动化)。
+///
+/// 转码窗口:批量导入使用重参数默认值(fps30/width640)注入
+/// settingsRepository,720p 10s 两遍调色板编码 ≥5s,保证"2 running +
+/// 1 queued"瞬态可被轮询稳定捕捉(小视频 + 轻参数会瞬间完成,曾致
+/// 断言超时;真实 720p 素材来源 /home/yrz/chameleon,复制为 chameleon)。
 ///
 /// 注意:转码期间进度流每 200ms 触发重建,**禁用 pumpAndSettle**,统一用
 /// 显式 pump + 真实延时轮询(IntegrationTestWidgetsFlutterBinding 为 live
@@ -44,11 +51,17 @@ import '../test/fixtures/isar_test_helper.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
+  // 顺序即提交顺序:前两个(clip_long/chameleon)转码慢占双槽,
+  // 第三个(clip_a)排队;若首任务转码过快,任务 3 提交时槽位已空,
+  // "2 running + 1 queued"瞬态窗口极短,轮询无法捕捉(曾实测失败)
   const kFixtures = [
-    'test/fixtures/videos/clip_a.mp4',
     'test/fixtures/videos/clip_long.mp4',
-    'test/fixtures/videos/clip_b.mp4',
+    'test/fixtures/videos/chameleon.mp4',
+    'test/fixtures/videos/clip_a.mp4',
   ];
+
+  /// 重参数默认值:制造稳定转码窗口(720p 10s → 640 宽 30fps 两遍)。
+  const kHeavySetting = GifSetting(fps: 30, width: 640);
 
   late Directory tempRoot;
   late Isar isar;
@@ -73,6 +86,9 @@ void main() {
       overrides: [
         sharedPrefsProvider.overrideWithValue(
           await SharedPreferences.getInstance(),
+        ),
+        settingsRepositoryProvider.overrideWithValue(
+          FakeSettingsRepository(defaultGifSetting: kHeavySetting),
         ),
         appLoggerProvider.overrideWithValue(AppLogger()),
         filePickPortProvider.overrideWithValue(pickPort),
@@ -160,10 +176,10 @@ void main() {
         timeoutSeconds: 60,
       );
 
-      // 4. 取消运行中的 clip_long(UI 层点行内取消按钮)
+      // 4. 取消运行中的 chameleon(UI 层点行内取消按钮)
       await tester.pump(const Duration(milliseconds: 100));
-      final longTile = find.widgetWithText(ListTile, 'clip_long.mp4');
-      expect(longTile, findsOneWidget, reason: 'clip_long 行应可见');
+      final longTile = find.widgetWithText(ListTile, 'chameleon.mp4');
+      expect(longTile, findsOneWidget, reason: 'chameleon 行应可见');
       final cancelBtn = find.descendant(
         of: longTile,
         matching: find.byTooltip('取消'),
@@ -200,12 +216,14 @@ void main() {
       expect(find.byType(HistoryPage), findsOneWidget);
       await waitFor(
         tester,
-        () async =>
-            find.widgetWithText(ListTile, 'clip_a.mp4').evaluate().isNotEmpty,
-        reason: '历史页应显示 clip_a 行',
+        () async => find
+            .widgetWithText(ListTile, 'clip_long.mp4')
+            .evaluate()
+            .isNotEmpty,
+        reason: '历史页应显示 clip_long 行',
         timeoutSeconds: 30,
       );
-      expect(find.widgetWithText(ListTile, 'clip_b.mp4'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'clip_a.mp4'), findsOneWidget);
 
       // 8. 断言输出产物真实存在(GIF 头)
       final history = await historyRepo.list();

@@ -7,7 +7,10 @@ import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
 /// 记录最近一次主题持久化调用 [lastSetThemeMode],便于断言"状态切换 +
 /// 持久化"两件事都发生;其余字段取惰性默认值。
 class FakeSettingsRepository implements SettingsRepository {
-  FakeSettingsRepository({this.themeMode = AppThemeMode.system});
+  FakeSettingsRepository({
+    this.themeMode = AppThemeMode.system,
+    this.defaultGifSetting,
+  });
 
   @override
   AppThemeMode themeMode;
@@ -40,7 +43,7 @@ class FakeSettingsRepository implements SettingsRepository {
   Future<void> setDefaultExportDir(String path) async {}
 
   @override
-  GifSetting? get defaultGifSetting => null;
+  final GifSetting? defaultGifSetting;
 
   @override
   Future<void> setDefaultGifSetting(GifSetting setting) async {}
