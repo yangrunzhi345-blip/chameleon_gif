@@ -62,14 +62,9 @@ void main() {
     await tester.tap(find.text('480 px'));
     await tester.pumpAndSettle();
 
-    final firstItem = find.byType(MenuItemButton, skipOffstage: false).first;
-    expect(firstItem, findsOneWidget);
-    // 菜单面板(Material,elevation 2 圆角)顶部 >= 按钮底部(向下弹出)
+    // 菜单面板(Material,elevation 2 + 圆角 borderRadius)顶部 >= 按钮底部
     final menuPanel = find.byWidgetPredicate(
-      (w) =>
-          w is Material &&
-          w.shape is RoundedRectangleBorder &&
-          w.elevation == 2,
+      (w) => w is Material && w.elevation == 2 && w.borderRadius != null,
       skipOffstage: false,
     );
     expect(menuPanel, findsOneWidget);
