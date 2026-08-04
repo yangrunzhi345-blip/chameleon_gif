@@ -11,8 +11,8 @@ abstract class GifSetting with _$GifSetting {
     /// 输出帧率(1–60)
     @Default(15.0) double fps,
 
-    /// 输出宽度(0 = 原图等比)
-    @Default(480) int width,
+    /// 输出宽度(0 = 原图等比,默认)
+    @Default(0) int width,
 
     /// 输出起点(相对源视频)
     @Default(Duration.zero) Duration start,

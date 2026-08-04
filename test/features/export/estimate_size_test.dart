@@ -15,16 +15,19 @@ void main() {
     codec: 'h264',
   );
 
-  test('固定输入:10s × 15fps × 480×270 × 1B × 0.35', () {
-    // 150 帧 × 129600 像素 × 0.35 ≈ 6.8MB
+  test('固定输入:10s × 15fps × 默认原图等比(640×360)× 0.35', () {
+    // 默认宽 0 = 原图等比:150 帧 × 230400 像素(640×360)× 0.35 ≈ 28MB
     final bytes = estimateGifSize(setting: const GifSetting(), video: video);
-    expect(bytes, closeTo(150 * 480 * 270 * kGifCompressionFactor, 1));
+    expect(bytes, closeTo(150 * 640 * 360 * kGifCompressionFactor, 1));
   });
 
-  test('width=0 取源宽等比', () {
-    final bytes = estimateGifSize(setting: const GifSetting(), video: video);
-    // width=480 → height = 360 * 480 / 640 = 270
-    expect(bytes, greaterThan(0));
+  test('width=480 显式指定 → 等比缩放 480×270', () {
+    final bytes = estimateGifSize(
+      setting: const GifSetting(width: 480),
+      video: video,
+    );
+    // height = 360 * 480 / 640 = 270
+    expect(bytes, closeTo(150 * 480 * 270 * kGifCompressionFactor, 1));
   });
 
   test('裁剪窗口影响帧数', () {

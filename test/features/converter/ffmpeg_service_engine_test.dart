@@ -163,7 +163,7 @@ void main() {
       engine.commands.first,
       containsAll([
         '-vf',
-        'fps=15,scale=480:-1:flags=lanczos,palettegen=max_colors=256',
+        'fps=15,palettegen=max_colors=256', // 默认宽 0(原图等比)
       ]),
     );
   });

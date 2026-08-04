@@ -94,7 +94,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('24 fps', skipOffstage: false).last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('480 px'));
+    // 默认宽度为 0(原图等比),展开后选 640
+    await tester.tap(find.text('原图等比'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('640 px', skipOffstage: false).last);
     await tester.pumpAndSettle();

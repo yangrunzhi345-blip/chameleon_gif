@@ -20,7 +20,7 @@ class ExportFormState {
     this.outputSizeBytes,
     this.errorMessage,
     this.fps = 15.0,
-    this.width = 480,
+    this.width = 0,
     this.loop = 0,
     this.start = Duration.zero,
     this.end,

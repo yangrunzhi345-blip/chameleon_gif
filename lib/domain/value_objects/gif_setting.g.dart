@@ -8,7 +8,7 @@ part of 'gif_setting.dart';
 
 _GifSetting _$GifSettingFromJson(Map<String, dynamic> json) => _GifSetting(
   fps: (json['fps'] as num?)?.toDouble() ?? 15.0,
-  width: (json['width'] as num?)?.toInt() ?? 480,
+  width: (json['width'] as num?)?.toInt() ?? 0,
   start: json['start'] == null
       ? Duration.zero
       : Duration(microseconds: (json['start'] as num).toInt()),

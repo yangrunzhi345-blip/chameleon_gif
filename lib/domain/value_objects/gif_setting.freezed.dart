@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 mixin _$GifSetting {
 
 /// 输出帧率(1–60)
- double get fps;/// 输出宽度(0 = 原图等比)
+ double get fps;/// 输出宽度(0 = 原图等比,默认)
  int get width;/// 输出起点(相对源视频)
  Duration get start;/// 输出终点(默认取源视频时长,由导入时填充)
  Duration? get end;/// 循环次数(0 = 无限循环)
@@ -218,12 +218,12 @@ return $default(_that.fps,_that.width,_that.start,_that.end,_that.loop);case _:
 @JsonSerializable()
 
 class _GifSetting implements GifSetting {
-  const _GifSetting({this.fps = 15.0, this.width = 480, this.start = Duration.zero, this.end, this.loop = 0});
+  const _GifSetting({this.fps = 15.0, this.width = 0, this.start = Duration.zero, this.end, this.loop = 0});
   factory _GifSetting.fromJson(Map<String, dynamic> json) => _$GifSettingFromJson(json);
 
 /// 输出帧率(1–60)
 @override@JsonKey() final  double fps;
-/// 输出宽度(0 = 原图等比)
+/// 输出宽度(0 = 原图等比,默认)
 @override@JsonKey() final  int width;
 /// 输出起点(相对源视频)
 @override@JsonKey() final  Duration start;

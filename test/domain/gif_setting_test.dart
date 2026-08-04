@@ -26,7 +26,7 @@ void main() {
     test('空 JSON → 内置默认', () {
       final s = GifSetting.fromJson(const {});
       expect(s.fps, 15.0);
-      expect(s.width, 480);
+      expect(s.width, 0); // 默认原图等比
       expect(s.start, Duration.zero);
       expect(s.end, isNull);
       expect(s.loop, 0);

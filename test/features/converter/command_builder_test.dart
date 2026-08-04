@@ -41,7 +41,7 @@ void main() {
         '-i',
         '/tmp/videos/demo.mp4',
         '-vf',
-        'fps=15,scale=480:-1:flags=lanczos',
+        'fps=15', // 默认宽 0 = 原图等比,无 scale 滤镜
         '-progress',
         'pipe:1',
         '-y',
@@ -81,7 +81,7 @@ void main() {
           )
           .single;
       final vf = cmd.args[cmd.args.indexOf('-vf') + 1];
-      expect(vf, 'fps=29.97,scale=480:-1:flags=lanczos');
+      expect(vf, 'fps=29.97'); // 默认宽 0(原图等比),无 scale
     });
 
     test('loop 映射为 -loop <n>', () {
@@ -197,10 +197,7 @@ void main() {
       expect(first, isNot(contains('-progress')));
       expect(first, isNot(contains('pipe:1')));
       final vf1 = first[first.indexOf('-vf') + 1];
-      expect(
-        vf1,
-        'fps=15,scale=480:-1:flags=lanczos,palettegen=max_colors=256',
-      );
+      expect(vf1, 'fps=15,palettegen=max_colors=256'); // 默认宽 0(原图等比)
       expect(first.last, '/tmp/work/palette.png');
 
       // 第二遍:应用调色板输出 GIF(第二个 -i 为调色板输入)
@@ -210,7 +207,7 @@ void main() {
       final lavfi = second[second.indexOf('-lavfi') + 1];
       expect(
         lavfi,
-        'fps=15,scale=480:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5',
+        'fps=15[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5', // 默认宽 0
       );
       expect(second, containsAll(['-progress', 'pipe:1']));
       expect(second.last, '/tmp/work/out.gif');

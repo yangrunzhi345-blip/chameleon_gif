@@ -284,9 +284,9 @@ void main() {
       final task = await waitForState(id, TaskState.completed);
       expect(task.retryCount, 1);
       expect(flaky.convertCalls, [id, id], reason: '失败后重试执行');
-      // B1 回归:重试路径 _videos 已消费,兜底 video 宽度须取设置宽度,
-      // 保证 scale 滤镜不因兜底缺失而输出原始分辨率
-      expect(flaky.receivedVideos.last.width, 480);
+      // B1 回归:重试路径 _videos 已消费,兜底 video 宽度取设置宽度
+      // (默认 0 = 原图等比,scale 滤镜省略)
+      expect(flaky.receivedVideos.last.width, 0);
     });
 
     test('重试超 2 次 → 终态 failed', () async {

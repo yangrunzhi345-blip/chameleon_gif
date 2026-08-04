@@ -10,7 +10,7 @@ void main() {
     const s = ExportFormState.idle();
     expect(s.lifecycle, ExportLifecycle.idle);
     expect(s.fps, 15.0);
-    expect(s.width, 480);
+    expect(s.width, 0); // 默认原图等比
     expect(s.loop, 0);
     expect(s.start, Duration.zero);
     expect(s.end, isNull);
