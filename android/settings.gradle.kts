@@ -30,7 +30,7 @@ gradle.beforeProject {
     configurations.configureEach {
         resolutionStrategy.dependencySubstitution {
             substitute(module("com.arthenica:ffmpeg-kit-https"))
-                .using(module("dev.ffmpegkit-maintained:ffmpeg-kit-https:6.0.3"))
+                .using(module("dev.ffmpegkit-maintained:ffmpeg-kit-min:6.0.3"))
         }
     }
 }
