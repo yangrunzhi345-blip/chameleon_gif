@@ -29,6 +29,9 @@ class _FakeFilePickPort implements FilePickPort {
 
   @override
   Future<String?> pickMp4() async => path;
+
+  @override
+  Future<List<String>?> pickMp4s() async => null;
 }
 
 class _FakeParseVideoPort implements ParseVideoPort {

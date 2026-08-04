@@ -179,6 +179,9 @@ void main() {
 class _FakeFilePickPort implements FilePickPort {
   @override
   Future<String?> pickMp4() async => '/tmp/videos/demo.mp4';
+
+  @override
+  Future<List<String>?> pickMp4s() async => null;
 }
 
 class _FakeParseVideoPort implements ParseVideoPort {

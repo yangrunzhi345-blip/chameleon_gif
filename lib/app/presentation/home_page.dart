@@ -29,6 +29,27 @@ class HomePage extends ConsumerWidget {
     }
   }
 
+  /// 批量导入(P6-WP1):多选 → 批量入队(默认参数)→ 跳队列页。
+  Future<void> _batchImport(BuildContext context, WidgetRef ref) async {
+    final paths = await ref.read(filePickPortProvider).pickMp4s();
+    if (paths == null || paths.isEmpty || !context.mounted) return;
+    final result = await ref.read(batchImportUseCaseProvider).execute(paths);
+    if (!context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    if (result.enqueued == 0) {
+      messenger.showSnackBar(const SnackBar(content: Text('批量导入失败,请检查文件')));
+      return;
+    }
+    if (result.failed > 0) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('已入队 ${result.enqueued} 个,跳过 ${result.failed} 个'),
+        ),
+      );
+    }
+    context.push('/queue');
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
@@ -36,6 +57,11 @@ class HomePage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('GifForge'),
         actions: [
+          IconButton(
+            tooltip: '队列',
+            icon: const Icon(Icons.queue),
+            onPressed: () => context.push('/queue'),
+          ),
           IconButton(
             tooltip: '历史',
             icon: const Icon(Icons.history),
@@ -60,6 +86,12 @@ class HomePage extends ConsumerWidget {
               onPressed: () => _importAndPreview(context, ref),
               icon: const Icon(Icons.movie_outlined),
               label: const Text('导入 MP4'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => _batchImport(context, ref),
+              icon: const Icon(Icons.playlist_add),
+              label: const Text('批量导入'),
             ),
             const SizedBox(height: 24),
             SegmentedButton<AppThemeMode>(

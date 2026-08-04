@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../domain/entities/video_info.dart';
 import '../../features/history/presentation/history_page.dart';
+import '../../features/task_queue/presentation/queue_page.dart';
 import 'presentation/home_page.dart';
 import 'presentation/preview_screen.dart';
 
@@ -26,6 +27,11 @@ List<RouteBase> buildRoutes() => [
     path: '/history',
     name: 'history',
     builder: (context, state) => const HistoryPage(),
+  ),
+  GoRoute(
+    path: '/queue',
+    name: 'queue',
+    builder: (context, state) => const QueuePage(),
   ),
 ];
 
