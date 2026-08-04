@@ -55,7 +55,12 @@ dependencies:
   # 已实证),Dart 侧经 platform_interface 的 'flutter.arthenica.com/ffmpeg_kit'
   # MethodChannel 通信;原版 6.0.3 提供 Android Java 桥 + ffmpeg-kit AAR 同通道
   # 桥接,仅作原生载体,Dart 代码不 import 它(import 名不同无冲突)。
-  ffmpeg_kit_flutter: 6.0.3
+  # 本地化(third_party/):① 其 Maven 依赖 com.arthenica:ffmpeg-kit-https 已从
+  # Maven Central 下架,由 settings.gradle.kts 全局替换为社区重发布坐标;
+  # ② Java 桥引用 v1 embedding API(PluginRegistry.Registrar),新版 Flutter
+  # 已移除,本地化补丁删除 v1 入口(见 FFmpegKitFlutterPlugin.java)。
+  ffmpeg_kit_flutter:
+    path: third_party/ffmpeg_kit_flutter
 
   # 平台路径(应用数据目录,PlatformAdapter 使用,见 docs/08-FFmpeg设计.md §8.3.8)
   path_provider: ^2.1.6
