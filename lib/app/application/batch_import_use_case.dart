@@ -5,13 +5,20 @@ import '../../features/import/application/import_video_use_case.dart';
 
 /// 批量导入结果。
 class BatchImportResult {
-  const BatchImportResult({required this.enqueued, required this.failed});
+  const BatchImportResult({
+    required this.enqueued,
+    required this.failed,
+    this.taskIds = const [],
+  });
 
   /// 成功入队数。
   final int enqueued;
 
   /// 解析失败被跳过的文件数(失败隔离)。
   final int failed;
+
+  /// 成功入队的 taskId 列表(按入队顺序;enqueued == taskIds.length)。
+  final List<int> taskIds;
 }
 
 /// 批量导入编排用例(P6-WP1,app 层跨模块组合)。
@@ -52,10 +59,12 @@ class BatchImportUseCase {
     final dir = (outputDir == null || outputDir.isEmpty) ? null : outputDir;
     var enqueued = 0;
     var failed = 0;
+    final taskIds = <int>[];
     for (final path in paths) {
       try {
         final video = await importVideoUseCase.execute(path);
-        await submit(effective, video, outputDir: dir);
+        final id = await submit(effective, video, outputDir: dir);
+        taskIds.add(id);
         enqueued++;
       } on Object catch (e, st) {
         // 失败隔离:单文件解析失败跳过,其余继续
@@ -63,6 +72,10 @@ class BatchImportUseCase {
         logger.e('批量导入跳过: $path', error: e, stackTrace: st);
       }
     }
-    return BatchImportResult(enqueued: enqueued, failed: failed);
+    return BatchImportResult(
+      enqueued: enqueued,
+      failed: failed,
+      taskIds: taskIds,
+    );
   }
 }

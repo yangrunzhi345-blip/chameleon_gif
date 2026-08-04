@@ -5,6 +5,7 @@ import '../../shared/providers/core_providers.dart';
 import 'batch_form_mixin.dart';
 import 'batch_import_state.dart';
 import 'batch_import_use_case.dart';
+import 'batch_session_controller.dart';
 import 'providers.dart';
 
 /// 批量导入设置控制器 provider(会话级,autoDispose:进入设置页创建,
@@ -69,13 +70,18 @@ class BatchImportController extends Notifier<BatchImportFormState>
         state = state.copyWith(formError: '起点不能晚于或等于终点');
         return const BatchImportResult(enqueued: 0, failed: 0);
       }
-      return await ref
+      final result = await ref
           .read(batchImportUseCaseProvider)
           .execute(
             paths,
             setting: assembleSetting(),
             outputDir: state.outputDir,
           );
+      // 入队成功即登记批次会话(完成后弹窗的判定源)
+      if (result.enqueued > 0) {
+        ref.read(batchSessionProvider.notifier).begin(result.taskIds);
+      }
+      return result;
     } finally {
       _submitting = false;
     }
