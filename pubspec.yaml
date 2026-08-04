@@ -1,5 +1,5 @@
-name: gif_forge
-description: "GifForge — 跨平台 MP4 转 GIF 工具(技术选型版本锁定见 docs/03-技术选型.md)"
+name: chameleon_gif
+description: "Chameleon Gif — 跨平台 MP4 转 GIF 工具(技术选型版本锁定见 docs/03-技术选型.md)"
 publish_to: 'none'
 
 # 语义化版本:major.minor.patch+build,遵循 docs/15-发布计划.md

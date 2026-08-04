@@ -3,14 +3,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/app/app.dart';
-import 'package:gif_forge/core/logger/app_logger.dart';
-import 'package:gif_forge/features/task_queue/application/task_manager.dart';
-import 'package:gif_forge/features/task_queue/application/task_queue_providers.dart';
-import 'package:gif_forge/shared/platform/platform_adapter.dart';
-import 'package:gif_forge/shared/providers/core_providers.dart';
-import 'package:gif_forge/shared/repositories/in_memory_history_repository.dart';
-import 'package:gif_forge/shared/repositories/in_memory_task_repository.dart';
+import 'package:chameleon_gif/app/app.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
+import 'package:chameleon_gif/features/task_queue/application/task_queue_providers.dart';
+import 'package:chameleon_gif/shared/platform/platform_adapter.dart';
+import 'package:chameleon_gif/shared/providers/core_providers.dart';
+import 'package:chameleon_gif/shared/repositories/in_memory_history_repository.dart';
+import 'package:chameleon_gif/shared/repositories/in_memory_task_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fixtures/fake_ffmpeg_service.dart';
@@ -54,13 +54,13 @@ void main() {
           ),
         ),
       ],
-      child: const GifForgeApp(),
+      child: const ChameleonGifApp(),
     );
   }
 
   testWidgets('启动渲染主页并支持主题三态切换', (tester) async {
     await tester.pumpWidget(buildApp());
-    expect(find.text('GifForge'), findsWidgets);
+    expect(find.text('Chameleon Gif'), findsWidgets);
 
     // 切换到深色
     await tester.tap(find.text('深色'));

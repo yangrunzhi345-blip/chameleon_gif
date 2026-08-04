@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/domain/value_objects/app_theme_mode.dart';
+import 'package:chameleon_gif/domain/value_objects/app_theme_mode.dart';
 
 void main() {
   group('AppThemeMode', () {

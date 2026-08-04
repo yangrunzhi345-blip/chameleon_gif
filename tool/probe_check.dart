@@ -4,10 +4,10 @@
 // 全部通过退出 0;任一断言失败打印明细并退出 1。
 import 'dart:io';
 
-import 'package:gif_forge/core/logger/app_logger.dart';
-import 'package:gif_forge/domain/exceptions/source_broken_exception.dart';
-import 'package:gif_forge/domain/exceptions/source_missing_exception.dart';
-import 'package:gif_forge/features/converter/infrastructure/ffprobe_parse_video_port.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/exceptions/source_broken_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/source_missing_exception.dart';
+import 'package:chameleon_gif/features/converter/infrastructure/ffprobe_parse_video_port.dart';
 
 const kSamples = [
   (

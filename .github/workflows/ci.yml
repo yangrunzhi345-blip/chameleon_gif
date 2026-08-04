@@ -26,5 +26,8 @@ jobs:
       - name: 静态分析(零告警)
         run: flutter analyze
 
-      - name: 单元与 Widget 测试
-        run: flutter test
+      - name: 单元与 Widget 测试(含覆盖率采集)
+        run: flutter test --coverage
+
+      - name: 覆盖率门禁(docs/17 三项硬指标)
+        run: dart run tool/coverage_summary.dart coverage/lcov.info

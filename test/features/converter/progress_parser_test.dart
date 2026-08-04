@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/domain/value_objects/task_progress.dart';
-import 'package:gif_forge/features/converter/application/progress_parser.dart';
+import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
+import 'package:chameleon_gif/features/converter/application/progress_parser.dart';
 
 /// [ProgressParser] 单测(docs/14-测试计划.md §14.2,进度解析契约)。
 void main() {

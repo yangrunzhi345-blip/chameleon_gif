@@ -1,4 +1,4 @@
-# lib/ — GifForge 源码目录
+# lib/ — Chameleon Gif 源码目录
 
 五层架构的 Flutter 落地,详细设计见 `docs/04-系统架构.md` 与 `docs/05-目录结构.md`。
 

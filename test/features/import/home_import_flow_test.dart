@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/app/app.dart';
-import 'package:gif_forge/shared/providers/core_providers.dart';
-import 'package:gif_forge/shared/repositories/in_memory_history_repository.dart';
-import 'package:gif_forge/shared/repositories/in_memory_task_repository.dart';
-import 'package:gif_forge/app/router.dart';
-import 'package:gif_forge/core/logger/app_logger.dart';
-import 'package:gif_forge/domain/entities/video_info.dart';
-import 'package:gif_forge/domain/exceptions/source_broken_exception.dart';
-import 'package:gif_forge/domain/repository_interfaces/ffmpeg_engine.dart';
-import 'package:gif_forge/domain/repository_interfaces/ffmpeg_service.dart';
-import 'package:gif_forge/domain/repository_interfaces/file_pick_port.dart';
-import 'package:gif_forge/domain/repository_interfaces/parse_video_port.dart';
-import 'package:gif_forge/domain/value_objects/gif_setting.dart';
-import 'package:gif_forge/domain/value_objects/task_progress.dart';
-import 'package:gif_forge/features/import/application/import_providers.dart';
-import 'package:gif_forge/features/preview/application/preview_controller.dart';
-import 'package:gif_forge/app/presentation/preview_screen.dart';
+import 'package:chameleon_gif/app/app.dart';
+import 'package:chameleon_gif/shared/providers/core_providers.dart';
+import 'package:chameleon_gif/shared/repositories/in_memory_history_repository.dart';
+import 'package:chameleon_gif/shared/repositories/in_memory_task_repository.dart';
+import 'package:chameleon_gif/app/router.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/entities/video_info.dart';
+import 'package:chameleon_gif/domain/exceptions/source_broken_exception.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_service.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/file_pick_port.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/parse_video_port.dart';
+import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
+import 'package:chameleon_gif/features/import/application/import_providers.dart';
+import 'package:chameleon_gif/features/preview/application/preview_controller.dart';
+import 'package:chameleon_gif/app/presentation/preview_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -86,7 +86,7 @@ void main() {
         ),
       ],
       // 独立 router 实例:全局 appRouter 单例跨测试共享栈状态,会串扰
-      child: GifForgeApp(router: GoRouter(routes: buildRoutes())),
+      child: ChameleonGifApp(router: GoRouter(routes: buildRoutes())),
     );
   }
 

@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/core/logger/app_logger.dart';
-import 'package:gif_forge/domain/entities/video_info.dart';
-import 'package:gif_forge/domain/exceptions/file_pick_exception.dart';
-import 'package:gif_forge/domain/exceptions/source_broken_exception.dart';
-import 'package:gif_forge/domain/repository_interfaces/parse_video_port.dart';
-import 'package:gif_forge/features/import/application/import_video_use_case.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/entities/video_info.dart';
+import 'package:chameleon_gif/domain/exceptions/file_pick_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/source_broken_exception.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/parse_video_port.dart';
+import 'package:chameleon_gif/features/import/application/import_video_use_case.dart';
 
 /// 手写 Fake 端口(成功/抛错两态),不依赖真实 ffprobe
 class FakeParseVideoPort implements ParseVideoPort {

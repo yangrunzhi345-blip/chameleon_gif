@@ -1,15 +1,15 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/core/logger/app_logger.dart';
-import 'package:gif_forge/domain/entities/export_history.dart';
-import 'package:gif_forge/domain/entities/export_task.dart';
-import 'package:gif_forge/domain/value_objects/gif_setting.dart';
-import 'package:gif_forge/domain/value_objects/task_state.dart';
-import 'package:gif_forge/shared/repositories/isar_history_repository.dart';
-import 'package:gif_forge/shared/repositories/isar_task_repository.dart';
-import 'package:gif_forge/shared/repositories/schemas/export_history_schema.dart';
-import 'package:gif_forge/shared/repositories/schemas/export_task_schema.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/entities/export_history.dart';
+import 'package:chameleon_gif/domain/entities/export_task.dart';
+import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/task_state.dart';
+import 'package:chameleon_gif/shared/repositories/isar_history_repository.dart';
+import 'package:chameleon_gif/shared/repositories/isar_task_repository.dart';
+import 'package:chameleon_gif/shared/repositories/schemas/export_history_schema.dart';
+import 'package:chameleon_gif/shared/repositories/schemas/export_task_schema.dart';
 import 'package:isar_community/isar.dart';
 
 import '../../fixtures/isar_test_helper.dart';

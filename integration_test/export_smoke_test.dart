@@ -1,17 +1,17 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/core/logger/app_logger.dart';
-import 'package:gif_forge/domain/entities/export_task.dart';
-import 'package:gif_forge/domain/entities/video_info.dart';
-import 'package:gif_forge/domain/value_objects/gif_setting.dart';
-import 'package:gif_forge/domain/value_objects/task_state.dart';
-import 'package:gif_forge/shared/platform/process_engine.dart';
-import 'package:gif_forge/features/task_queue/application/task_manager.dart';
-import 'package:gif_forge/shared/platform/platform_adapter.dart';
-import 'package:gif_forge/shared/repositories/in_memory_history_repository.dart';
-import 'package:gif_forge/shared/repositories/in_memory_task_repository.dart';
-import 'package:gif_forge/features/converter/application/ffmpeg_service_engine.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/entities/export_task.dart';
+import 'package:chameleon_gif/domain/entities/video_info.dart';
+import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/task_state.dart';
+import 'package:chameleon_gif/shared/platform/process_engine.dart';
+import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
+import 'package:chameleon_gif/shared/platform/platform_adapter.dart';
+import 'package:chameleon_gif/shared/repositories/in_memory_history_repository.dart';
+import 'package:chameleon_gif/shared/repositories/in_memory_task_repository.dart';
+import 'package:chameleon_gif/features/converter/application/ffmpeg_service_engine.dart';
 
 /// P3 阶段门真实转码冒烟(需桌面环境 + 系统 ffmpeg):
 ///   flutter test -d linux integration_test/export_smoke_test.dart

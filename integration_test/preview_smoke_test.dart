@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/features/preview/infrastructure/media_kit_player_port.dart';
+import 'package:chameleon_gif/features/preview/infrastructure/media_kit_player_port.dart';
 import 'package:media_kit/media_kit.dart';
 
 /// P2 阶段门真实播放冒烟(需桌面环境 + media_kit 原生库):

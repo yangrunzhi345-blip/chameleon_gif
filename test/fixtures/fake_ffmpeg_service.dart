@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:gif_forge/domain/entities/video_info.dart';
-import 'package:gif_forge/domain/repository_interfaces/ffmpeg_engine.dart';
-import 'package:gif_forge/domain/repository_interfaces/ffmpeg_service.dart';
-import 'package:gif_forge/domain/value_objects/gif_setting.dart';
-import 'package:gif_forge/domain/value_objects/task_progress.dart';
+import 'package:chameleon_gif/domain/entities/video_info.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_service.dart';
+import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
 
 /// [FFmpegService] 测试替身(P6-WP2 抽取,4 个测试文件共享)。
 ///

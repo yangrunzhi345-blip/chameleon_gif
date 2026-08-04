@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/domain/exceptions/conversion_exception.dart';
-import 'package:gif_forge/domain/exceptions/disk_full_exception.dart';
-import 'package:gif_forge/domain/exceptions/encode_exception.dart';
-import 'package:gif_forge/domain/exceptions/ffmpeg_missing_exception.dart';
-import 'package:gif_forge/domain/exceptions/output_conflict_exception.dart';
-import 'package:gif_forge/domain/exceptions/palette_exception.dart';
-import 'package:gif_forge/domain/exceptions/permission_exception.dart';
-import 'package:gif_forge/domain/exceptions/source_broken_exception.dart';
-import 'package:gif_forge/domain/exceptions/source_missing_exception.dart';
-import 'package:gif_forge/features/converter/application/error_handler.dart';
+import 'package:chameleon_gif/domain/exceptions/conversion_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/disk_full_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/encode_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/ffmpeg_missing_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/output_conflict_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/palette_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/permission_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/source_broken_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/source_missing_exception.dart';
+import 'package:chameleon_gif/features/converter/application/error_handler.dart';
 
 /// [ErrorHandler] 错误映射表全覆盖测试(docs/08 §8.3.5,8 行映射)。
 void main() {

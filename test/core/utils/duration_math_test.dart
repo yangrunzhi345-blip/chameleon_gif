@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/core/utils/duration_math.dart';
+import 'package:chameleon_gif/core/utils/duration_math.dart';
 
 /// [normalizeRange] 自动交换契约(P4 阶段门,docs/12 §12.3)。
 void main() {

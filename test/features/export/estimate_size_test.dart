@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/domain/entities/video_info.dart';
-import 'package:gif_forge/domain/value_objects/gif_setting.dart';
-import 'package:gif_forge/features/export/application/estimate_size.dart';
+import 'package:chameleon_gif/domain/entities/video_info.dart';
+import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/features/export/application/estimate_size.dart';
 
 /// [estimateGifSize] 估算契约(P4-WP2,面板预估展示)。
 void main() {

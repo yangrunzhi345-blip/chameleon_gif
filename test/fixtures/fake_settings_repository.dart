@@ -1,6 +1,6 @@
-import 'package:gif_forge/domain/repository_interfaces/settings_repository.dart';
-import 'package:gif_forge/domain/value_objects/app_theme_mode.dart';
-import 'package:gif_forge/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/settings_repository.dart';
+import 'package:chameleon_gif/domain/value_objects/app_theme_mode.dart';
+import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
 
 /// 内存版 SettingsRepository(theme_controller 等测试用)。
 ///

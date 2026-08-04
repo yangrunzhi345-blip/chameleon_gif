@@ -1,13 +1,13 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/domain/entities/video_info.dart';
-import 'package:gif_forge/domain/exceptions/domain_exception.dart';
-import 'package:gif_forge/domain/exceptions/palette_exception.dart';
-import 'package:gif_forge/domain/repository_interfaces/ffmpeg_engine.dart';
-import 'package:gif_forge/domain/value_objects/gif_setting.dart';
-import 'package:gif_forge/domain/value_objects/task_progress.dart';
-import 'package:gif_forge/features/converter/application/ffmpeg_service_engine.dart';
+import 'package:chameleon_gif/domain/entities/video_info.dart';
+import 'package:chameleon_gif/domain/exceptions/domain_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/palette_exception.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
+import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
+import 'package:chameleon_gif/features/converter/application/ffmpeg_service_engine.dart';
 
 /// [FfmpegServiceEngine] 编排测试(注入 [FakeEngine],纯 Dart)。
 void main() {

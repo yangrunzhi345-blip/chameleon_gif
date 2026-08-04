@@ -4,25 +4,25 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/app/app.dart';
-import 'package:gif_forge/app/router.dart';
-import 'package:gif_forge/core/logger/app_logger.dart';
-import 'package:gif_forge/domain/entities/export_history.dart';
-import 'package:gif_forge/domain/entities/video_info.dart';
-import 'package:gif_forge/domain/repository_interfaces/ffmpeg_engine.dart';
-import 'package:gif_forge/domain/repository_interfaces/ffmpeg_service.dart';
-import 'package:gif_forge/domain/value_objects/gif_setting.dart';
-import 'package:gif_forge/domain/value_objects/task_progress.dart';
-import 'package:gif_forge/features/history/application/history_providers.dart';
-import 'package:gif_forge/features/history/infrastructure/thumbnail_extractor.dart';
-import 'package:gif_forge/features/history/presentation/history_detail_dialog.dart';
-import 'package:gif_forge/features/history/presentation/history_page.dart';
-import 'package:gif_forge/features/task_queue/application/task_manager.dart';
-import 'package:gif_forge/features/task_queue/application/task_queue_providers.dart';
-import 'package:gif_forge/shared/platform/platform_adapter.dart';
-import 'package:gif_forge/shared/providers/core_providers.dart';
-import 'package:gif_forge/shared/repositories/in_memory_history_repository.dart';
-import 'package:gif_forge/shared/repositories/in_memory_task_repository.dart';
+import 'package:chameleon_gif/app/app.dart';
+import 'package:chameleon_gif/app/router.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/entities/export_history.dart';
+import 'package:chameleon_gif/domain/entities/video_info.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_service.dart';
+import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
+import 'package:chameleon_gif/features/history/application/history_providers.dart';
+import 'package:chameleon_gif/features/history/infrastructure/thumbnail_extractor.dart';
+import 'package:chameleon_gif/features/history/presentation/history_detail_dialog.dart';
+import 'package:chameleon_gif/features/history/presentation/history_page.dart';
+import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
+import 'package:chameleon_gif/features/task_queue/application/task_queue_providers.dart';
+import 'package:chameleon_gif/shared/platform/platform_adapter.dart';
+import 'package:chameleon_gif/shared/providers/core_providers.dart';
+import 'package:chameleon_gif/shared/repositories/in_memory_history_repository.dart';
+import 'package:chameleon_gif/shared/repositories/in_memory_task_repository.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -189,7 +189,7 @@ void main() {
           ),
           thumbnailExtractorProvider.overrideWithValue(extractor),
         ],
-        child: GifForgeApp(router: GoRouter(routes: buildRoutes())),
+        child: ChameleonGifApp(router: GoRouter(routes: buildRoutes())),
       ),
     );
     await tester.pumpAndSettle();

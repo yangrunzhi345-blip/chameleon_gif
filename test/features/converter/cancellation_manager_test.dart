@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/domain/repository_interfaces/ffmpeg_engine.dart';
-import 'package:gif_forge/shared/platform/cancellation_manager.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
+import 'package:chameleon_gif/shared/platform/cancellation_manager.dart';
 
 /// [terminateProcess] 与 [CancellationManager] 测试(docs/08 §8.3.6)。
 void main() {

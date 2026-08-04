@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/core/utils/duration_format.dart';
+import 'package:chameleon_gif/core/utils/duration_format.dart';
 
 /// [parseFfmpegTime] 时间输入解析契约(P4-WP2 表单)。
 void main() {

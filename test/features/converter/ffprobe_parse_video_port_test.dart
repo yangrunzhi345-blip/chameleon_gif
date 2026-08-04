@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/core/logger/app_logger.dart';
-import 'package:gif_forge/domain/exceptions/file_pick_exception.dart';
-import 'package:gif_forge/domain/exceptions/source_broken_exception.dart';
-import 'package:gif_forge/features/converter/infrastructure/ffprobe_parse_video_port.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/exceptions/file_pick_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/source_broken_exception.dart';
+import 'package:chameleon_gif/features/converter/infrastructure/ffprobe_parse_video_port.dart';
 
 import '../../fixtures/ffprobe_loader.dart';
 

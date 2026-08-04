@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:gif_forge/domain/repository_interfaces/player_port.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/player_port.dart';
 
 /// [PreviewPlayerPort] 测试替身:可控发射事件、记录调用。
 ///

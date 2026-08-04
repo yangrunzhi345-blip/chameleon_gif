@@ -14,8 +14,8 @@ import 'theme/app_theme.dart';
 /// 本组件只做组装,不含业务逻辑。
 /// [router] 可注入独立实例(测试隔离;默认全局单例 [appRouter])。
 /// 领域枚举 → Flutter ThemeMode 的映射收敛于此(UI 层)。
-class GifForgeApp extends ConsumerWidget {
-  const GifForgeApp({super.key, this.router});
+class ChameleonGifApp extends ConsumerWidget {
+  const ChameleonGifApp({super.key, this.router});
 
   final GoRouter? router;
 
@@ -26,7 +26,7 @@ class GifForgeApp extends ConsumerWidget {
     // (kill 进程重启后 queued/running 任务重新排队,不依赖打开队列页)
     ref.watch(taskQueueControllerProvider);
     return MaterialApp.router(
-      title: 'GifForge',
+      title: 'Chameleon Gif',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),

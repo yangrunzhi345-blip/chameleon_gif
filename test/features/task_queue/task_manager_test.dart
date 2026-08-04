@@ -3,18 +3,18 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import '../../fixtures/fake_ffmpeg_service.dart';
-import 'package:gif_forge/core/logger/app_logger.dart';
-import 'package:gif_forge/domain/entities/export_task.dart';
-import 'package:gif_forge/domain/entities/video_info.dart';
-import 'package:gif_forge/domain/exceptions/encode_exception.dart';
-import 'package:gif_forge/domain/exceptions/source_broken_exception.dart';
-import 'package:gif_forge/domain/value_objects/gif_setting.dart';
-import 'package:gif_forge/domain/value_objects/task_progress.dart';
-import 'package:gif_forge/domain/value_objects/task_state.dart';
-import 'package:gif_forge/features/task_queue/application/task_manager.dart';
-import 'package:gif_forge/shared/platform/platform_adapter.dart';
-import 'package:gif_forge/shared/repositories/in_memory_history_repository.dart';
-import 'package:gif_forge/shared/repositories/in_memory_task_repository.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/entities/export_task.dart';
+import 'package:chameleon_gif/domain/entities/video_info.dart';
+import 'package:chameleon_gif/domain/exceptions/encode_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/source_broken_exception.dart';
+import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
+import 'package:chameleon_gif/domain/value_objects/task_state.dart';
+import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
+import 'package:chameleon_gif/shared/platform/platform_adapter.dart';
+import 'package:chameleon_gif/shared/repositories/in_memory_history_repository.dart';
+import 'package:chameleon_gif/shared/repositories/in_memory_task_repository.dart';
 
 /// [TaskManager] 状态机测试(docs/14 §14.2/§14.8,覆盖率目标 task_queue ≥80%)。
 void main() {

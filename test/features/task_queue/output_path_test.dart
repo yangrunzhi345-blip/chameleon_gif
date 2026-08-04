@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/features/task_queue/application/output_path.dart';
+import 'package:chameleon_gif/features/task_queue/application/output_path.dart';
 
 /// [buildOutputFileName]/[resolveOutputPath] 契约(P4-WP4)。
 void main() {

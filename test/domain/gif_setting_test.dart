@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
 
 /// [GifSetting] 序列化契约(docs/14-测试计划.md §14.2 模型序列化)。
 void main() {

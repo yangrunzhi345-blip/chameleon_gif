@@ -55,7 +55,7 @@ class HomePage extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('GifForge'),
+        title: const Text('Chameleon Gif'),
         actions: [
           IconButton(
             tooltip: '队列',
@@ -76,7 +76,7 @@ class HomePage extends ConsumerWidget {
             const Icon(Icons.gif_box_outlined, size: 96),
             const SizedBox(height: 16),
             const Text(
-              'GifForge',
+              'Chameleon Gif',
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),

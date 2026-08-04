@@ -36,5 +36,5 @@ List<RouteBase> buildRoutes() => [
 ];
 
 /// 全局路由表(声明式,见 docs/09-状态管理.md 与 docs/10-UI设计.md)。
-/// 全局单例;测试经 [GifForgeApp.router] 注入独立实例避免栈状态串扰。
+/// 全局单例;测试经 [ChameleonGifApp.router] 注入独立实例避免栈状态串扰。
 final appRouter = GoRouter(routes: buildRoutes());

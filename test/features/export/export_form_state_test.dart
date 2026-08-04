@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/domain/entities/export_task.dart';
-import 'package:gif_forge/domain/value_objects/gif_setting.dart';
-import 'package:gif_forge/domain/value_objects/task_state.dart';
-import 'package:gif_forge/features/export/application/export_state.dart';
+import 'package:chameleon_gif/domain/entities/export_task.dart';
+import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/task_state.dart';
+import 'package:chameleon_gif/features/export/application/export_state.dart';
 
 /// [ExportFormState] 表单字段与 copyWith 契约(P4-WP2)。
 void main() {

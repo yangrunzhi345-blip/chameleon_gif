@@ -3,27 +3,27 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/app/app.dart';
-import 'package:gif_forge/app/router.dart';
-import 'package:gif_forge/core/logger/app_logger.dart';
-import 'package:gif_forge/domain/entities/video_info.dart';
-import 'package:gif_forge/domain/repository_interfaces/ffmpeg_engine.dart';
-import 'package:gif_forge/domain/repository_interfaces/ffmpeg_service.dart';
-import 'package:gif_forge/domain/repository_interfaces/file_pick_port.dart';
-import 'package:gif_forge/domain/repository_interfaces/parse_video_port.dart';
-import 'package:gif_forge/domain/value_objects/gif_setting.dart';
-import 'package:gif_forge/domain/value_objects/task_progress.dart';
-import 'package:gif_forge/features/converter/application/command_builder.dart';
-import 'package:gif_forge/features/export/application/export_providers.dart';
-import 'package:gif_forge/features/import/application/import_providers.dart';
-import 'package:gif_forge/features/preview/application/preview_controller.dart';
-import 'package:gif_forge/features/timeline/application/timeline_providers.dart';
-import 'package:gif_forge/features/task_queue/application/task_manager.dart';
-import 'package:gif_forge/features/task_queue/application/task_queue_providers.dart';
-import 'package:gif_forge/shared/platform/platform_adapter.dart';
-import 'package:gif_forge/shared/providers/core_providers.dart';
-import 'package:gif_forge/shared/repositories/in_memory_history_repository.dart';
-import 'package:gif_forge/shared/repositories/in_memory_task_repository.dart';
+import 'package:chameleon_gif/app/app.dart';
+import 'package:chameleon_gif/app/router.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/entities/video_info.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_service.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/file_pick_port.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/parse_video_port.dart';
+import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
+import 'package:chameleon_gif/features/converter/application/command_builder.dart';
+import 'package:chameleon_gif/features/export/application/export_providers.dart';
+import 'package:chameleon_gif/features/import/application/import_providers.dart';
+import 'package:chameleon_gif/features/preview/application/preview_controller.dart';
+import 'package:chameleon_gif/features/timeline/application/timeline_providers.dart';
+import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
+import 'package:chameleon_gif/features/task_queue/application/task_queue_providers.dart';
+import 'package:chameleon_gif/shared/platform/platform_adapter.dart';
+import 'package:chameleon_gif/shared/providers/core_providers.dart';
+import 'package:chameleon_gif/shared/repositories/in_memory_history_repository.dart';
+import 'package:chameleon_gif/shared/repositories/in_memory_task_repository.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -68,7 +68,7 @@ void main() {
           ),
         ),
       ],
-      child: GifForgeApp(router: GoRouter(routes: buildRoutes())),
+      child: ChameleonGifApp(router: GoRouter(routes: buildRoutes())),
     );
   }
 
@@ -80,7 +80,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('导入 MP4'));
     await tester.pumpAndSettle();
-    return ProviderScope.containerOf(tester.element(find.byType(GifForgeApp)));
+    return ProviderScope.containerOf(
+      tester.element(find.byType(ChameleonGifApp)),
+    );
   }
 
   testWidgets('参数表单 → 时间轴联动 → 导出命令快照验收', (tester) async {

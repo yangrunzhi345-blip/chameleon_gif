@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/domain/exceptions/ffmpeg_missing_exception.dart';
-import 'package:gif_forge/domain/repository_interfaces/ffmpeg_engine.dart';
-import 'package:gif_forge/shared/platform/process_engine.dart';
+import 'package:chameleon_gif/domain/exceptions/ffmpeg_missing_exception.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
+import 'package:chameleon_gif/shared/platform/process_engine.dart';
 
 /// [ProcessEngine] 真实二进制测试(镜像 P1 执行器模式)。
 ///

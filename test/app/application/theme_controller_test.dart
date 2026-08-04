@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/app/application/providers.dart';
-import 'package:gif_forge/domain/value_objects/app_theme_mode.dart';
-import 'package:gif_forge/shared/providers/core_providers.dart';
-import 'package:gif_forge/shared/repositories/settings_repository_impl.dart';
+import 'package:chameleon_gif/app/application/providers.dart';
+import 'package:chameleon_gif/domain/value_objects/app_theme_mode.dart';
+import 'package:chameleon_gif/shared/providers/core_providers.dart';
+import 'package:chameleon_gif/shared/repositories/settings_repository_impl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../fixtures/fake_settings_repository.dart';

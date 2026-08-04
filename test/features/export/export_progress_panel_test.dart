@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/domain/value_objects/task_progress.dart';
-import 'package:gif_forge/features/export/application/export_providers.dart';
-import 'package:gif_forge/features/export/presentation/export_progress_panel.dart';
+import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
+import 'package:chameleon_gif/features/export/application/export_providers.dart';
+import 'package:chameleon_gif/features/export/presentation/export_progress_panel.dart';
 
 /// [ExportProgressPanel] 渲染测试(override 进度流,纯 UI)。
 void main() {

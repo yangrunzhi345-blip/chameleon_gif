@@ -2,14 +2,14 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/core/logger/app_logger.dart';
-import 'package:gif_forge/domain/exceptions/ffmpeg_missing_exception.dart';
-import 'package:gif_forge/domain/exceptions/file_pick_exception.dart';
-import 'package:gif_forge/domain/exceptions/source_broken_exception.dart';
-import 'package:gif_forge/domain/exceptions/source_missing_exception.dart';
-import 'package:gif_forge/features/converter/infrastructure/ffprobe_parse_video_port.dart';
-import 'package:gif_forge/shared/platform/ffprobe_executor.dart';
-import 'package:gif_forge/shared/platform/process_ffprobe_executor.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/exceptions/ffmpeg_missing_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/file_pick_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/source_broken_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/source_missing_exception.dart';
+import 'package:chameleon_gif/features/converter/infrastructure/ffprobe_parse_video_port.dart';
+import 'package:chameleon_gif/shared/platform/ffprobe_executor.dart';
+import 'package:chameleon_gif/shared/platform/process_ffprobe_executor.dart';
 
 /// [FfprobeParseVideoPort] 经 [FfprobeExecutor] 注入的测试(纯 Dart)。
 ///

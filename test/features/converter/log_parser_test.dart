@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/features/converter/application/log_parser.dart';
+import 'package:chameleon_gif/features/converter/application/log_parser.dart';
 
 /// [LogParser] 分级测试(docs/08 §8.3.4)。
 void main() {

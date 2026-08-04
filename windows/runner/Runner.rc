@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.gifforge" "\0"
-            VALUE "FileDescription", "gif_forge" "\0"
+            VALUE "FileDescription", "chameleon_gif" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "gif_forge" "\0"
+            VALUE "InternalName", "chameleon_gif" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.gifforge. All rights reserved." "\0"
-            VALUE "OriginalFilename", "gif_forge.exe" "\0"
-            VALUE "ProductName", "gif_forge" "\0"
+            VALUE "OriginalFilename", "chameleon_gif.exe" "\0"
+            VALUE "ProductName", "chameleon_gif" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

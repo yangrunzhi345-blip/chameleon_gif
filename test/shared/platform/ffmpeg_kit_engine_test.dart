@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/shared/platform/ffmpeg_kit_engine.dart';
+import 'package:chameleon_gif/shared/platform/ffmpeg_kit_engine.dart';
 
 void main() {
   group('FfmpegKitEngine.assembleCommand', () {

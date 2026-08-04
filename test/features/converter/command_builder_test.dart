@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/core/utils/duration_format.dart';
-import 'package:gif_forge/domain/entities/video_info.dart';
-import 'package:gif_forge/domain/value_objects/gif_setting.dart';
-import 'package:gif_forge/features/converter/application/command_builder.dart';
-import 'package:gif_forge/features/converter/application/gif_command.dart';
+import 'package:chameleon_gif/core/utils/duration_format.dart';
+import 'package:chameleon_gif/domain/entities/video_info.dart';
+import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/features/converter/application/command_builder.dart';
+import 'package:chameleon_gif/features/converter/application/gif_command.dart';
 
 /// [GifCommandBuilder] 快照测试(docs/14-测试计划.md §14.2,命令契约锁定)。
 void main() {

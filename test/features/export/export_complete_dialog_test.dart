@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/domain/entities/export_task.dart';
-import 'package:gif_forge/domain/entities/video_info.dart';
-import 'package:gif_forge/domain/repository_interfaces/ffmpeg_engine.dart';
-import 'package:gif_forge/domain/repository_interfaces/ffmpeg_service.dart';
-import 'package:gif_forge/domain/value_objects/gif_setting.dart';
-import 'package:gif_forge/domain/value_objects/task_progress.dart';
-import 'package:gif_forge/domain/value_objects/task_state.dart';
-import 'package:gif_forge/core/logger/app_logger.dart';
-import 'package:gif_forge/features/export/application/export_controller.dart';
-import 'package:gif_forge/features/export/application/export_providers.dart';
-import 'package:gif_forge/features/export/application/export_state.dart';
-import 'package:gif_forge/features/export/presentation/export_complete_dialog.dart';
-import 'package:gif_forge/shared/providers/core_providers.dart';
-import 'package:gif_forge/shared/repositories/in_memory_history_repository.dart';
-import 'package:gif_forge/shared/repositories/in_memory_task_repository.dart';
+import 'package:chameleon_gif/domain/entities/export_task.dart';
+import 'package:chameleon_gif/domain/entities/video_info.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_service.dart';
+import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
+import 'package:chameleon_gif/domain/value_objects/task_state.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/features/export/application/export_controller.dart';
+import 'package:chameleon_gif/features/export/application/export_providers.dart';
+import 'package:chameleon_gif/features/export/application/export_state.dart';
+import 'package:chameleon_gif/features/export/presentation/export_complete_dialog.dart';
+import 'package:chameleon_gif/shared/providers/core_providers.dart';
+import 'package:chameleon_gif/shared/repositories/in_memory_history_repository.dart';
+import 'package:chameleon_gif/shared/repositories/in_memory_task_repository.dart';
 
 /// [ExportCompleteDialog] 渲染与按钮测试(纯 UI,动作仅验证转发)。
 void main() {

@@ -2,9 +2,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/core/logger/app_logger.dart';
-import 'package:gif_forge/domain/repository_interfaces/ffmpeg_engine.dart';
-import 'package:gif_forge/features/history/infrastructure/thumbnail_extractor.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
+import 'package:chameleon_gif/features/history/infrastructure/thumbnail_extractor.dart';
 
 /// 缩略图假 PNG 字节(无需真实 PNG 编码,extractor 只 readAsBytes 透传)。
 final _thumbBytes = Uint8List.fromList(List.generate(16, (i) => i));

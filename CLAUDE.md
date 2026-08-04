@@ -2,9 +2,9 @@
 
 ## 一、项目身份
 
-我是一名 Flutter 开发者,正在开发 **GifForge**:一款 **MP4 转 GIF** 的跨平台工具。**首发平台:Linux(主要开发平台)、Windows、Android**;macOS / Web / iOS 为预留平台(V3 及以后)。选择 Flutter 的核心原因是**全平台一套代码**;架构要求:首发三平台体验一致,预留平台不破坏现有接口(详见 docs/01-项目介绍.md 与 docs/16-V2.0扩展规划.md)。
+我是一名 Flutter 开发者,正在开发 **Chameleon Gif**:一款 **MP4 转 GIF** 的跨平台工具。**首发平台:Linux(主要开发平台)、Windows、Android**;macOS / Web / iOS 为预留平台(V3 及以后)。选择 Flutter 的核心原因是**全平台一套代码**;架构要求:首发三平台体验一致,预留平台不破坏现有接口(详见 docs/01-项目介绍.md 与 docs/16-V2.0扩展规划.md)。
 
-**完整技术设计说明书在 `docs/` 目录(16 篇),本文件与 docs/03-技术选型.md 版本锁定表同步维护,冲突时以 docs/ 为准。**
+**完整技术设计说明书在 `docs/` 目录(17 篇),本文件与 docs/03-技术选型.md 版本锁定表同步维护,冲突时以 docs/ 为准。**
 
 **核心功能:**
 
@@ -189,20 +189,19 @@ ffmpeg -i in.mp4 -i palette.png -lavfi "fps=15,scale=480:-1:flags=lanczos[x];[x]
 ```bash
 flutter pub get                                   # 拉取依赖
 dart run build_runner build --delete-conflicting-outputs   # 生成 freezed/json/isar/riverpod 代码
-flutter analyze                                   # 静态分析(须在 ASCII 副本跑,见下方避坑)
-flutter test                                      # 测试(原目录可直接跑,已验证)
+flutter analyze                                   # 静态分析(原目录直接跑,项目路径已 ASCII)
+flutter test                                      # 测试(原目录直接跑)
 dart format .                                     # 格式化
 flutter run -d linux                              # 桌面运行(按平台替换 -d)
 dart run tool/convert_check.dart                  # P3 阶段门:真实转码 SHA-256 一致性(依赖系统 ffmpeg)
 bash tool/gen_fixtures.sh                         # 重新生成集成测试夹具视频(test/fixtures/videos)
-bash tool/ascii_sync.sh                           # 同步 ASCII 副本供 analyze 使用
+bash tool/ascii_sync.sh                           # (可选)同步 ASCII 副本,历史遗留工具
 ```
 
-### 7.x 中文路径避坑(已实证)
+### 7.x 路径说明(2026-08-05 项目改名后)
 
-- 项目根目录含中文(`/home/yrz/mp4转git`),**`flutter analyze` 的 analysis server 会抛 FormatException 崩溃**(非 ASCII 路径 LSP bug)。**`flutter test` 不受影响,可在原目录直接跑**。
-- analyze 一律在 ASCII 副本执行:`bash tool/ascii_sync.sh && cd /tmp/gifforge_copy && flutter pub get && flutter analyze`(脚本自动排除 .dart_tool/build/.git;无 rsync 时全量复制需重新 pub get)。
-- 真实样本验证脚本:`dart run tool/probe_check.dart`(不走 analysis server,原目录/副本均可)。
+- 项目根目录 `/home/yrz/chameleon_gif` 为 ASCII 路径,**`flutter analyze` / `flutter test` 均可在原目录直接跑**(历史上项目曾位于中文路径 `/home/yrz/mp4转git`,analysis server 会抛 FormatException,需经 `tool/ascii_sync.sh` 副本规避;脚本保留备用于其他非 ASCII 环境)。
+- 真实样本验证脚本:`dart run tool/probe_check.dart`(不走 analysis server)。
 
 ## 八、注意事项(避坑)
 

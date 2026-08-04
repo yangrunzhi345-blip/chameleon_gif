@@ -26,14 +26,14 @@ Future<void> main() async {
   final logger = AppLogger();
   final tracer = StartupTracer(logger);
   tracer.mark('t0 入口');
-  logger.i('GifForge 启动中...');
+  logger.i('Chameleon Gif 启动中...');
 
   final Isar isar;
   try {
-    // 数据目录:平台应用文档目录下的 gif_forge(三平台统一,见 PlatformAdapter)
+    // 数据目录:平台应用文档目录下的 chameleon_gif(三平台统一,见 PlatformAdapter)
     final docsDir = await getApplicationDocumentsDirectory();
     tracer.mark('t1 docsDir 就绪');
-    final isarDir = Directory('${docsDir.path}/gif_forge')
+    final isarDir = Directory('${docsDir.path}/chameleon_gif')
       ..createSync(recursive: true);
     isar = await Isar.open([
       ExportTaskSchemaSchema,
@@ -73,7 +73,7 @@ Future<void> main() async {
           ),
         ),
       ],
-      child: const GifForgeApp(),
+      child: const ChameleonGifApp(),
     ),
   );
   // 首帧打点 + 分段输出(P7 基线;默认关闭)

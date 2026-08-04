@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/domain/entities/video_info.dart';
-import 'package:gif_forge/features/preview/application/preview_controller.dart';
-import 'package:gif_forge/features/preview/application/preview_providers.dart';
-import 'package:gif_forge/features/preview/application/preview_state.dart';
+import 'package:chameleon_gif/domain/entities/video_info.dart';
+import 'package:chameleon_gif/features/preview/application/preview_controller.dart';
+import 'package:chameleon_gif/features/preview/application/preview_providers.dart';
+import 'package:chameleon_gif/features/preview/application/preview_state.dart';
 
 import '../../fixtures/fake_player_port.dart';
 

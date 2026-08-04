@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/app/application/batch_import_use_case.dart';
-import 'package:gif_forge/core/logger/app_logger.dart';
-import 'package:gif_forge/domain/entities/video_info.dart';
-import 'package:gif_forge/domain/exceptions/source_broken_exception.dart';
-import 'package:gif_forge/domain/repository_interfaces/settings_repository.dart';
-import 'package:gif_forge/domain/value_objects/app_theme_mode.dart';
-import 'package:gif_forge/domain/value_objects/gif_setting.dart';
-import 'package:gif_forge/features/import/application/import_video_use_case.dart';
+import 'package:chameleon_gif/app/application/batch_import_use_case.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/entities/video_info.dart';
+import 'package:chameleon_gif/domain/exceptions/source_broken_exception.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/settings_repository.dart';
+import 'package:chameleon_gif/domain/value_objects/app_theme_mode.dart';
+import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/features/import/application/import_video_use_case.dart';
 
 /// [BatchImportUseCase] 测试(P6-WP1):批量入队/失败隔离/参数装配。
 void main() {

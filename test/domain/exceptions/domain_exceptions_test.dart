@@ -1,15 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/domain/exceptions/conversion_exception.dart';
-import 'package:gif_forge/domain/exceptions/disk_full_exception.dart';
-import 'package:gif_forge/domain/exceptions/domain_exception.dart';
-import 'package:gif_forge/domain/exceptions/encode_exception.dart';
-import 'package:gif_forge/domain/exceptions/ffmpeg_missing_exception.dart';
-import 'package:gif_forge/domain/exceptions/file_pick_exception.dart';
-import 'package:gif_forge/domain/exceptions/output_conflict_exception.dart';
-import 'package:gif_forge/domain/exceptions/palette_exception.dart';
-import 'package:gif_forge/domain/exceptions/permission_exception.dart';
-import 'package:gif_forge/domain/exceptions/source_broken_exception.dart';
-import 'package:gif_forge/domain/exceptions/source_missing_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/conversion_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/disk_full_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/domain_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/encode_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/ffmpeg_missing_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/file_pick_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/output_conflict_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/palette_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/permission_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/source_broken_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/source_missing_exception.dart';
 
 void main() {
   group('异常层级与构造', () {

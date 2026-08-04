@@ -2,8 +2,8 @@ import 'package:ffmpeg_kit_flutter_minimal/media_information.dart';
 import 'package:ffmpeg_kit_flutter_minimal/media_information_session.dart';
 import 'package:ffmpeg_kit_flutter_minimal/return_code.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/domain/exceptions/file_pick_exception.dart';
-import 'package:gif_forge/shared/platform/ffprobe_kit_executor.dart';
+import 'package:chameleon_gif/domain/exceptions/file_pick_exception.dart';
+import 'package:chameleon_gif/shared/platform/ffprobe_kit_executor.dart';
 
 /// MediaInformationSession 的测试替身:仅实现 run() 用到的三个成员,
 /// 其余经 noSuchMethod 兜底(该类是具体类,成员众多,不可在 Linux 实例化)。

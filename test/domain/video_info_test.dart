@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/domain/entities/video_info.dart';
+import 'package:chameleon_gif/domain/entities/video_info.dart';
 
 void main() {
   const info = VideoInfo(
