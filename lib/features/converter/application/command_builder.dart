@@ -102,11 +102,15 @@ class GifCommandBuilder {
     ];
   }
 
-  /// 滤镜链前缀(`fps` 恒在,`scale` 按 width>0 追加,§8.3.2 顺序契约)。
+  /// 滤镜链前缀(`fps` 恒在,`scale` 按宽高组合追加,§8.3.2 顺序契约)。
+  ///
+  /// 组合语义:宽高都 0 = 原图(无 scale);单边指定 = 另一边 -1 等比;
+  /// 双边指定 = 精确尺寸(允许变形)。
   String _filterChain(GifSetting setting) {
     final fps = _formatFps(setting.fps);
-    final scale = setting.width > 0
-        ? ',scale=${setting.width}:-1:flags=lanczos'
+    final scale = (setting.width > 0 || setting.height > 0)
+        ? ',scale=${setting.width > 0 ? setting.width : -1}:'
+              '${setting.height > 0 ? setting.height : -1}:flags=lanczos'
         : '';
     return 'fps=$fps$scale';
   }

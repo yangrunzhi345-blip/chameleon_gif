@@ -175,6 +175,7 @@ ffmpeg -i in.mp4 -i palette.png -lavfi "fps=15,scale=480:-1:flags=lanczos[x];[x]
 
 - 帧率 `fps`(默认 15)
 - 宽度 `scale`(默认 0 = 原图等比;-1 保持比例)
+- 高度 `scale`(默认 0 = 原图等比;与宽度同时指定时按指定尺寸输出,允许变形)
 - 起止时间 `-ss` / `-to`
 - 质量模式:标准(单遍) / 高质(调色板两遍)
 

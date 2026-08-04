@@ -154,6 +154,18 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
             ),
           ),
           _ParamRow(
+            label: '高度',
+            child: ParamDropdownField<int>(
+              value: state.height,
+              enabled: enabled,
+              items: [
+                for (final h in _widthOptions)
+                  ParamDropdownItem(h, h == 0 ? '原图等比' : '$h px'),
+              ],
+              onChanged: controller.updateHeight,
+            ),
+          ),
+          _ParamRow(
             label: '循环',
             child: TextField(
               controller: _loopCtrl,

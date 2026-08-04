@@ -14,6 +14,9 @@ abstract class GifSetting with _$GifSetting {
     /// 输出宽度(0 = 原图等比,默认)
     @Default(0) int width,
 
+    /// 输出高度(0 = 原图等比,默认;与宽度同时指定时按指定尺寸输出)
+    @Default(0) int height,
+
     /// 输出起点(相对源视频)
     @Default(Duration.zero) Duration start,
 

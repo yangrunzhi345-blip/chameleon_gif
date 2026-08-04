@@ -94,6 +94,20 @@ void main() {
     );
   }
 
+  test('updateHeight:钳制 0–4096 并清 formError', () async {
+    container = build();
+    final ctl = container.read(exportControllerProvider.notifier);
+
+    ctl.updateHeight(1080);
+    expect(container.read(exportControllerProvider).height, 1080);
+    // 超界钳制
+    ctl.updateHeight(99999);
+    expect(container.read(exportControllerProvider).height, 4096);
+    // 0 = 原图等比
+    ctl.updateHeight(0);
+    expect(container.read(exportControllerProvider).height, 0);
+  });
+
   test('submit:end 缺省装配为 video.duration,状态 idle → exporting', () async {
     container = build();
     final ctl = container.read(exportControllerProvider.notifier);

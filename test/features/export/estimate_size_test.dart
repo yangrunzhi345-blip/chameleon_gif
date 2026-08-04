@@ -30,6 +30,23 @@ void main() {
     expect(bytes, closeTo(150 * 480 * 270 * kGifCompressionFactor, 1));
   });
 
+  test('仅高度指定 → 宽度按源比例等比', () {
+    final bytes = estimateGifSize(
+      setting: const GifSetting(height: 270),
+      video: video,
+    );
+    // width = 640 * 270 / 360 = 480
+    expect(bytes, closeTo(150 * 480 * 270 * kGifCompressionFactor, 1));
+  });
+
+  test('宽高同时指定 → 直接用指定尺寸', () {
+    final bytes = estimateGifSize(
+      setting: const GifSetting(width: 480, height: 300),
+      video: video,
+    );
+    expect(bytes, closeTo(150 * 480 * 300 * kGifCompressionFactor, 1));
+  });
+
   test('裁剪窗口影响帧数', () {
     final a = estimateGifSize(setting: const GifSetting(), video: video);
     final b = estimateGifSize(

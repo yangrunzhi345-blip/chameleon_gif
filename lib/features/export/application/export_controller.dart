@@ -85,6 +85,12 @@ class ExportController extends Notifier<ExportFormState> {
     state = state.copyWith(width: width.clamp(0, 4096), formError: null);
   }
 
+  /// 高度(钳制 0–4096,0 = 原图等比)。
+  void updateHeight(int height) {
+    if (state.locked) return;
+    state = state.copyWith(height: height.clamp(0, 4096), formError: null);
+  }
+
   /// 循环次数(钳制 0–100,0 = 无限)。
   void updateLoop(int loop) {
     if (state.locked) return;
@@ -124,6 +130,7 @@ class ExportController extends Notifier<ExportFormState> {
   GifSetting assembleSetting() => GifSetting(
     fps: state.fps,
     width: state.width,
+    height: state.height,
     loop: state.loop,
     start: state.start,
     end: state.end,

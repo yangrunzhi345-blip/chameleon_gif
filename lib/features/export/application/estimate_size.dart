@@ -6,12 +6,21 @@ const kGifCompressionFactor = 0.35;
 
 /// 预估输出 GIF 字节数(docs/10 §10.2.1"预估大小")。
 ///
-/// 帧数 × 输出像素 × 每像素字节(8 位调色板 = 1B)× 压缩系数;
-/// `width=0`(原图等比)取源宽;源宽未知时结果 0(UI 显示"—")。
+/// 帧数 × 输出像素 × 每像素字节(8 位调色板 = 1B)× 压缩系数。
+/// 尺寸语义:宽高都 0(原图)取源尺寸;单边指定按源比例算另一边;
+/// 双边指定直接用指定值。源尺寸未知时结果 0(UI 显示"—")。
 int estimateGifSize({required GifSetting setting, required VideoInfo video}) {
-  final width = setting.width > 0 ? setting.width : video.width;
-  if (width <= 0 || video.height <= 0) return 0;
-  final height = (video.height * width / video.width).round();
+  if (video.width <= 0 || video.height <= 0) return 0;
+  // 输出尺寸:宽高独立指定用指定值;仅一边指定按源比例推另一边;
+  // 都 0 = 源尺寸
+  final width = setting.width > 0
+      ? setting.width
+      : setting.height > 0
+      ? (video.width * setting.height / video.height).round()
+      : video.width;
+  final height = setting.height > 0
+      ? setting.height
+      : (video.height * width / video.width).round();
   final end = setting.end ?? video.duration;
   final seconds = (end - setting.start).inMilliseconds / 1000.0;
   final frames = setting.fps * seconds;

@@ -87,11 +87,24 @@ void main() {
 
     await tester.tap(find.text('15 fps'));
     await tester.pumpAndSettle();
-    // MenuAnchor 菜单在测试中处于 offstage,菜单项 finder 需 skipOffstage: false
     await tester.tap(find.text('24 fps', skipOffstage: false).last);
     await tester.pumpAndSettle();
 
     expect(container.read(exportControllerProvider).fps, 24.0);
+  });
+
+  testWidgets('高度下拉默认原图等比,改值 → 表单状态更新', (tester) async {
+    await pumpPanel(tester);
+    final container = containerOf(tester);
+
+    expect(container.read(exportControllerProvider).height, 0);
+    // 高度行是第二个"原图等比"(宽度行在前),tap .at(1) 展开
+    await tester.tap(find.text('原图等比').at(1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('480 px', skipOffstage: false).last);
+    await tester.pumpAndSettle();
+
+    expect(container.read(exportControllerProvider).height, 480);
   });
 
   testWidgets('循环非法文本 → formError 红字', (tester) async {

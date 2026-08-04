@@ -68,6 +68,38 @@ void main() {
       expect(vf, 'fps=15', reason: 'width=0 时滤镜链只有 fps');
     });
 
+    test('高度指定(宽 0)→ scale=-1:H 按高度等比', () {
+      const setting = GifSetting(height: 480);
+      final cmd = builder
+          .build(
+            setting: setting,
+            video: video,
+            inputPath: video.path,
+            workDir: '/tmp/work',
+            outputPath: '/tmp/work/out.gif',
+            usePalette: false,
+          )
+          .single;
+      final vf = cmd.args[cmd.args.indexOf('-vf') + 1];
+      expect(vf, 'fps=15,scale=-1:480:flags=lanczos');
+    });
+
+    test('宽高同时指定 → scale=W:H 精确尺寸(允许变形)', () {
+      const setting = GifSetting(width: 480, height: 270);
+      final cmd = builder
+          .build(
+            setting: setting,
+            video: video,
+            inputPath: video.path,
+            workDir: '/tmp/work',
+            outputPath: '/tmp/work/out.gif',
+            usePalette: false,
+          )
+          .single;
+      final vf = cmd.args[cmd.args.indexOf('-vf') + 1];
+      expect(vf, 'fps=15,scale=480:270:flags=lanczos');
+    });
+
     test('非整数 fps 原样透传', () {
       const setting = GifSetting(fps: 29.97);
       final cmd = builder

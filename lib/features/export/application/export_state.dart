@@ -21,6 +21,7 @@ class ExportFormState {
     this.errorMessage,
     this.fps = 15.0,
     this.width = 0,
+    this.height = 0,
     this.loop = 0,
     this.start = Duration.zero,
     this.end,
@@ -65,6 +66,9 @@ class ExportFormState {
   /// 输出宽度(0 = 原图等比;钳制 0–4096)。
   final int width;
 
+  /// 输出高度(0 = 原图等比;钳制 0–4096)。
+  final int height;
+
   /// 循环次数(0 = 无限循环;钳制 0–100)。
   final int loop;
 
@@ -91,6 +95,7 @@ class ExportFormState {
     Object? errorMessage = _unset,
     double? fps,
     int? width,
+    int? height,
     int? loop,
     Duration? start,
     Object? end = _unset,
@@ -109,6 +114,7 @@ class ExportFormState {
           : errorMessage as String?,
       fps: fps ?? this.fps,
       width: width ?? this.width,
+      height: height ?? this.height,
       loop: loop ?? this.loop,
       start: start ?? this.start,
       end: identical(end, _unset) ? this.end : end as Duration?,

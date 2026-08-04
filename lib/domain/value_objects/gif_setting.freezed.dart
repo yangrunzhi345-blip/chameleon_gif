@@ -17,7 +17,8 @@ mixin _$GifSetting {
 
 /// 输出帧率(1–60)
  double get fps;/// 输出宽度(0 = 原图等比,默认)
- int get width;/// 输出起点(相对源视频)
+ int get width;/// 输出高度(0 = 原图等比,默认;与宽度同时指定时按指定尺寸输出)
+ int get height;/// 输出起点(相对源视频)
  Duration get start;/// 输出终点(默认取源视频时长,由导入时填充)
  Duration? get end;/// 循环次数(0 = 无限循环)
  int get loop;
@@ -33,16 +34,16 @@ $GifSettingCopyWith<GifSetting> get copyWith => _$GifSettingCopyWithImpl<GifSett
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is GifSetting&&(identical(other.fps, fps) || other.fps == fps)&&(identical(other.width, width) || other.width == width)&&(identical(other.start, start) || other.start == start)&&(identical(other.end, end) || other.end == end)&&(identical(other.loop, loop) || other.loop == loop));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is GifSetting&&(identical(other.fps, fps) || other.fps == fps)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.start, start) || other.start == start)&&(identical(other.end, end) || other.end == end)&&(identical(other.loop, loop) || other.loop == loop));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,fps,width,start,end,loop);
+int get hashCode => Object.hash(runtimeType,fps,width,height,start,end,loop);
 
 @override
 String toString() {
-  return 'GifSetting(fps: $fps, width: $width, start: $start, end: $end, loop: $loop)';
+  return 'GifSetting(fps: $fps, width: $width, height: $height, start: $start, end: $end, loop: $loop)';
 }
 
 
@@ -53,7 +54,7 @@ abstract mixin class $GifSettingCopyWith<$Res>  {
   factory $GifSettingCopyWith(GifSetting value, $Res Function(GifSetting) _then) = _$GifSettingCopyWithImpl;
 @useResult
 $Res call({
- double fps, int width, Duration start, Duration? end, int loop
+ double fps, int width, int height, Duration start, Duration? end, int loop
 });
 
 
@@ -70,10 +71,11 @@ class _$GifSettingCopyWithImpl<$Res>
 
 /// Create a copy of GifSetting
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? fps = null,Object? width = null,Object? start = null,Object? end = freezed,Object? loop = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? fps = null,Object? width = null,Object? height = null,Object? start = null,Object? end = freezed,Object? loop = null,}) {
   return _then(_self.copyWith(
 fps: null == fps ? _self.fps : fps // ignore: cast_nullable_to_non_nullable
 as double,width: null == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
+as int,height: null == height ? _self.height : height // ignore: cast_nullable_to_non_nullable
 as int,start: null == start ? _self.start : start // ignore: cast_nullable_to_non_nullable
 as Duration,end: freezed == end ? _self.end : end // ignore: cast_nullable_to_non_nullable
 as Duration?,loop: null == loop ? _self.loop : loop // ignore: cast_nullable_to_non_nullable
@@ -162,10 +164,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double fps,  int width,  Duration start,  Duration? end,  int loop)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double fps,  int width,  int height,  Duration start,  Duration? end,  int loop)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _GifSetting() when $default != null:
-return $default(_that.fps,_that.width,_that.start,_that.end,_that.loop);case _:
+return $default(_that.fps,_that.width,_that.height,_that.start,_that.end,_that.loop);case _:
   return orElse();
 
 }
@@ -183,10 +185,10 @@ return $default(_that.fps,_that.width,_that.start,_that.end,_that.loop);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double fps,  int width,  Duration start,  Duration? end,  int loop)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double fps,  int width,  int height,  Duration start,  Duration? end,  int loop)  $default,) {final _that = this;
 switch (_that) {
 case _GifSetting():
-return $default(_that.fps,_that.width,_that.start,_that.end,_that.loop);case _:
+return $default(_that.fps,_that.width,_that.height,_that.start,_that.end,_that.loop);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -203,10 +205,10 @@ return $default(_that.fps,_that.width,_that.start,_that.end,_that.loop);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double fps,  int width,  Duration start,  Duration? end,  int loop)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double fps,  int width,  int height,  Duration start,  Duration? end,  int loop)?  $default,) {final _that = this;
 switch (_that) {
 case _GifSetting() when $default != null:
-return $default(_that.fps,_that.width,_that.start,_that.end,_that.loop);case _:
+return $default(_that.fps,_that.width,_that.height,_that.start,_that.end,_that.loop);case _:
   return null;
 
 }
@@ -218,13 +220,15 @@ return $default(_that.fps,_that.width,_that.start,_that.end,_that.loop);case _:
 @JsonSerializable()
 
 class _GifSetting implements GifSetting {
-  const _GifSetting({this.fps = 15.0, this.width = 0, this.start = Duration.zero, this.end, this.loop = 0});
+  const _GifSetting({this.fps = 15.0, this.width = 0, this.height = 0, this.start = Duration.zero, this.end, this.loop = 0});
   factory _GifSetting.fromJson(Map<String, dynamic> json) => _$GifSettingFromJson(json);
 
 /// 输出帧率(1–60)
 @override@JsonKey() final  double fps;
 /// 输出宽度(0 = 原图等比,默认)
 @override@JsonKey() final  int width;
+/// 输出高度(0 = 原图等比,默认;与宽度同时指定时按指定尺寸输出)
+@override@JsonKey() final  int height;
 /// 输出起点(相对源视频)
 @override@JsonKey() final  Duration start;
 /// 输出终点(默认取源视频时长,由导入时填充)
@@ -245,16 +249,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _GifSetting&&(identical(other.fps, fps) || other.fps == fps)&&(identical(other.width, width) || other.width == width)&&(identical(other.start, start) || other.start == start)&&(identical(other.end, end) || other.end == end)&&(identical(other.loop, loop) || other.loop == loop));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _GifSetting&&(identical(other.fps, fps) || other.fps == fps)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.start, start) || other.start == start)&&(identical(other.end, end) || other.end == end)&&(identical(other.loop, loop) || other.loop == loop));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,fps,width,start,end,loop);
+int get hashCode => Object.hash(runtimeType,fps,width,height,start,end,loop);
 
 @override
 String toString() {
-  return 'GifSetting(fps: $fps, width: $width, start: $start, end: $end, loop: $loop)';
+  return 'GifSetting(fps: $fps, width: $width, height: $height, start: $start, end: $end, loop: $loop)';
 }
 
 
@@ -265,7 +269,7 @@ abstract mixin class _$GifSettingCopyWith<$Res> implements $GifSettingCopyWith<$
   factory _$GifSettingCopyWith(_GifSetting value, $Res Function(_GifSetting) _then) = __$GifSettingCopyWithImpl;
 @override @useResult
 $Res call({
- double fps, int width, Duration start, Duration? end, int loop
+ double fps, int width, int height, Duration start, Duration? end, int loop
 });
 
 
@@ -282,10 +286,11 @@ class __$GifSettingCopyWithImpl<$Res>
 
 /// Create a copy of GifSetting
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? fps = null,Object? width = null,Object? start = null,Object? end = freezed,Object? loop = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? fps = null,Object? width = null,Object? height = null,Object? start = null,Object? end = freezed,Object? loop = null,}) {
   return _then(_GifSetting(
 fps: null == fps ? _self.fps : fps // ignore: cast_nullable_to_non_nullable
 as double,width: null == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
+as int,height: null == height ? _self.height : height // ignore: cast_nullable_to_non_nullable
 as int,start: null == start ? _self.start : start // ignore: cast_nullable_to_non_nullable
 as Duration,end: freezed == end ? _self.end : end // ignore: cast_nullable_to_non_nullable
 as Duration?,loop: null == loop ? _self.loop : loop // ignore: cast_nullable_to_non_nullable

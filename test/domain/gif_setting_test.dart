@@ -8,6 +8,7 @@ void main() {
       const s = GifSetting(
         fps: 24,
         width: 320,
+        height: 270,
         start: Duration(seconds: 1),
         end: Duration(seconds: 5),
         loop: 2,
