@@ -1,0 +1,92 @@
+import 'package:ffmpeg_kit_flutter_minimal/media_information.dart';
+import 'package:ffmpeg_kit_flutter_minimal/media_information_session.dart';
+import 'package:ffmpeg_kit_flutter_minimal/return_code.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:gif_forge/domain/exceptions/file_pick_exception.dart';
+import 'package:gif_forge/shared/platform/ffprobe_kit_executor.dart';
+
+/// MediaInformationSession 的测试替身:仅实现 run() 用到的三个成员,
+/// 其余经 noSuchMethod 兜底(该类是具体类,成员众多,不可在 Linux 实例化)。
+class _FakeSession implements MediaInformationSession {
+  _FakeSession({this.returnCodeValue, this.output = '', this.info});
+
+  final int? returnCodeValue;
+  final String output;
+  final MediaInformation? info;
+
+  @override
+  Future<ReturnCode?> getReturnCode() async =>
+      returnCodeValue == null ? null : ReturnCode(returnCodeValue!);
+
+  @override
+  Future<String?> getOutput() async => output;
+
+  @override
+  MediaInformation? getMediaInformation() => info;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('fake session 未实现: ${invocation.memberName}');
+}
+
+void main() {
+  group('FfprobeKitFfprobeExecutor', () {
+    test('探测抛异常 → FilePickException(GIF_PROBE_UNREACHABLE)', () async {
+      final executor = FfprobeKitFfprobeExecutor(
+        getMediaInformation: (path) async => throw StateError('kit down'),
+      );
+
+      expect(
+        () => executor.run('/tmp/a.mp4'),
+        throwsA(
+          isA<FilePickException>().having(
+            (e) => e.errorCode,
+            'errorCode',
+            'GIF_PROBE_UNREACHABLE',
+          ),
+        ),
+      );
+    });
+
+    test('exitCode 透传(成功 0)', () async {
+      final executor = FfprobeKitFfprobeExecutor(
+        getMediaInformation: (path) async => _FakeSession(returnCodeValue: 0),
+      );
+
+      final result = await executor.run('/tmp/a.mp4');
+      expect(result.exitCode, 0);
+    });
+
+    test('returnCode 为 null → exitCode -1', () async {
+      final executor = FfprobeKitFfprobeExecutor(
+        getMediaInformation: (path) async => _FakeSession(),
+      );
+
+      final result = await executor.run('/tmp/a.mp4');
+      expect(result.exitCode, -1);
+    });
+
+    test('stderr(output)透传', () async {
+      final executor = FfprobeKitFfprobeExecutor(
+        getMediaInformation: (path) async =>
+            _FakeSession(returnCodeValue: 1, output: 'ffprobe error line'),
+      );
+
+      final result = await executor.run('/tmp/a.mp4');
+      expect(result.stderr, 'ffprobe error line');
+    });
+
+    test('mediaInformation 透传', () async {
+      final info = MediaInformation(const {
+        'format': {'filename': '/tmp/a.mp4', 'duration': '3.000000'},
+      });
+      final executor = FfprobeKitFfprobeExecutor(
+        getMediaInformation: (path) async =>
+            _FakeSession(returnCodeValue: 0, info: info),
+      );
+
+      final result = await executor.run('/tmp/a.mp4');
+      expect(result.mediaInformation, same(info));
+    });
+  });
+}

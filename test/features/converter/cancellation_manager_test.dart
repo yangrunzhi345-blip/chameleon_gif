@@ -36,6 +36,40 @@ void main() {
     });
   });
 
+  group('CancelToken(ffmpeg_engine.dart)', () {
+    test('onCancel 注册后 cancel → 同步触发监听', () {
+      final token = CancelToken();
+      var called = 0;
+      token.onCancel(() => called++);
+
+      token.cancel();
+
+      expect(called, 1);
+    });
+
+    test('cancel 后 onCancel 注册 → 立即执行一次', () {
+      final token = CancelToken();
+      token.cancel();
+      var called = 0;
+
+      token.onCancel(() => called++);
+
+      expect(called, 1);
+    });
+
+    test('重复 cancel 幂等,监听只触发一次', () {
+      final token = CancelToken();
+      var called = 0;
+      token.onCancel(() => called++);
+
+      token.cancel();
+      token.cancel();
+
+      expect(called, 1);
+      expect(token.isCancelled, isTrue);
+    });
+  });
+
   group('CancellationManager', () {
     late Directory workDir;
     late String palettePath;

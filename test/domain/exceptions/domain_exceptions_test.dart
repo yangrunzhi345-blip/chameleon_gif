@@ -94,5 +94,39 @@ void main() {
       expect(encode.userMessage, isNotEmpty);
       expect(encode.errorCode, 'GIF_1_ENCODE');
     });
+
+    test('toString 覆盖全部异常子类(日志检索契约:含错误码与用户文案)', () {
+      const cases = <DomainException>[
+        FilePickException(errorCode: 'GIF_1_X', userMessage: 'x'),
+        ConversionException(errorCode: 'GIF_1_Y', userMessage: 'y'),
+        DiskFullException(errorCode: 'GIF_1_DISK_FULL'),
+        PermissionException(errorCode: 'GIF_1_PERMISSION'),
+        OutputConflictException(errorCode: 'GIF_1_OUTPUT_CONFLICT'),
+        PaletteException(errorCode: 'GIF_1_PALETTE'),
+        EncodeException(errorCode: 'GIF_1_ENCODE'),
+        FFmpegMissingException(),
+        SourceMissingException(errorCode: 'GIF_1_SOURCE_MISSING'),
+      ];
+
+      for (final e in cases) {
+        final s = e.toString();
+        expect(s, contains(e.errorCode));
+        expect(s, contains(e.userMessage));
+      }
+    });
+
+    test('DomainException 基类 toString(未重写子类的继承路径)', () {
+      const e = _PlainDomainException(errorCode: 'GIF_1_Z', userMessage: 'z');
+      expect(e.toString(), contains('GIF_1_Z'));
+      expect(e.toString(), contains('z'));
+    });
+  });
+}
+
+/// 不重写 toString 的最小子类:覆盖基类 [DomainException.toString] 继承路径。
+class _PlainDomainException extends DomainException {
+  const _PlainDomainException({
+    required super.errorCode,
+    required super.userMessage,
   });
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:ffmpeg_kit_flutter_minimal/ffmpeg_kit.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../domain/repository_interfaces/ffmpeg_engine.dart';
 
@@ -20,7 +21,7 @@ class FfmpegKitEngine implements FFmpegEngine {
   }) async {
     final completer = Completer<ConvertResult>();
     final sw = Stopwatch()..start();
-    final command = ['ffmpeg', ...request.command].join(' ');
+    final command = assembleCommand(request.command);
 
     final session = await FFmpegKit.executeAsync(
       command,
@@ -44,4 +45,9 @@ class FfmpegKitEngine implements FFmpegEngine {
     });
     return completer.future;
   }
+
+  /// 装配 Kit 契约命令串:ffmpeg 前缀 + 空格拼接(P8 起为纯函数,单测锁定)。
+  @visibleForTesting
+  static String assembleCommand(List<String> args) =>
+      ['ffmpeg', ...args].join(' ');
 }
