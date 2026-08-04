@@ -25,8 +25,13 @@ class TaskQueueController extends Notifier<TaskQueueState> {
     ref.onDispose(() => _taskSub?.cancel());
     if (!_restored) {
       _restored = true;
-      // 启动恢复:扫描仓储 pending 重新排队(§8.3.7)
-      unawaited(manager.start().then((_) => _refresh()));
+      // 启动恢复:扫描仓储 pending 重新排队(§8.3.7);
+      // 异步恢复期间可能被销毁(测试容器/应用退出),守卫 ref.mounted
+      unawaited(
+        manager.start().then((_) {
+          if (ref.mounted) _refresh();
+        }),
+      );
     }
     return const TaskQueueState();
   }
@@ -50,6 +55,12 @@ class TaskQueueController extends Notifier<TaskQueueState> {
     await _refresh();
   }
 
+  /// 取消全部非终态任务(P6-WP2)。
+  Future<void> cancelAll() async {
+    await ref.read(taskManagerProvider).cancelAll();
+    await _refresh();
+  }
+
   /// 重试失败任务(failed → queued 重新排队)。
   Future<void> retry(int id) async {
     await ref.read(taskManagerProvider).retry(id);
@@ -59,9 +70,6 @@ class TaskQueueController extends Notifier<TaskQueueState> {
   Future<void> _refresh() async {
     final tasks = await ref.read(taskManagerProvider).tasks;
     final running = tasks.where((t) => t.state == TaskState.running).toList();
-    state = TaskQueueState(
-      tasks: tasks,
-      active: running.isEmpty ? null : running.first,
-    );
+    state = TaskQueueState(tasks: tasks, running: running);
   }
 }

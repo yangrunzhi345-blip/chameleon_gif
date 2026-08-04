@@ -1,14 +1,12 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import '../../fixtures/fake_ffmpeg_service.dart';
 import 'package:gif_forge/core/logger/app_logger.dart';
 import 'package:gif_forge/domain/entities/export_task.dart';
 import 'package:gif_forge/domain/entities/video_info.dart';
 import 'package:gif_forge/domain/exceptions/encode_exception.dart';
 import 'package:gif_forge/domain/exceptions/source_broken_exception.dart';
-import 'package:gif_forge/domain/repository_interfaces/ffmpeg_engine.dart';
-import 'package:gif_forge/domain/repository_interfaces/ffmpeg_service.dart';
 import 'package:gif_forge/domain/value_objects/gif_setting.dart';
 import 'package:gif_forge/domain/value_objects/task_progress.dart';
 import 'package:gif_forge/domain/value_objects/task_state.dart';
@@ -414,75 +412,6 @@ void main() {
     expect(done.outputPath, isNotNull);
     await sub.cancel();
   });
-}
-
-class FakeFfmpegService implements FFmpegService {
-  FakeFfmpegService({
-    this.error,
-    List<Object> errorQueue = const [],
-    this.cancelOnRun = false,
-    this.blockFirstConvert = false,
-  }) : _errorQueue = List.of(errorQueue);
-
-  final Object? error;
-  final List<Object> _errorQueue;
-  final bool cancelOnRun;
-  final bool blockFirstConvert;
-
-  final convertCalls = <int>[];
-  final receivedVideos = <VideoInfo>[];
-  CancelToken? lastCancelToken;
-  Completer<void>? _blocker;
-
-  /// 解除阻塞(blockFirstConvert 场景,模拟转换完成)。
-  void unblock() => _blocker?.complete();
-
-  @override
-  Future<ConvertResult> convert({
-    required GifSetting setting,
-    required VideoInfo video,
-    required int taskId,
-    required String workDir,
-    required String outputPath,
-    CancelToken? cancelToken,
-    void Function(TaskProgress)? onProgress,
-    void Function(String line)? onLog,
-  }) async {
-    convertCalls.add(taskId);
-    receivedVideos.add(video);
-    lastCancelToken = cancelToken;
-    if (cancelOnRun) cancelToken?.cancel();
-    if (blockFirstConvert && convertCalls.length == 1) {
-      _blocker = Completer<void>();
-      await _blocker!.future;
-      if (cancelToken?.isCancelled ?? false) {
-        return ConvertResult(
-          exitCode: -1,
-          elapsed: Duration.zero,
-          cancelled: true,
-        );
-      }
-    }
-    onProgress?.call(
-      TaskProgress(
-        taskId: taskId,
-        percent: 0.5,
-        elapsed: const Duration(seconds: 1),
-      ),
-    );
-    if (_errorQueue.isNotEmpty) {
-      final e = _errorQueue.removeAt(0);
-      throw e;
-    }
-    if (error != null) throw error!;
-    // 真实写出输出文件(用户目录输出测试断言存在性)
-    await File(outputPath).writeAsBytes(List.filled(123, 1));
-    return const ConvertResult(
-      exitCode: 0,
-      elapsed: Duration(seconds: 1),
-      outputSizeBytes: 123,
-    );
-  }
 }
 
 class _TestAdapter extends PlatformAdapter {

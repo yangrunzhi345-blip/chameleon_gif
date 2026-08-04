@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/throttle_stream.dart';
+import '../../../domain/value_objects/task_progress.dart';
 import '../../../shared/providers/core_providers.dart';
 import 'task_manager.dart';
 import 'task_queue_controller.dart';
@@ -24,3 +26,14 @@ final taskQueueControllerProvider =
     NotifierProvider<TaskQueueController, TaskQueueState>(
       TaskQueueController.new,
     );
+
+/// 单任务进度(队列页行内消费;200ms 尾缘节流,按 taskId 过滤,
+/// 与 exportProgressProvider 同构互不干扰)。
+final queueTaskProgressProvider = StreamProvider.autoDispose
+    .family<TaskProgress, int>((ref, taskId) {
+      final manager = ref.watch(taskManagerProvider);
+      return throttleStream(
+        manager.progressStream.where((p) => p.taskId == taskId),
+        const Duration(milliseconds: 200),
+      );
+    });
