@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/application/providers.dart';
 import '../../../domain/repository_interfaces/file_pick_port.dart';
+import '../../../shared/providers/core_providers.dart';
 import '../infrastructure/file_picker_port_impl.dart';
 import 'import_video_use_case.dart';
 

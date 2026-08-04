@@ -1,29 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/application/providers.dart';
-import '../../../domain/repository_interfaces/ffmpeg_service.dart';
-import '../../../shared/platform/platform_adapter.dart';
-import '../../converter/application/ffmpeg_service_engine.dart';
+import '../../../shared/providers/core_providers.dart';
 import 'task_manager.dart';
 import 'task_queue_controller.dart';
 import 'task_queue_state.dart';
 
-/// FFmpeg 转码服务(编排层,经 PlatformAdapter 选型引擎)。
-final ffmpegServiceProvider = Provider<FFmpegService>((ref) {
-  final adapter = const PlatformAdapter();
-  return FfmpegServiceEngine(
-    engine: adapter.createFfmpegEngine(),
-    logger: ref.watch(appLoggerProvider),
-  );
-});
-
 /// 任务调度器(常驻,单并发槽)。
+///
+/// FFmpeg 服务经 [ffmpegServiceProvider](shared/providers,接口型,由
+/// main() 注入实现)注入,模块内不感知具体引擎实现。
 final taskManagerProvider = Provider<TaskManager>((ref) {
   return TaskManager(
     taskRepository: ref.watch(taskRepositoryProvider),
     historyRepository: ref.watch(historyRepositoryProvider),
     ffmpegService: ref.watch(ffmpegServiceProvider),
-    platformAdapter: const PlatformAdapter(),
+    platformAdapter: ref.watch(platformAdapterProvider),
     logger: ref.watch(appLoggerProvider),
   );
 });

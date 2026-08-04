@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'providers.dart';
+import '../../shared/providers/core_providers.dart';
 
 /// 主题控制器(功能层,纯 Dart,不依赖 Widget)。
 ///

@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/app/application/providers.dart';
+import 'package:gif_forge/shared/providers/core_providers.dart';
 import 'package:gif_forge/core/logger/app_logger.dart';
 import 'package:gif_forge/domain/entities/video_info.dart';
 import 'package:gif_forge/domain/exceptions/encode_exception.dart';

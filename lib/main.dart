@@ -8,8 +8,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/app.dart';
-import 'app/application/providers.dart';
 import 'core/logger/app_logger.dart';
+import 'features/converter/application/ffmpeg_service_engine.dart';
+import 'features/converter/infrastructure/ffprobe_parse_video_port.dart';
+import 'shared/platform/platform_adapter.dart';
+import 'shared/providers/core_providers.dart';
 import 'shared/repositories/schemas/export_history_schema.dart';
 import 'shared/repositories/schemas/export_preset_schema.dart';
 import 'shared/repositories/schemas/export_task_schema.dart';
@@ -40,6 +43,7 @@ Future<void> main() async {
 
   MediaKit.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
+  final adapter = PlatformAdapter();
 
   runApp(
     ProviderScope(
@@ -47,6 +51,20 @@ Future<void> main() async {
         isarProvider.overrideWithValue(isar),
         sharedPrefsProvider.overrideWithValue(prefs),
         appLoggerProvider.overrideWithValue(logger),
+        // 组合根装配功能模块实现(shared/providers 只定义接口型 provider)
+        parseVideoPortProvider.overrideWithValue(
+          FfprobeParseVideoPort(
+            executor: adapter.createFfprobeExecutor(),
+            logger: logger,
+          ),
+        ),
+        ffmpegEngineProvider.overrideWithValue(adapter.createFfmpegEngine()),
+        ffmpegServiceProvider.overrideWithValue(
+          FfmpegServiceEngine(
+            engine: adapter.createFfmpegEngine(),
+            logger: logger,
+          ),
+        ),
       ],
       child: const GifForgeApp(),
     ),

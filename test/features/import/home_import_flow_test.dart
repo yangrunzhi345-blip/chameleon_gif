@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gif_forge/app/app.dart';
-import 'package:gif_forge/app/application/providers.dart';
+import 'package:gif_forge/shared/providers/core_providers.dart';
 import 'package:gif_forge/app/router.dart';
 import 'package:gif_forge/core/logger/app_logger.dart';
 import 'package:gif_forge/domain/entities/video_info.dart';
 import 'package:gif_forge/domain/exceptions/source_broken_exception.dart';
+import 'package:gif_forge/domain/repository_interfaces/ffmpeg_engine.dart';
+import 'package:gif_forge/domain/repository_interfaces/ffmpeg_service.dart';
 import 'package:gif_forge/domain/repository_interfaces/file_pick_port.dart';
 import 'package:gif_forge/domain/repository_interfaces/parse_video_port.dart';
+import 'package:gif_forge/domain/value_objects/gif_setting.dart';
+import 'package:gif_forge/domain/value_objects/task_progress.dart';
 import 'package:gif_forge/features/import/application/import_providers.dart';
 import 'package:gif_forge/features/preview/application/preview_controller.dart';
 import 'package:gif_forge/features/preview/presentation/preview_page.dart';
@@ -69,6 +73,8 @@ void main() {
           parsePort ?? _FakeParseVideoPort(),
         ),
         previewPlayerPortProvider.overrideWithValue(FakePlayerPort()),
+        // 预览页含导出区,注入 FFmpeg 服务避免共享 provider 抛注入桩
+        ffmpegServiceProvider.overrideWithValue(_NoopFfmpegService()),
       ],
       // 独立 router 实例:全局 appRouter 单例跨测试共享栈状态,会串扰
       child: GifForgeApp(router: GoRouter(routes: buildRoutes())),
@@ -117,4 +123,21 @@ void main() {
     expect(find.byType(PreviewPage), findsNothing);
     expect(find.byType(SnackBar), findsNothing);
   });
+}
+
+/// 无操作 FFmpeg 服务(本测试不触导出,仅满足导出区 provider 装配)。
+class _NoopFfmpegService implements FFmpegService {
+  @override
+  Future<ConvertResult> convert({
+    required GifSetting setting,
+    required VideoInfo video,
+    required int taskId,
+    required String workDir,
+    required String outputPath,
+    CancelToken? cancelToken,
+    void Function(TaskProgress)? onProgress,
+    void Function(String line)? onLog,
+  }) async {
+    throw UnimplementedError('本测试不执行导出');
+  }
 }
