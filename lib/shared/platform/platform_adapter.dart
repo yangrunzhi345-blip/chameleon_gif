@@ -1,4 +1,4 @@
-import 'dart:io' show Directory, Platform;
+import 'dart:io' show Directory, Platform, Process, ProcessException;
 
 import '../../domain/repository_interfaces/ffmpeg_engine.dart';
 import '../../features/converter/infrastructure/ffmpeg_kit_engine.dart';
@@ -33,5 +33,23 @@ class PlatformAdapter {
       return Directory.systemTemp.path;
     }
     return Directory.systemTemp.path;
+  }
+
+  /// 打开系统文件管理器(尽力实现,失败仅日志,不打断用户流程)。
+  Future<void> openFolder(String path) async {
+    if (Platform.isLinux) {
+      try {
+        await Process.start('xdg-open', [path]);
+      } on ProcessException {
+        // 忽略:xdg-open 缺失或失败不影响应用
+      }
+    } else if (Platform.isWindows) {
+      try {
+        await Process.start('explorer', [path]);
+      } on ProcessException {
+        // 忽略
+      }
+    }
+    // Android 系统分享/相册入口留 P8
   }
 }

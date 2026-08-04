@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../domain/entities/video_info.dart';
+import '../../export/application/export_providers.dart';
+import '../../export/application/export_state.dart';
+import '../../export/presentation/export_bar.dart';
+import '../../export/presentation/export_complete_dialog.dart';
 import '../application/preview_providers.dart';
 import 'preview_controls_bar.dart';
 import 'video_preview_panel.dart';
@@ -33,6 +37,32 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
       }
       ref.read(previewControllerProvider.notifier).load(video);
     });
+    // 导出终态监听:完成 → 弹窗;失败/取消 → SnackBar(initState 场景用 listenManual)
+    ref.listenManual<ExportUiState>(exportControllerProvider, (_, state) {
+      if (!mounted) return;
+      switch (state.lifecycle) {
+        case ExportLifecycle.done:
+          final task = state.task;
+          if (task != null) {
+            showDialog<void>(
+              context: context,
+              builder: (_) => ExportCompleteDialog(
+                task: task,
+                outputSizeBytes: state.outputSizeBytes ?? 0,
+              ),
+            );
+          }
+        case ExportLifecycle.failed:
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(content: Text(state.errorMessage ?? '转换失败')),
+            );
+        case ExportLifecycle.idle:
+        case ExportLifecycle.exporting:
+          break;
+      }
+    }, fireImmediately: false);
   }
 
   @override
@@ -47,6 +77,7 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
         children: [
           Expanded(child: VideoPreviewPanel()),
           const SafeArea(child: PreviewControlsBar()),
+          if (video != null) ExportBar(video: video),
         ],
       ),
     );
