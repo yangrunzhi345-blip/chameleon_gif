@@ -1,4 +1,3 @@
-import 'package:ffmpeg_kit_flutter_minimal/media_information.dart';
 import 'package:ffmpeg_kit_flutter_minimal/return_code.dart';
 import 'package:meta/meta.dart' show visibleForTesting;
 
@@ -14,8 +13,8 @@ import 'ffprobe_video_info_parser.dart';
 /// [ParseVideoPort] 的 ffprobe 实现(P1-WP1,见 docs/12-开发计划.md)。
 ///
 /// 仅负责"调用执行器 → 汇聚结果";决策逻辑全部收敛到纯函数
-/// [assemble](成功→[FfprobeVideoInfoParser],失败→[FfprobeErrorClassifier]),
-/// 单测经公开构造的 [MediaInformation] 直接覆盖,无平台依赖。
+/// [assemble](成功→[FfprobeVideoInfoParser] 消费 probeJson,失败→
+/// [FfprobeErrorClassifier]),单测经公开构造的 JSON Map 直接覆盖,无平台依赖。
 ///
 /// 执行器经 [PlatformAdapter] 选型:桌面为系统 ffprobe 二进制
 /// ([ProcessFfprobeExecutor]),Android 为 ffmpeg_kit 内嵌库。
@@ -47,14 +46,11 @@ class FfprobeParseVideoPort implements ParseVideoPort {
         cause: e,
       );
     }
-    final mediaInfo =
-        result.mediaInformation ??
-        (result.probeJson == null ? null : MediaInformation(result.probeJson!));
     return assemble(
       isSuccess: result.exitCode == 0,
       exitCode: result.exitCode,
       stderr: result.stderr,
-      mediaInfo: mediaInfo,
+      probeJson: result.probeJson,
       path: path,
     );
   }
@@ -65,7 +61,7 @@ class FfprobeParseVideoPort implements ParseVideoPort {
     required bool isSuccess,
     required int exitCode,
     required String stderr,
-    required MediaInformation? mediaInfo,
+    required Map<dynamic, dynamic>? probeJson,
     required String path,
   }) {
     if (exitCode == ReturnCode.cancel) {
@@ -74,9 +70,9 @@ class FfprobeParseVideoPort implements ParseVideoPort {
         userMessage: '视频解析已取消',
       );
     }
-    if (!isSuccess || mediaInfo == null) {
+    if (!isSuccess || probeJson == null) {
       throw classifier.classify(stderr: stderr, exitCode: exitCode);
     }
-    return parser.parse(mediaInfo, path: path);
+    return parser.parseJson(Map<String, dynamic>.from(probeJson), path: path);
   }
 }

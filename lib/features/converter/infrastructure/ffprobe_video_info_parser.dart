@@ -1,12 +1,10 @@
-import 'package:ffmpeg_kit_flutter_minimal/media_information.dart';
-
 import '../../../domain/entities/video_info.dart';
 import '../../../domain/exceptions/source_broken_exception.dart';
 
-/// ffprobe `MediaInformation` → [VideoInfo](纯函数,可单测)。
+/// ffprobe JSON → [VideoInfo](纯函数,可单测)。
 ///
-/// import ffmpeg_kit 包仅使用其数据模型类型(纯 Dart Map 包装,不含平台
-/// 通道调用),不触 material/widgets,符合功能层红线。
+/// 消费 ffprobe 原始 JSON(`-show_format -show_streams` 输出),不依赖
+/// ffmpeg_kit 类型(domain/infrastructure 零平台包依赖,见 docs/04 §4.2)。
 class FfprobeVideoInfoParser {
   const FfprobeVideoInfoParser();
 
@@ -26,34 +24,43 @@ class FfprobeVideoInfoParser {
 
   /// 解析 ffprobe 探测结果;成功探测但内容不可用(缺时长/无视频流/缺分辨率)
   /// 抛 [SourceBrokenException](错误码 `GIF_PROBE_NO_*`)。
-  VideoInfo parse(MediaInformation mediaInfo, {required String path}) {
-    // 此 fork 的 MediaInformation 原样透传 ffprobe JSON,format.duration 为秒字符串
-    final durationSec = double.tryParse(mediaInfo.getDuration() ?? '');
+  VideoInfo parseJson(Map<String, dynamic> probeJson, {required String path}) {
+    final format = probeJson['format'];
+    final durationSec = format is Map
+        ? double.tryParse('${format['duration'] ?? ''}')
+        : null;
     if (durationSec == null) {
       throw SourceBrokenException(errorCode: 'GIF_PROBE_NO_DURATION');
     }
-    final streams = mediaInfo.getStreams();
-    final video = streams.where((s) => s.getType() == 'video').firstOrNull;
+    final streams = probeJson['streams'];
+    final video = streams is List
+        ? streams
+              .whereType<Map>()
+              .where((s) => s['codec_type'] == 'video')
+              .firstOrNull
+        : null;
     if (video == null) {
       throw SourceBrokenException(errorCode: 'GIF_PROBE_NO_VIDEO_STREAM');
     }
-    final width = video.getWidth();
-    final height = video.getHeight();
+    final width = video['width'] as int?;
+    final height = video['height'] as int?;
     if (width == null || height == null) {
       throw SourceBrokenException(errorCode: 'GIF_PROBE_NO_RESOLUTION');
     }
     // 回退链:avg_frame_rate → r_frame_rate;全缺(如 0/0)为 null
     final fps =
-        frameRateFromFraction(video.getAverageFrameRate()) ??
-        frameRateFromFraction(video.getRealFrameRate());
+        frameRateFromFraction('${video['avg_frame_rate'] ?? ''}') ??
+        frameRateFromFraction('${video['r_frame_rate'] ?? ''}');
     return VideoInfo(
       path: path,
-      formatName: mediaInfo.getFormat() ?? 'unknown',
+      formatName: format is Map
+          ? '${format['format_name'] ?? 'unknown'}'
+          : 'unknown',
       duration: Duration(milliseconds: (durationSec * 1000).round()),
       width: width,
       height: height,
       fps: fps,
-      codec: video.getCodec() ?? 'unknown',
+      codec: '${video['codec_name'] ?? 'unknown'}',
     );
   }
 }

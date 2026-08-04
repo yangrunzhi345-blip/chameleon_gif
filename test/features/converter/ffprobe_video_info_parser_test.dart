@@ -1,4 +1,3 @@
-import 'package:ffmpeg_kit_flutter_minimal/media_information.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gif_forge/domain/exceptions/source_broken_exception.dart';
 import 'package:gif_forge/features/converter/infrastructure/ffprobe_video_info_parser.dart';
@@ -9,15 +8,15 @@ void main() {
   const parser = FfprobeVideoInfoParser();
 
   /// 内联构造假 ffprobe 输出(公开构造,免夹具文件)
-  MediaInformation buildMediaInfo({
+  Map<String, dynamic> buildProbeJson({
     List<Map<dynamic, dynamic>> streams = const [],
     String? duration,
     String formatName = 'mp4',
   }) {
-    return MediaInformation({
+    return <String, dynamic>{
       'streams': streams,
-      'format': {'format_name': formatName, 'duration': ?duration},
-    });
+      'format': {'format_name': formatName, 'duration': duration},
+    };
   }
 
   Map<dynamic, dynamic> videoStream({
@@ -41,7 +40,7 @@ void main() {
 
   group('FfprobeVideoInfoParser 标准解析', () {
     test('标准夹具:时长/分辨率/帧率/编码/格式名/路径全对', () {
-      final info = parser.parse(
+      final info = parser.parseJson(
         loadFfprobeFixture('h264_640x360_29.97'),
         path: '/tmp/sample.mp4',
       );
@@ -55,8 +54,8 @@ void main() {
     });
 
     test('多视频流取第一个', () {
-      final info = parser.parse(
-        buildMediaInfo(
+      final info = parser.parseJson(
+        buildProbeJson(
           streams: [
             videoStream(width: 1920, height: 1080, index: 0),
             videoStream(width: 1280, height: 720, index: 1),
@@ -70,8 +69,8 @@ void main() {
     });
 
     test('avg_frame_rate 为 0/0 时回退 r_frame_rate', () {
-      final info = parser.parse(
-        buildMediaInfo(
+      final info = parser.parseJson(
+        buildProbeJson(
           streams: [videoStream(avgFrameRate: '0/0', realFrameRate: '25/1')],
           duration: '10.0',
         ),
@@ -81,8 +80,8 @@ void main() {
     });
 
     test('帧率全缺 → fps 为 null(不阻塞导入)', () {
-      final info = parser.parse(
-        buildMediaInfo(
+      final info = parser.parseJson(
+        buildProbeJson(
           streams: [videoStream(avgFrameRate: '0/0', realFrameRate: '0/0')],
           duration: '10.0',
         ),
@@ -94,8 +93,8 @@ void main() {
     test('缺 codec → 兜底 unknown', () {
       final stream = videoStream();
       stream.remove('codec_name');
-      final info = parser.parse(
-        buildMediaInfo(streams: [stream], duration: '10.0'),
+      final info = parser.parseJson(
+        buildProbeJson(streams: [stream], duration: '10.0'),
         path: '/tmp/a.mp4',
       );
       expect(info.codec, 'unknown');
@@ -105,8 +104,10 @@ void main() {
   group('FfprobeVideoInfoParser 异常样本', () {
     test('无视频流(纯音频)→ SourceBroken', () {
       expect(
-        () =>
-            parser.parse(loadFfprobeFixture('audio_only'), path: '/tmp/a.m4a'),
+        () => parser.parseJson(
+          loadFfprobeFixture('audio_only'),
+          path: '/tmp/a.m4a',
+        ),
         throwsA(
           isA<SourceBrokenException>().having(
             (e) => e.errorCode,
@@ -119,8 +120,8 @@ void main() {
 
     test('缺 duration → SourceBroken', () {
       expect(
-        () => parser.parse(
-          buildMediaInfo(streams: [videoStream()]),
+        () => parser.parseJson(
+          buildProbeJson(streams: [videoStream()]),
           path: '/tmp/a.mp4',
         ),
         throwsA(
@@ -138,8 +139,8 @@ void main() {
       stream.remove('width');
       stream.remove('height');
       expect(
-        () => parser.parse(
-          buildMediaInfo(streams: [stream], duration: '10.0'),
+        () => parser.parseJson(
+          buildProbeJson(streams: [stream], duration: '10.0'),
           path: '/tmp/a.mp4',
         ),
         throwsA(
@@ -154,7 +155,7 @@ void main() {
 
     test('异常样本的 userMessage 为中文损坏提示', () {
       try {
-        parser.parse(buildMediaInfo(streams: []), path: '/tmp/a.mp4');
+        parser.parseJson(buildProbeJson(streams: []), path: '/tmp/a.mp4');
         fail('应当抛 SourceBrokenException');
       } on SourceBrokenException catch (e) {
         expect(e.userMessage, '视频文件损坏或格式异常');
