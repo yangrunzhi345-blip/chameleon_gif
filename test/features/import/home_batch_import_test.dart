@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chameleon_gif/app/app.dart';
+import 'package:chameleon_gif/app/presentation/batch_import_screen.dart';
 import 'package:chameleon_gif/app/router.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
 import 'package:chameleon_gif/domain/entities/video_info.dart';
@@ -28,7 +29,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../fixtures/fake_player_port.dart';
 
-/// 主页批量导入入口(P6-WP1):多选 → 批量入队 → 跳队列页。
+/// 主页批量导入入口(P6-WP1.5):多选 → 设置页(无预览)→ 开始批量转换 → 队列页。
 void main() {
   late SharedPreferences prefs;
   late Directory tempRoot;
@@ -44,6 +45,15 @@ void main() {
   tearDown(() async {
     await tempRoot.delete(recursive: true);
   });
+
+  /// 大窗口(1280×800)下设置页走双栏布局,"开始批量转换"直接可见。
+  Future<void> pumpApp(WidgetTester tester, Widget app) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app);
+    await tester.pumpAndSettle();
+  }
 
   Widget buildApp() {
     return ProviderScope(
@@ -74,12 +84,22 @@ void main() {
     );
   }
 
-  testWidgets('批量导入 3 文件 → 入队并跳转队列页', (tester) async {
+  testWidgets('批量导入 3 文件 → 先到设置页,点开始后入队并跳转队列页', (tester) async {
     pickPort.multiPaths = ['/tmp/a.mp4', '/tmp/b.mp4', '/tmp/c.mp4'];
-    await tester.pumpWidget(buildApp());
-    await tester.pumpAndSettle();
+    await pumpApp(tester, buildApp());
 
     await tester.tap(find.text('批量导入'));
+    await tester.pumpAndSettle();
+
+    // 设置页:文件列表 + 开始按钮(无预览)
+    expect(find.byType(BatchImportScreen), findsOneWidget);
+    expect(find.byType(QueuePage), findsNothing);
+    expect(find.text('a.mp4'), findsOneWidget);
+    expect(find.text('b.mp4'), findsOneWidget);
+    expect(find.text('c.mp4'), findsOneWidget);
+    expect(find.text('开始批量转换'), findsOneWidget);
+
+    await tester.tap(find.text('开始批量转换'));
     await tester.pumpAndSettle();
 
     expect(find.byType(QueuePage), findsOneWidget);
@@ -88,10 +108,29 @@ void main() {
     expect(find.text('c.mp4'), findsOneWidget);
   });
 
+  testWidgets('设置页移除 1 文件后开始 → 2 任务入队', (tester) async {
+    pickPort.multiPaths = ['/tmp/a.mp4', '/tmp/b.mp4', '/tmp/c.mp4'];
+    await pumpApp(tester, buildApp());
+
+    await tester.tap(find.text('批量导入'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('移除').at(1)); // 移除 b.mp4
+    await tester.pumpAndSettle();
+    expect(find.text('b.mp4'), findsNothing);
+
+    await tester.tap(find.text('开始批量转换'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(QueuePage), findsOneWidget);
+    expect(find.text('a.mp4'), findsOneWidget);
+    expect(find.text('b.mp4'), findsNothing);
+    expect(find.text('c.mp4'), findsOneWidget);
+  });
+
   testWidgets('取消选择 → 无跳转无提示', (tester) async {
     pickPort.multiPaths = null;
-    await tester.pumpWidget(buildApp());
-    await tester.pumpAndSettle();
+    await pumpApp(tester, buildApp());
 
     await tester.tap(find.text('批量导入'));
     await tester.pumpAndSettle();
@@ -100,9 +139,10 @@ void main() {
     expect(find.byType(SnackBar), findsNothing);
   });
 
-  testWidgets('全部解析失败 → SnackBar 提示,不跳转', (tester) async {
+  testWidgets('全部解析失败 → 设置页点开始后 SnackBar 提示,不跳转', (tester) async {
     pickPort.multiPaths = ['/tmp/broken1.mp4', '/tmp/broken2.mp4'];
-    await tester.pumpWidget(
+    await pumpApp(
+      tester,
       ProviderScope(
         overrides: [
           sharedPrefsProvider.overrideWithValue(prefs),
@@ -134,9 +174,12 @@ void main() {
         child: ChameleonGifApp(router: GoRouter(routes: buildRoutes())),
       ),
     );
-    await tester.pumpAndSettle();
 
     await tester.tap(find.text('批量导入'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BatchImportScreen), findsOneWidget);
+
+    await tester.tap(find.text('开始批量转换'));
     await tester.pumpAndSettle();
 
     expect(find.byType(QueuePage), findsNothing);

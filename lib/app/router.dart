@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../domain/entities/video_info.dart';
 import '../../features/history/presentation/history_page.dart';
 import '../../features/task_queue/presentation/queue_page.dart';
+import 'presentation/batch_import_screen.dart';
 import 'presentation/home_page.dart';
 import 'presentation/preview_screen.dart';
 
@@ -21,6 +22,16 @@ List<RouteBase> buildRoutes() => [
       // (复杂对象会还原为 Map),非 VideoInfo(恢复/深链)时预览页自行回退。
       final video = state.extra;
       return PreviewScreen(video: video is VideoInfo ? video : null);
+    },
+  ),
+  GoRoute(
+    path: '/batch-import',
+    name: 'batch-import',
+    builder: (context, state) {
+      // List<String> 为 JSON 基础类型,恢复路径安全;非 List<String>
+      // (恢复/深链)时设置页自行回退。
+      final extra = state.extra;
+      return BatchImportScreen(paths: extra is List<String> ? extra : null);
     },
   ),
   GoRoute(

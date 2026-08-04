@@ -24,7 +24,6 @@ final batchImportUseCaseProvider = Provider<BatchImportUseCase>((ref) {
     submit: (setting, video, {String? outputDir}) => ref
         .read(taskQueueControllerProvider.notifier)
         .submit(setting, video, outputDir: outputDir),
-    settingsRepository: ref.watch(settingsRepositoryProvider),
     logger: ref.watch(appLoggerProvider),
   );
 });

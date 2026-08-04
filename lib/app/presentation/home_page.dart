@@ -29,25 +29,11 @@ class HomePage extends ConsumerWidget {
     }
   }
 
-  /// 批量导入(P6-WP1):多选 → 批量入队(默认参数)→ 跳队列页。
+  /// 批量导入(P6-WP1):多选 → 跳批量导入设置页(无预览,参数装配后入队)。
   Future<void> _batchImport(BuildContext context, WidgetRef ref) async {
     final paths = await ref.read(filePickPortProvider).pickMp4s();
     if (paths == null || paths.isEmpty || !context.mounted) return;
-    final result = await ref.read(batchImportUseCaseProvider).execute(paths);
-    if (!context.mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    if (result.enqueued == 0) {
-      messenger.showSnackBar(const SnackBar(content: Text('批量导入失败,请检查文件')));
-      return;
-    }
-    if (result.failed > 0) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('已入队 ${result.enqueued} 个,跳过 ${result.failed} 个'),
-        ),
-      );
-    }
-    context.push('/queue');
+    context.push('/batch-import', extra: paths);
   }
 
   @override
