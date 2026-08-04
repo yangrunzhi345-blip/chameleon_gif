@@ -20,6 +20,9 @@ class BatchImportResult {
 /// 跨模块组合(app 层,app 可依赖 features;features 互不依赖,见
 /// docs/05 §5.2):逐文件解析 → 以默认参数直接入队,单文件失败跳过其余
 /// 继续(完成标准"单任务失败不影响队列")。
+/// 参数装配:已保存默认参数为基底,end 留 null(全长),**宽高恒为 0
+/// (原图等比)**——批量导入各视频源分辨率不同,忽略用户保存的固定宽高,
+/// 其余默认参数(fps/循环等)继续生效。
 /// 纯 Dart(不触 Riverpod/Flutter),依赖经构造注入便于单测。
 class BatchImportUseCase {
   BatchImportUseCase({
@@ -44,9 +47,10 @@ class BatchImportUseCase {
 
   /// 批量导入:默认参数 + 全长裁剪 + 默认导出目录,逐文件入队。
   Future<BatchImportResult> execute(List<String> paths) async {
-    // end 留 null:入队时由 TaskManager 装配视频时长(全长)
+    // end 留 null:入队时由 TaskManager 装配视频时长(全长);
+    // 宽高强制 0:批量导入默认为原图等比,忽略已保存的固定宽高
     final base = (settingsRepository.defaultGifSetting ?? const GifSetting())
-        .copyWith(end: null);
+        .copyWith(end: null, width: 0, height: 0);
     final outputDir = settingsRepository.defaultExportDir;
     var enqueued = 0;
     var failed = 0;

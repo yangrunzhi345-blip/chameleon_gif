@@ -94,7 +94,7 @@ void main() {
     expect(result.failed, 2);
   });
 
-  test('默认参数:defaultGifSetting 有值时以它为基底', () async {
+  test('默认参数:其余默认保留,宽高强制原图等比(忽略已保存固定宽高)', () async {
     GifSetting? submitted;
     final useCase = BatchImportUseCase(
       importVideoUseCase: _FakeImportUseCase(onExecute: video),
@@ -103,16 +103,22 @@ void main() {
         return 1;
       },
       settingsRepository: _FakeSettings(
-        defaultSetting: const GifSetting(fps: 24, width: 640, loop: 2),
+        defaultSetting: const GifSetting(
+          fps: 24,
+          width: 640,
+          height: 360,
+          loop: 2,
+        ),
       ),
       logger: logger,
     );
 
     await useCase.execute(['/tmp/a.mp4']);
 
-    expect(submitted!.fps, 24);
-    expect(submitted!.width, 640);
-    expect(submitted!.loop, 2);
+    expect(submitted!.fps, 24, reason: 'fps 默认参数保留');
+    expect(submitted!.loop, 2, reason: '循环默认参数保留');
+    expect(submitted!.width, 0, reason: '批量导入宽高强制原图等比');
+    expect(submitted!.height, 0, reason: '批量导入宽高强制原图等比');
   });
 }
 
