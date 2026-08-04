@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gif_forge/features/preview/application/throttle_stream.dart';
+import 'package:gif_forge/core/utils/throttle_stream.dart';
 
 /// [throttleStream] 节流语义测试(尾缘合并 + 取消/关闭清理)。
 void main() {

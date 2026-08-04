@@ -6,7 +6,7 @@ import '../../../domain/entities/video_info.dart';
 import '../../../domain/repository_interfaces/player_port.dart';
 import '../infrastructure/media_kit_player_port.dart';
 import 'preview_state.dart';
-import 'throttle_stream.dart';
+import '../../../core/utils/throttle_stream.dart';
 
 /// 播放器端口(会话生命周期,autoDispose:随预览会话创建与销毁,谁创建谁销毁)。
 /// 与控制器同文件定义,避免 providers 与 controller 循环 import。
