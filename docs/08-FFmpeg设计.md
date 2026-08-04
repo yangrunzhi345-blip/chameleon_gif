@@ -26,12 +26,12 @@
                        │        │         │            │
                     ┌──▼────────▼─────────▼────────────▼─────────┐
                     │           FFmpegEngine(接口+实现)          │
-                    │      FFmpegKitEngine(桌面/Android)         │
+                    │   ProcessEngine(桌面) / FFmpegKitEngine(Android) │
                     ├──────────────┬─────────────────────────────┤
                     │CancellationManager│     PlatformAdapter    │
                     └──────────────┴─────────────────────────────┘
-                                   │
-                     ffmpeg_kit_flutter_minimal(内置 FFmpeg)
+                          │                     │
+            桌面:系统 ffmpeg/ffprobe 二进制   Android:ffmpeg_kit_flutter_minimal
 ```
 
 ## 8.3 组件详设
@@ -141,7 +141,7 @@ ffmpeg -ss <start> -to <end> -i <in.mp4> -i <work>/palette.png
 
 | 差异点 | 桌面(Linux/Windows) | Android |
 |--------|---------------------|---------|
-| FFmpeg 二进制 | ffmpeg_kit_flutter_minimal 内嵌库,直接调用 | 同一 API,内部同构 |
+| FFmpeg 二进制 | **系统 ffmpeg/ffprobe 二进制**(`dart:io Process`,P1 已实证 ffmpeg_kit_flutter_minimal 无桌面实现;缺失→`FFmpegMissingException`) | ffmpeg_kit_flutter_minimal 内嵌库(本轮未验证,P8 三平台清单确认) |
 | 工作/输出目录 | 用户目录(可写) | 应用专属目录 `getExternalFilesDir` + MediaStore(V3 写公共相册) |
 | 路径表示 | 原生路径 | content:// 与文件路径双模 |
 | 进程信号 | `process.kill` 直接 | 同 API,生命周期后台限制 |
@@ -182,6 +182,6 @@ TaskManager        FFmpegService        CommandBuilder        Engine            
 
 ## 8.6 平台适配(Android 与桌面统一)
 
-- **调用方式**:Android 与桌面均通过 `ffmpeg_kit_flutter_minimal` 提供的 Dart API(内部封装原生库),代码路径完全一致;差异只存在于 PlatformAdapter 的目录与通知策略。
-- **界面一致**:UI 层经 `PlatformAdapter` 获取"临时目录/导出目录",不写任何 `Platform.isAndroid` 分支于业务层。
-- **验证**:三平台同一输入同一参数,输出文件 SHA-256 一致(见 [14-测试计划](14-测试计划.md) 跨平台清单)。
+- **调用方式**:桌面(Linux/Windows)经 `dart:io Process` 调系统 ffmpeg/ffprobe 二进制;Android 经 `ffmpeg_kit_flutter_minimal` Dart API(内嵌原生库)。两条路径均收敛于 `FfprobeExecutor`/`FFmpegEngine` 抽象(见 §8.3.8),命令参数构造器与解析器完全复用。
+- **界面一致**:UI 层经 `PlatformAdapter` 获取"临时目录/导出目录/执行器",不写任何 `Platform.isAndroid` 分支于业务层。
+- **验证**:三平台同一输入同一参数,输出文件 SHA-256 一致(见 [14-测试计划](14-测试计划.md) 跨平台清单;桌面已实测 P1 解析链路)。

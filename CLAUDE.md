@@ -77,10 +77,11 @@ git push
 ### 3.2 技术选型说明
 
 - **转码引擎用 `ffmpeg_kit_flutter_minimal ^6.0.8`**(ffmpeg_kit_flutter 的活跃维护 fork,兼容新版 Flutter):`media_kit_ffmpeg` 包在 pub.dev 上不存在(media_kit 生态无 FFmpeg CLI 封装);原版 `ffmpeg_kit_flutter` 已于 2025 年停止维护,不直接选用。
-- **FFmpeg 分平台接入**(详见 docs/08-FFmpeg设计.md):
-  - **首发平台(Linux / Windows / Android)**:统一使用 `ffmpeg_kit_flutter_minimal`(内置 FFmpeg+FFprobe 原生库,随包分发),三平台代码路径一致,差异收敛于 PlatformAdapter
+- **FFmpeg 分平台接入**(详见 docs/08-FFmpeg设计.md;**已实证**:`ffmpeg_kit_flutter_minimal` 6.0.8 无 Linux/Windows 平台实现,仅 Android/iOS/macOS):
+  - **桌面(Linux / Windows)**:经 `dart:io Process` 调**系统 ffmpeg/ffprobe 二进制**(P1 已实测解析链路 9/9);缺二进制抛 `FFmpegMissingException`,P9 打包补分发决策
+  - **Android**:`ffmpeg_kit_flutter_minimal`(内置 FFmpeg+FFprobe 原生库,随包分发;本轮未验证,P8 三平台清单确认)
   - **预留平台**:macOS(同方案,补签名公证)、Web(WASM)、iOS(ffmpeg_kit_flutter 原版评审后引入)——均为预留,不进入 MVP 实现
-  - 所有转码实现收敛到统一抽象 `FFmpegEngine`,按平台注入具体实现,业务层对平台差异无感知
+  - 所有转码/探测实现收敛到统一抽象 `FfprobeExecutor` / `FFmpegEngine`,按平台注入具体实现,业务层对平台差异无感知
 - **数据库用 `isar_community` 系列(^3.3.2)替代官方 `isar`(3.1.0)**:官方生成器依赖旧 source_gen,与现代代码生成器组合冲突;community fork API 兼容(import `package:isar_community/isar.dart`),为 docs/13-风险分析.md R-04 预案的实际落地。
 - **Isar**:官方稳定版为 `3.1.0`(4.x 仍为 dev 版,**禁止在生产环境使用 4.0-dev 或社区 fork**,除非评审后明确切换)。
 - 全部生成式代码(freezed / json / isar / riverpod)只允许通过 build_runner 生成,禁止手写改生成文件。
@@ -178,16 +179,22 @@ ffmpeg -i in.mp4 -i palette.png -lavfi "fps=15,scale=480:-1:flags=lanczos[x];[x]
 ```bash
 flutter pub get                                   # 拉取依赖
 dart run build_runner build --delete-conflicting-outputs   # 生成 freezed/json/isar/riverpod 代码
-flutter analyze                                   # 静态分析
-flutter test                                      # 测试
+flutter analyze                                   # 静态分析(须在 ASCII 副本跑,见下方避坑)
+flutter test                                      # 测试(原目录可直接跑,已验证)
 dart format .                                     # 格式化
 flutter run -d linux                              # 桌面运行(按平台替换 -d)
 ```
 
+### 7.x 中文路径避坑(已实证)
+
+- 项目根目录含中文(`/home/yrz/mp4转git`),**`flutter analyze` 的 analysis server 会抛 FormatException 崩溃**(非 ASCII 路径 LSP bug)。**`flutter test` 不受影响,可在原目录直接跑**。
+- analyze 一律在 ASCII 副本执行:`bash tool/ascii_sync.sh && cd /tmp/gifforge_copy && flutter pub get && flutter analyze`(脚本自动排除 .dart_tool/build/.git;无 rsync 时全量复制需重新 pub get)。
+- 真实样本验证脚本:`dart run tool/probe_check.dart`(不走 analysis server,原目录/副本均可)。
+
 ## 八、注意事项(避坑)
 
 - **不要**升级 Isar 到 4.0-dev;维持 `isar_community ^3.3.2` 系列(R-04 预案已启用,替换官方包需重新评审);`ffmpeg_kit_flutter` 仅为 iOS 预留,不进入 MVP。
-- MVP 三平台(Linux/Windows/Android)转码实现仅 `ffmpeg_kit_flutter_minimal` 一种,禁止在业务层写 `Platform.isXxx` 分支(差异归 PlatformAdapter,见 docs/08-FFmpeg设计.md §8.3.8)。
+- FFmpeg 引擎分平台:**桌面(Linux/Windows)= 系统 ffmpeg/ffprobe 二进制**,Android = `ffmpeg_kit_flutter_minimal`(该 fork 无桌面实现,已实证);禁止在业务层写 `Platform.isXxx` 分支(差异归 PlatformAdapter,见 docs/08-FFmpeg设计.md §8.3.8;选型依据 docs/03-技术选型.md)。
 - 转码输出一致性:三平台同参输出需 SHA-256 一致(见 docs/14-测试计划.md §14.6)。
 - Web/iOS 的适配注意点(WASM 内存上限、iOS 沙盒)为预留评估项,落地时再实现,当前不写相关代码。
 - 生成的 `.g.dart` / `.freezed.dart` / `*.isar.dart` 文件不提交修改,只随生成器版本变化整体更新。
