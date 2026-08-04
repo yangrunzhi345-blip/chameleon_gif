@@ -58,9 +58,17 @@ void main() {
     );
   }
 
-  testWidgets('启动渲染主页并支持主题三态切换', (tester) async {
+  testWidgets('启动渲染主页,主题切换收敛于设置界面', (tester) async {
     await tester.pumpWidget(buildApp());
     expect(find.text('Chameleon Gif'), findsWidgets);
+    // 主题控件已从首页迁移至设置界面(负向断言防回归残留)
+    expect(find.text('深色'), findsNothing);
+    expect(find.byTooltip('设置'), findsOneWidget);
+
+    // 进入设置界面切换主题
+    await tester.tap(find.byTooltip('设置'));
+    await tester.pumpAndSettle();
+    expect(find.text('设置'), findsWidgets);
 
     // 切换到深色
     await tester.tap(find.text('深色'));

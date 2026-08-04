@@ -3,9 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../domain/exceptions/file_pick_exception.dart';
-import '../../domain/value_objects/app_theme_mode.dart';
 import '../../features/import/application/import_providers.dart';
-import '../application/providers.dart';
 
 /// 主页(P0 占位 + P2 导入入口):验证 初始化→路由→主题→导入 链路。
 ///
@@ -38,7 +36,6 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chameleon Gif'),
@@ -52,6 +49,11 @@ class HomePage extends ConsumerWidget {
             tooltip: '历史',
             icon: const Icon(Icons.history),
             onPressed: () => context.push('/history'),
+          ),
+          IconButton(
+            tooltip: '设置',
+            icon: const Icon(Icons.settings),
+            onPressed: () => context.push('/settings'),
           ),
         ],
       ),
@@ -75,7 +77,7 @@ class HomePage extends ConsumerWidget {
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            Text('基础架构就绪 · 主题:${themeMode.name}'),
+            const Text('基础架构就绪'),
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: () => _importAndPreview(context, ref),
@@ -87,32 +89,6 @@ class HomePage extends ConsumerWidget {
               onPressed: () => _batchImport(context, ref),
               icon: const Icon(Icons.playlist_add),
               label: const Text('批量导入'),
-            ),
-            const SizedBox(height: 24),
-            SegmentedButton<AppThemeMode>(
-              segments: const [
-                ButtonSegment(
-                  value: AppThemeMode.light,
-                  icon: Icon(Icons.light_mode_outlined),
-                  label: Text('浅色'),
-                ),
-                ButtonSegment(
-                  value: AppThemeMode.dark,
-                  icon: Icon(Icons.dark_mode_outlined),
-                  label: Text('深色'),
-                ),
-                ButtonSegment(
-                  value: AppThemeMode.system,
-                  icon: Icon(Icons.brightness_auto_outlined),
-                  label: Text('跟随系统'),
-                ),
-              ],
-              selected: {themeMode},
-              onSelectionChanged: (selection) {
-                ref
-                    .read(themeModeProvider.notifier)
-                    .setThemeMode(selection.first);
-              },
             ),
           ],
         ),

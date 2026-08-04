@@ -6,6 +6,7 @@ import '../../features/task_queue/presentation/queue_page.dart';
 import 'presentation/batch_import_screen.dart';
 import 'presentation/home_page.dart';
 import 'presentation/preview_screen.dart';
+import 'presentation/settings_screen.dart';
 
 /// 路由表构建(供 [appRouter] 与测试注入独立实例复用)。
 List<RouteBase> buildRoutes() => [
@@ -43,6 +44,11 @@ List<RouteBase> buildRoutes() => [
     path: '/queue',
     name: 'queue',
     builder: (context, state) => const QueuePage(),
+  ),
+  GoRoute(
+    path: '/settings',
+    name: 'settings',
+    builder: (context, state) => const SettingsScreen(),
   ),
 ];
 
