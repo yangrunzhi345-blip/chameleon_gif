@@ -5,6 +5,7 @@ import '../../../core/utils/duration_format.dart';
 import '../../../core/utils/file_size.dart';
 import '../../../domain/entities/video_info.dart';
 import '../../../domain/value_objects/gif_setting.dart';
+import '../application/aspect_ratio.dart';
 import '../application/estimate_size.dart';
 import '../application/export_providers.dart';
 import '../application/export_state.dart';
@@ -250,6 +251,13 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
             ],
           ),
           const SizedBox(height: 12),
+          if (_showAspectWarning(state, video))
+            _AspectWarning(
+              width: state.width,
+              height: state.height,
+              videoWidth: video.width,
+              videoHeight: video.height,
+            ),
           Text(
             '预估大小:${_estimateLabel(state, video)}',
             style: Theme.of(context).textTheme.bodySmall,
@@ -280,6 +288,7 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
       setting: GifSetting(
         fps: state.fps,
         width: state.width,
+        height: state.height,
         loop: state.loop,
         start: state.start,
         end: state.end,
@@ -287,6 +296,53 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
       video: video,
     );
     return bytes <= 0 ? '—' : formatFileSize(bytes);
+  }
+
+  /// 宽高同时指定且比例与源视频不一致时显示变形警告(不阻塞导出)。
+  bool _showAspectWarning(ExportFormState state, VideoInfo video) {
+    return !isAspectRatioMatch(
+      GifSetting(width: state.width, height: state.height),
+      video,
+    );
+  }
+}
+
+/// 比例不一致警告条:提示输出会变形,导出按钮保持可用(用户可继续)。
+class _AspectWarning extends StatelessWidget {
+  const _AspectWarning({
+    required this.width,
+    required this.height,
+    required this.videoWidth,
+    required this.videoHeight,
+  });
+
+  final int width;
+  final int height;
+  final int videoWidth;
+  final int videoHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber_rounded, size: 18, color: scheme.tertiary),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              '输出 $width×$height 与源视频 $videoWidth×$videoHeight '
+              '比例不一致,画面将被拉伸变形;如仍需要可继续导出。',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.tertiary),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

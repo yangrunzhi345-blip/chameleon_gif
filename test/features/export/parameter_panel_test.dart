@@ -107,6 +107,35 @@ void main() {
     expect(container.read(exportControllerProvider).height, 480);
   });
 
+  testWidgets('宽高比例不一致 → 显示变形警告(导出仍可用)', (tester) async {
+    await pumpPanel(tester);
+    final container = containerOf(tester);
+
+    // 默认(原图)→ 无警告
+    expect(find.textContaining('比例不一致'), findsNothing);
+
+    // 宽 480 + 高 300(源 640×360,比例不符)→ 警告出现
+    container.read(exportControllerProvider.notifier).updateWidth(480);
+    container.read(exportControllerProvider.notifier).updateHeight(300);
+    await tester.pump();
+
+    expect(find.textContaining('比例不一致'), findsOneWidget);
+    expect(find.textContaining('拉伸变形'), findsOneWidget);
+    // 警告不阻塞导出按钮
+    expect(find.text('导出 GIF'), findsOneWidget);
+  });
+
+  testWidgets('宽高比例一致 → 无警告', (tester) async {
+    await pumpPanel(tester);
+    final container = containerOf(tester);
+
+    container.read(exportControllerProvider.notifier).updateWidth(480);
+    container.read(exportControllerProvider.notifier).updateHeight(270);
+    await tester.pump();
+
+    expect(find.textContaining('比例不一致'), findsNothing);
+  });
+
   testWidgets('循环非法文本 → formError 红字', (tester) async {
     await pumpPanel(tester);
 
