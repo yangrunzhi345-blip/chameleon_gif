@@ -34,6 +34,10 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# P9 打包产物与工具链(大体积,不提交)
+/dist/
+/tool/appimage/
+
 # Symbolication related
 app.*.symbols
 

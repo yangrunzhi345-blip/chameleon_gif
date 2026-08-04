@@ -59,7 +59,16 @@ class HomePage extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.gif_box_outlined, size: 96),
+            // 应用 Logo(P9;圆角容纳,图片本身原样)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Image.asset(
+                'assets/images/chameleon.jpg',
+                width: 96,
+                height: 96,
+                fit: BoxFit.cover,
+              ),
+            ),
             const SizedBox(height: 16),
             const Text(
               'Chameleon Gif',

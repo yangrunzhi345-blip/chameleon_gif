@@ -89,7 +89,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # 资产目录预留(由 P 阶段按功能添加):
-  # assets:
-  #   - assets/images/
+  # 资产目录(P9 起启用;images 含应用 Logo)
+  assets:
+    - assets/images/
   #   - assets/i18n/

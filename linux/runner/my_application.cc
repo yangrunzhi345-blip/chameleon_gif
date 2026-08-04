@@ -1,5 +1,7 @@
 #include "my_application.h"
 
+#include <gio/gio.h>
+
 #include <flutter_linux/flutter_linux.h>
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
@@ -45,6 +47,17 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
   } else {
     gtk_window_set_title(window, "Chameleon Gif");
+  }
+
+  // P9:窗口图标从 bundle 数据目录加载(打包后 exe 在 bundle 根,data 在其下;
+  // 开发模式/找不到时静默——GNOME 任务栏图标由 .desktop 决定,此为上屏辅助)
+  g_autofree gchar* exe_path = g_file_read_link("/proc/self/exe", nullptr);
+  if (exe_path != nullptr) {
+    g_autofree gchar* exe_dir = g_path_get_dirname(exe_path);
+    g_autofree gchar* icon_path =
+        g_build_filename(exe_dir, "data", "runner", "resources", "app_icon.png",
+                         nullptr);
+    gtk_window_set_icon_from_file(window, icon_path, nullptr);
   }
 
   gtk_window_set_default_size(window, 1280, 720);
