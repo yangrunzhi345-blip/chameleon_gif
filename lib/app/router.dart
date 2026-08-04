@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../../domain/entities/video_info.dart';
+import '../../features/history/presentation/history_page.dart';
 import 'presentation/home_page.dart';
 import 'presentation/preview_screen.dart';
 
@@ -20,6 +21,11 @@ List<RouteBase> buildRoutes() => [
       final video = state.extra;
       return PreviewScreen(video: video is VideoInfo ? video : null);
     },
+  ),
+  GoRoute(
+    path: '/history',
+    name: 'history',
+    builder: (context, state) => const HistoryPage(),
   ),
 ];
 

@@ -33,7 +33,16 @@ class HomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('GifForge')),
+      appBar: AppBar(
+        title: const Text('GifForge'),
+        actions: [
+          IconButton(
+            tooltip: '历史',
+            icon: const Icon(Icons.history),
+            onPressed: () => context.push('/history'),
+          ),
+        ],
+      ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
