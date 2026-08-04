@@ -226,7 +226,12 @@ class TaskManager {
         sourceDurationMs: video.duration.inMilliseconds,
         outputFrameCount: _estimateFrameCount(task.settings, video),
       );
-      await _historyRepository.add(history);
+      try {
+        await _historyRepository.add(history);
+      } catch (e, st) {
+        // 历史入库失败不影响任务完成(输出已生成),仅记录日志
+        _logger.e('历史快照入库失败: id=$id', error: e, stackTrace: st);
+      }
       _logger.i('任务完成: id=$id size=$size');
       await _finish(id, TaskState.completed, outputPath: outputPath);
     } catch (e, st) {
@@ -253,8 +258,12 @@ class TaskManager {
         await _pump();
         return;
       }
+      // errorDetail 存用户可读文案(userMessage)而非 toString:
+      // 后者含绝对路径/类名,违反 §5.4"UI 不泄露原始路径"
       final errorCode = e is DomainException ? e.errorCode : 'GIF_UNKNOWN';
-      final errorDetail = _truncate('$e');
+      final errorDetail = _truncate(
+        e is DomainException ? e.userMessage : '转换失败,请重试',
+      );
       await _finish(
         id,
         TaskState.failed,

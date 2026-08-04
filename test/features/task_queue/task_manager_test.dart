@@ -284,6 +284,11 @@ void main() {
       expect(task.retryCount, 2);
       expect(task.errorCode, 'GIF_1_ENCODE');
       expect(failing.convertCalls, hasLength(3), reason: '1 次 + 2 次重试');
+      expect(
+        task.errorDetail,
+        '转换失败,请重试或调整参数',
+        reason: '存 userMessage 而非 toString',
+      );
     });
 
     test('SourceBroken/Palette 不可重试 → 直接终态 failed', () async {

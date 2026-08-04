@@ -121,7 +121,7 @@ void main() {
     expect(state.outputSizeBytes, 123);
   });
 
-  test('转换失败 → failed 态(用户可读错误)', () async {
+  test('转换失败 → failed 态(用户可读错误,不含原始路径)', () async {
     container = build(
       serviceError: const EncodeException(errorCode: 'GIF_1_ENCODE'),
     );
@@ -130,6 +130,20 @@ void main() {
 
     final state = await waitForLifecycle(ExportLifecycle.failed);
     expect(state.errorMessage, isNotEmpty);
+    expect(state.errorMessage, isNot(contains('/tmp/')), reason: '不泄露路径');
+    expect(state.errorMessage, isNot(contains('EncodeException')));
+  });
+
+  test('双提交守卫:连点 submit 只入队一个任务', () async {
+    container = build();
+    final ctl = container.read(exportControllerProvider.notifier);
+
+    final f1 = ctl.submit(const GifSetting(), video);
+    final f2 = ctl.submit(const GifSetting(), video); // await 期间连点
+    await f1;
+    await f2;
+
+    expect(await taskRepo.all(), hasLength(1), reason: '重入被守卫拒绝');
   });
 
   test('cancelTask 转发:running 任务取消 → cancelled 提示', () async {

@@ -19,6 +19,7 @@ import 'export_state.dart';
 class ExportController extends Notifier<ExportUiState> {
   StreamSubscription<ExportTask>? _taskSub;
   int? _activeTaskId;
+  bool _submitting = false;
 
   @override
   ExportUiState build() {
@@ -29,20 +30,28 @@ class ExportController extends Notifier<ExportUiState> {
   }
 
   /// 提交导出(默认参数装配:end 缺省取源视频时长;start≥end 拒绝)。
+  ///
+  /// 重入守卫:await 提交期间按钮仍可点,连点只入队一次。
   Future<void> submit(GifSetting setting, VideoInfo video) async {
-    final end = setting.end ?? video.duration;
-    if (setting.start >= end) {
-      state = const ExportUiState.failed('起点不能晚于或等于终点');
-      return;
+    if (_submitting) return;
+    _submitting = true;
+    try {
+      final end = setting.end ?? video.duration;
+      if (setting.start >= end) {
+        state = const ExportUiState.failed('起点不能晚于或等于终点');
+        return;
+      }
+      final effective = setting.end == null
+          ? setting.copyWith(end: video.duration)
+          : setting;
+      final id = await ref
+          .read(taskQueueControllerProvider.notifier)
+          .submit(effective, video);
+      _activeTaskId = id;
+      state = ExportUiState.exporting(id);
+    } finally {
+      _submitting = false;
     }
-    final effective = setting.end == null
-        ? setting.copyWith(end: video.duration)
-        : setting;
-    final id = await ref
-        .read(taskQueueControllerProvider.notifier)
-        .submit(effective, video);
-    _activeTaskId = id;
-    state = ExportUiState.exporting(id);
   }
 
   /// 取消当前导出任务。
