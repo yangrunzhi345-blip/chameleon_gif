@@ -10,7 +10,7 @@ import 'export_progress_panel.dart';
 /// 导出操作区(docs/10 §10.3.1:空闲显示导出按钮,转换中替换为进度面板)。
 ///
 /// 纯渲染与事件转发:按钮 → [ExportController.submit](默认参数);
-/// 完成/失败弹窗由 PreviewPage 生命周期处理,本组件不弹窗。
+/// 完成/失败弹窗由 app 层组合壳(PreviewScreen)生命周期处理,本组件不弹窗。
 class ExportBar extends ConsumerWidget {
   const ExportBar({super.key, required this.video});
 

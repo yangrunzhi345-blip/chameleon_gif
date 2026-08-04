@@ -1,8 +1,8 @@
 import 'package:go_router/go_router.dart';
 
 import '../../domain/entities/video_info.dart';
-import '../../features/preview/presentation/preview_page.dart';
 import 'presentation/home_page.dart';
+import 'presentation/preview_screen.dart';
 
 /// 路由表构建(供 [appRouter] 与测试注入独立实例复用)。
 List<RouteBase> buildRoutes() => [
@@ -18,7 +18,7 @@ List<RouteBase> buildRoutes() => [
       // 安全 cast:go_router 17 在 Router 恢复路径会对 extra 做 JSON 编解码
       // (复杂对象会还原为 Map),非 VideoInfo(恢复/深链)时预览页自行回退。
       final video = state.extra;
-      return PreviewPage(video: video is VideoInfo ? video : null);
+      return PreviewScreen(video: video is VideoInfo ? video : null);
     },
   ),
 ];

@@ -15,7 +15,7 @@ import 'package:gif_forge/domain/value_objects/gif_setting.dart';
 import 'package:gif_forge/domain/value_objects/task_progress.dart';
 import 'package:gif_forge/features/import/application/import_providers.dart';
 import 'package:gif_forge/features/preview/application/preview_controller.dart';
-import 'package:gif_forge/features/preview/presentation/preview_page.dart';
+import 'package:gif_forge/app/presentation/preview_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -88,7 +88,7 @@ void main() {
     await tester.tap(find.text('导入 MP4'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(PreviewPage), findsOneWidget);
+    expect(find.byType(PreviewScreen), findsOneWidget);
     expect(find.text('demo.mp4'), findsOneWidget);
   });
 
@@ -108,7 +108,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('视频文件损坏或格式异常'), findsOneWidget);
-    expect(find.byType(PreviewPage), findsNothing);
+    expect(find.byType(PreviewScreen), findsNothing);
   });
 
   testWidgets('取消选择 → 无跳转无提示', (tester) async {
@@ -120,7 +120,7 @@ void main() {
     await tester.tap(find.text('导入 MP4'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(PreviewPage), findsNothing);
+    expect(find.byType(PreviewScreen), findsNothing);
     expect(find.byType(SnackBar), findsNothing);
   });
 }
