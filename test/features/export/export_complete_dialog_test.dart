@@ -4,9 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gif_forge/domain/entities/export_task.dart';
 import 'package:gif_forge/domain/value_objects/gif_setting.dart';
 import 'package:gif_forge/domain/value_objects/task_state.dart';
+import 'package:gif_forge/features/export/application/export_controller.dart';
+import 'package:gif_forge/features/export/application/export_providers.dart';
 import 'package:gif_forge/features/export/presentation/export_complete_dialog.dart';
 
-/// [ExportCompleteDialog] 渲染与按钮测试(纯 UI)。
+/// [ExportCompleteDialog] 渲染与按钮测试(纯 UI,动作仅验证转发)。
 void main() {
   final task = ExportTask(
     id: 1,
@@ -19,9 +21,16 @@ void main() {
     finishedAt: DateTime(2026, 1, 1, 10, 0, 5),
   );
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    _SpyExportController? controller,
+  }) async {
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          if (controller != null)
+            exportControllerProvider.overrideWith(() => controller),
+        ],
         child: MaterialApp(
           home: Builder(
             builder: (context) => Scaffold(
@@ -64,4 +73,42 @@ void main() {
 
     expect(find.byType(ExportCompleteDialog), findsNothing);
   });
+
+  testWidgets('再转一次收起弹窗并复位', (tester) async {
+    final spy = _SpyExportController();
+    await pump(tester, controller: spy);
+
+    await tester.tap(find.text('再转一次'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ExportCompleteDialog), findsNothing);
+    expect(spy.resetCount, 1, reason: '再转一次应复位会话');
+  });
+
+  testWidgets('打开文件夹转发到控制器用例', (tester) async {
+    final spy = _SpyExportController();
+    await pump(tester, controller: spy);
+
+    await tester.tap(find.text('打开文件夹'));
+    await tester.pump();
+
+    expect(spy.openFolderCalls, 1);
+  });
+}
+
+/// 动作转发 spy(验证 UI 只转发、不直调基础设施)。
+class _SpyExportController extends ExportController {
+  int openFolderCalls = 0;
+  int resetCount = 0;
+
+  @override
+  Future<void> openOutputFolder() async {
+    openFolderCalls++;
+  }
+
+  @override
+  void reset() {
+    resetCount++;
+    super.reset();
+  }
 }

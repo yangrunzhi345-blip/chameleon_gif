@@ -14,7 +14,7 @@ import 'package:gif_forge/features/converter/application/command_builder.dart';
 import 'package:gif_forge/features/converter/application/ffmpeg_service_engine.dart';
 import 'package:gif_forge/shared/platform/process_engine.dart';
 
-const fixtures = [
+const kFixtures = [
   (
     name: 'clip_a(3s 640x360 30fps)',
     path: 'test/fixtures/videos/clip_a.mp4',
@@ -48,7 +48,7 @@ void main() async {
 
   final root = Directory.current.path;
 
-  for (final f in fixtures) {
+  for (final f in kFixtures) {
     final video = VideoInfo(
       path: '$root/${f.path}',
       formatName: 'mov,mp4',
@@ -145,7 +145,9 @@ void main() async {
   }
 
   print(
-    failures == 0 ? 'PASS 全部通过 (${fixtures.length} 个夹具)' : 'FAILED $failures 项',
+    failures == 0
+        ? 'PASS 全部通过 (${kFixtures.length} 个夹具)'
+        : 'FAILED $failures 项',
   );
   exit(failures == 0 ? 0 : 1);
 }

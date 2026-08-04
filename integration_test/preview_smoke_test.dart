@@ -15,14 +15,14 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
 
-  const samples = [
+  const kSamples = [
     '/tmp/gifforge_p1/sample_30fps.mp4',
     '/tmp/gifforge_p1/sample_1080p.mp4',
     '/tmp/gifforge_p1/sample_with_audio.mp4',
   ];
 
   test('打开即播放 → 时长探测 → pause → dispose(3 轮切换无泄漏)', () async {
-    for (final path in samples) {
+    for (final path in kSamples) {
       final port = MediaKitPlayerPort();
 
       // 1. 打开(自动播放)

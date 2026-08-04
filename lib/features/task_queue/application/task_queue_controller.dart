@@ -38,11 +38,13 @@ class TaskQueueController extends Notifier<TaskQueueState> {
     return id;
   }
 
+  /// 取消任务(queued 直接终态;running 触发令牌与清理)。
   Future<void> cancel(int id) async {
     await ref.read(taskManagerProvider).cancel(id);
     await _refresh();
   }
 
+  /// 重试失败任务(failed → queued 重新排队)。
   Future<void> retry(int id) async {
     await ref.read(taskManagerProvider).retry(id);
     await _refresh();

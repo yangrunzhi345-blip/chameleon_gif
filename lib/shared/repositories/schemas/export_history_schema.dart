@@ -35,7 +35,7 @@ class ExportHistorySchema {
       ..id = history.id
       ..videoPath = history.videoPath
       ..outputPath = history.outputPath
-      ..settingsJson = history.settings.toJson().toString()
+      ..settingsJson = jsonEncode(history.settings.toJson())
       ..durationMs = history.durationMs
       ..outputSizeBytes = history.outputSizeBytes
       ..createdAt = history.createdAt

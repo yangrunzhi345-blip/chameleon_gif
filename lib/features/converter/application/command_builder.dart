@@ -43,7 +43,7 @@ class GifCommandBuilder {
             '${setting.loop}',
             outputPath,
           ],
-          label: GifCommand.encodeLabel,
+          label: GifCommand.kEncodeLabel,
         ),
       ];
     }
@@ -58,7 +58,7 @@ class GifCommandBuilder {
           '-y',
           palettePath,
         ],
-        label: GifCommand.paletteLabel,
+        label: GifCommand.kPaletteLabel,
       ),
       // 第二遍:应用调色板输出 GIF
       GifCommand(
@@ -75,7 +75,7 @@ class GifCommandBuilder {
           '${setting.loop}',
           outputPath,
         ],
-        label: GifCommand.encodeLabel,
+        label: GifCommand.kEncodeLabel,
       ),
     ];
   }

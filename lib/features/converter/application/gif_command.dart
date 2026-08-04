@@ -11,6 +11,6 @@ class GifCommand {
   /// 阶段标签:'palette'(调色板第一遍)| 'encode'(编码第二遍/标准单遍)。
   final String label;
 
-  static const paletteLabel = 'palette';
-  static const encodeLabel = 'encode';
+  static const kPaletteLabel = 'palette';
+  static const kEncodeLabel = 'encode';
 }

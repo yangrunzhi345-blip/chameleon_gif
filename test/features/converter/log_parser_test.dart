@@ -46,7 +46,7 @@ void main() {
     final (errors, _, _) = classify('Error: $long');
     expect(
       errors.single.length,
-      lessThanOrEqualTo(LogParser.maxLineLength + 1),
+      lessThanOrEqualTo(LogParser.kMaxLineLength + 1),
     );
     expect(errors.single.endsWith('…'), isTrue);
   });

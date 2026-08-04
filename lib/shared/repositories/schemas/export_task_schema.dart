@@ -48,7 +48,7 @@ class ExportTaskSchema {
       ..id = task.id
       ..videoPath = task.videoPath
       ..outputPath = task.outputPath
-      ..settingsJson = task.settings.toJson().toString()
+      ..settingsJson = jsonEncode(task.settings.toJson())
       ..state = task.state.index
       ..progress = task.progress
       ..errorCode = task.errorCode

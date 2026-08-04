@@ -37,16 +37,19 @@ void main() {
   late FakeExportService service;
   late Directory tempRoot;
   late ProviderContainer container;
+  late _RecordingAdapter adapter;
 
   ProviderContainer build({Object? serviceError, FakeExportService? custom}) {
     service = custom ?? FakeExportService(error: serviceError);
     taskRepo = InMemoryTaskRepository();
+    adapter = _RecordingAdapter(tempRoot.path);
     return ProviderContainer(
       overrides: [
         taskRepositoryProvider.overrideWithValue(taskRepo),
         historyRepositoryProvider.overrideWithValue(
           InMemoryHistoryRepository(),
         ),
+        platformAdapterProvider.overrideWithValue(adapter),
         taskManagerProvider.overrideWith(
           (ref) => TaskManager(
             taskRepository: taskRepo,
@@ -172,6 +175,45 @@ void main() {
       ExportLifecycle.idle,
     );
   });
+
+  test('openOutputFolder:done 态转发目录路径(不含文件名)', () async {
+    container = build();
+    final ctl = container.read(exportControllerProvider.notifier);
+    await ctl.submit(const GifSetting(), video);
+    await waitForLifecycle(ExportLifecycle.done);
+
+    await ctl.openOutputFolder();
+
+    expect(adapter.openFolderCalls, hasLength(1));
+    final dir = adapter.openFolderCalls.single;
+    expect(dir, endsWith('/gifforge_1'), reason: '转发目录而非 out.gif 文件');
+    expect(dir, isNot(endsWith('.gif')));
+  });
+
+  test('openOutputFolder:非 done 态静默跳过', () async {
+    container = build();
+    final ctl = container.read(exportControllerProvider.notifier);
+
+    await ctl.openOutputFolder(); // idle 无任务
+
+    expect(adapter.openFolderCalls, isEmpty);
+  });
+}
+
+/// 记录 openFolder 调用的平台适配器。
+class _RecordingAdapter extends PlatformAdapter {
+  _RecordingAdapter(this.tempRoot);
+
+  final String tempRoot;
+  final List<String> openFolderCalls = [];
+
+  @override
+  String get systemTempDir => tempRoot;
+
+  @override
+  Future<void> openFolder(String path) async {
+    openFolderCalls.add(path);
+  }
 }
 
 class FakeExportService implements FFmpegService {

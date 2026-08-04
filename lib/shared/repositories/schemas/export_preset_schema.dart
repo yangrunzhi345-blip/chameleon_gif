@@ -23,7 +23,7 @@ class ExportPresetSchema {
     final schema = ExportPresetSchema()
       ..id = preset.id
       ..name = preset.name
-      ..settingsJson = preset.settings.toJson().toString()
+      ..settingsJson = jsonEncode(preset.settings.toJson())
       ..createdAt = preset.createdAt;
     return schema;
   }

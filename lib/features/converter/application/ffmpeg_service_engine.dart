@@ -50,7 +50,7 @@ class FfmpegServiceEngine implements FFmpegService {
       outputPath: outputPath,
     );
     final denominator = _builder.progressDenominator(setting, video);
-    final tempFiles = commands.any((c) => c.label == GifCommand.paletteLabel)
+    final tempFiles = commands.any((c) => c.label == GifCommand.kPaletteLabel)
         ? ['$workDir/palette.png', outputPath]
         : [outputPath];
 

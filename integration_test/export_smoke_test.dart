@@ -21,7 +21,7 @@ import 'package:gif_forge/features/converter/application/ffmpeg_service_engine.d
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const samples = [
+  const kSamples = [
     (
       name: 'clip_a(3s 640x360 30fps)',
       path: 'test/fixtures/videos/clip_a.mp4',
@@ -60,7 +60,7 @@ void main() {
       logger: AppLogger(),
     );
 
-    for (final s in samples) {
+    for (final s in kSamples) {
       final video = VideoInfo(
         path: '${Directory.current.path}/${s.path}',
         formatName: 'mov,mp4',

@@ -9,7 +9,7 @@ import 'package:gif_forge/domain/exceptions/source_broken_exception.dart';
 import 'package:gif_forge/domain/exceptions/source_missing_exception.dart';
 import 'package:gif_forge/features/converter/infrastructure/ffprobe_parse_video_port.dart';
 
-const samples = [
+const kSamples = [
   (
     name: '30fps 320x240',
     path: '/tmp/gifforge_p1/sample_30fps.mp4',
@@ -66,7 +66,7 @@ const samples = [
   ),
 ];
 
-const brokenSamples = [
+const kBrokenSamples = [
   (
     name: '截断 mp4',
     path: '/tmp/gifforge_p1/broken_truncated.mp4',
@@ -88,7 +88,7 @@ void main() async {
   final port = FfprobeParseVideoPort(logger: AppLogger());
   var failures = 0;
 
-  for (final s in samples) {
+  for (final s in kSamples) {
     try {
       final info = await port.parse(s.path);
       final errors = <String>[];
@@ -128,7 +128,7 @@ void main() async {
     }
   }
 
-  for (final s in brokenSamples) {
+  for (final s in kBrokenSamples) {
     try {
       await port.parse(s.path);
       failures++;
@@ -149,7 +149,7 @@ void main() async {
   // ignore: avoid_print
   print(
     failures == 0
-        ? 'PASS 全部通过 (${samples.length + brokenSamples.length} 项)'
+        ? 'PASS 全部通过 (${kSamples.length + kBrokenSamples.length} 项)'
         : 'FAILED $failures 项',
   );
   exit(failures == 0 ? 0 : 1);

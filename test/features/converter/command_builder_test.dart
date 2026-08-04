@@ -32,7 +32,7 @@ void main() {
 
       expect(commands, hasLength(1));
       final cmd = commands.single;
-      expect(cmd.label, GifCommand.encodeLabel);
+      expect(cmd.label, GifCommand.kEncodeLabel);
       expect(cmd.args, [
         '-ss',
         '00:00:00.000',
@@ -160,8 +160,8 @@ void main() {
       );
 
       expect(commands, hasLength(2));
-      expect(commands[0].label, GifCommand.paletteLabel);
-      expect(commands[1].label, GifCommand.encodeLabel);
+      expect(commands[0].label, GifCommand.kPaletteLabel);
+      expect(commands[1].label, GifCommand.kEncodeLabel);
 
       // 第一遍:生成调色板到 workDir
       final first = commands[0].args;

@@ -48,7 +48,7 @@ class TaskManager {
   final AppLogger _logger;
   final Future<void> Function(Duration) _retryDelay;
 
-  static const maxRetryCount = 2;
+  static const kMaxRetryCount = 2;
 
   final List<int> _queue = [];
   int? _runningId;
@@ -242,7 +242,7 @@ class TaskManager {
       }
       if (e is DomainException &&
           _isRetryable(e) &&
-          task.retryCount < maxRetryCount) {
+          task.retryCount < kMaxRetryCount) {
         final retryCount = task.retryCount + 1;
         await _update(
           current.copyWith(
