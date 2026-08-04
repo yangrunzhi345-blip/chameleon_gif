@@ -62,15 +62,25 @@ class _ParamDropdownFieldState<T> extends State<ParamDropdownField<T>> {
                 borderRadius: BorderRadius.all(Radius.circular(8)),
               ),
             ),
-            // 菜单与按钮同宽对齐(左对齐展开)
+            // 菜单与按钮同宽(锁宽:minimum + maximum 均为按钮宽)
             minimumSize: WidgetStatePropertyAll(Size(width, 0)),
+            maximumSize: WidgetStatePropertyAll(Size(width, double.infinity)),
           ),
           builder: (context, controller, child) {
             return InkWell(
               onTap: widget.enabled
-                  ? () => controller.isOpen
-                        ? controller.close()
-                        : controller.open()
+                  ? () {
+                      if (controller.isOpen) {
+                        controller.close();
+                      } else {
+                        // 强制下拉:菜单左上角 = 按钮左下角(避免空间不足
+                        // 时 MenuStyle.alignment 自动翻转成向上弹出)
+                        final box = context.findRenderObject() as RenderBox?;
+                        controller.open(
+                          position: Offset(0, box?.size.height ?? 0),
+                        );
+                      }
+                    }
                   : null,
               borderRadius: const BorderRadius.all(Radius.circular(8)),
               child: InputDecorator(
@@ -116,6 +126,8 @@ class _ParamDropdownFieldState<T> extends State<ParamDropdownField<T>> {
                     : const SizedBox(width: 18),
                 child: Text(
                   item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: item.value == widget.value
                       ? TextStyle(
                           color: scheme.primary,
