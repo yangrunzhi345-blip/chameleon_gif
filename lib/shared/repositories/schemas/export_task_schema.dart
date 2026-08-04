@@ -1,0 +1,84 @@
+import 'dart:convert';
+
+import 'package:isar_community/isar.dart';
+
+import '../../../domain/entities/export_task.dart';
+import '../../../domain/value_objects/gif_setting.dart';
+import '../../../domain/value_objects/task_state.dart';
+
+part 'export_task_schema.g.dart';
+
+/// ExportTask 的 Isar 持久化映射(docs/07-数据库设计.md §7.3.1)。
+///
+/// 领域实体 ↔ 集合转换由仓储实现负责(P5 落地):
+/// settings 以 JSON 字符串存储(Freezed toJson)。
+@collection
+class ExportTaskSchema {
+  Id id = Isar.autoIncrement;
+
+  late String videoPath;
+
+  String? outputPath;
+
+  /// GifSetting 的 JSON 快照
+  late String settingsJson;
+
+  /// TaskState.index
+  @Index()
+  late int state;
+
+  double progress = 0;
+
+  String? errorCode;
+
+  String? errorDetail;
+
+  int retryCount = 0;
+
+  @Index()
+  late DateTime createdAt;
+
+  DateTime? startedAt;
+
+  DateTime? finishedAt;
+
+  /// 领域实体 → 集合
+  static ExportTaskSchema fromEntity(ExportTask task) {
+    final schema = ExportTaskSchema()
+      ..id = task.id
+      ..videoPath = task.videoPath
+      ..outputPath = task.outputPath
+      ..settingsJson = task.settings.toJson().toString()
+      ..state = task.state.index
+      ..progress = task.progress
+      ..errorCode = task.errorCode
+      ..errorDetail = task.errorDetail
+      ..retryCount = task.retryCount
+      ..createdAt = task.createdAt
+      ..startedAt = task.startedAt
+      ..finishedAt = task.finishedAt;
+    return schema;
+  }
+
+  /// 集合 → 领域实体(JSON 解析失败时抛出,由仓储层处理)
+  ExportTask toEntity() {
+    return ExportTask(
+      id: id,
+      videoPath: videoPath,
+      outputPath: outputPath,
+      settings: GifSetting.fromJson(
+        Map<String, dynamic>.from(
+          const JsonDecoder().convert(settingsJson) as Map,
+        ),
+      ),
+      state: TaskState.values[state],
+      progress: progress,
+      errorCode: errorCode,
+      errorDetail: errorDetail,
+      retryCount: retryCount,
+      createdAt: createdAt,
+      startedAt: startedAt,
+      finishedAt: finishedAt,
+    );
+  }
+}

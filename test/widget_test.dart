@@ -1,30 +1,48 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gif_forge/app/app.dart';
+import 'package:gif_forge/app/application/providers.dart';
+import 'package:gif_forge/core/logger/app_logger.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:gif_forge/main.dart';
-
+/// P0 冒烟:应用启动 → 渲染主页 → 主题切换生效且持久化。
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  late SharedPreferences prefs;
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  Widget buildApp() {
+    return ProviderScope(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        appLoggerProvider.overrideWithValue(AppLogger()),
+      ],
+      child: const GifForgeApp(),
+    );
+  }
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  testWidgets('启动渲染主页并支持主题三态切换', (tester) async {
+    await tester.pumpWidget(buildApp());
+    expect(find.text('GifForge'), findsWidgets);
+
+    // 切换到深色
+    await tester.tap(find.text('深色'));
+    await tester.pumpAndSettle();
+    expect(
+      Theme.of(tester.element(find.byType(Scaffold))).brightness,
+      Brightness.dark,
+    );
+
+    // 切换到浅色
+    await tester.tap(find.text('浅色'));
+    await tester.pumpAndSettle();
+    expect(
+      Theme.of(tester.element(find.byType(Scaffold))).brightness,
+      Brightness.light,
+    );
   });
 }

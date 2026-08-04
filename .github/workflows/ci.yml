@@ -1,0 +1,30 @@
+# GifForge CI(docs/14-测试计划.md §14.7)
+# 触发:push / PR。任务:pub get → 格式检查 → 静态分析 → 单元+Widget 测试。
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: 拉取依赖
+        run: flutter pub get
+
+      - name: 格式检查
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: 静态分析(零告警)
+        run: flutter analyze
+
+      - name: 单元与 Widget 测试
+        run: flutter test
