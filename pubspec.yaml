@@ -26,6 +26,9 @@ dependencies:
   freezed_annotation: ^3.1.0
   json_annotation: ^4.11.0
 
+  # 元注解(visibleForTesting 等;纯 Dart,功能层/基础设施纯 Dart 化所需)
+  meta: ^1.18.0
+
   # 本地数据库
   # Isar 官方包(3.1.0)生成器与现代化工具链(source_gen 3+)不兼容,
   # 采用社区维护版 isar_community(API 兼容,import 'package:isar_community/isar.dart'),
@@ -44,8 +47,9 @@ dependencies:
   media_kit_video: ^2.0.1
   media_kit_libs_video: ^1.0.7
 
-  # 转码引擎:FFmpeg CLI 封装(ffmpeg_kit_flutter 的活跃维护 fork,
-  # 支持 Linux/Windows/Android,内置 FFmpeg + FFprobe,见 docs/03-技术选型.md)
+  # 转码引擎(Android):ffmpeg_kit_flutter 的活跃维护 fork,内置 FFmpeg+FFprobe。
+  # 注意:该 fork 无 Linux/Windows 桌面平台实现(已实证),桌面端经 PlatformAdapter
+  # 改调系统 ffmpeg/ffprobe 二进制,详见 docs/03-技术选型.md 与 docs/08-FFmpeg设计.md
   ffmpeg_kit_flutter_minimal: ^6.0.8
 
   # 平台路径(应用数据目录,PlatformAdapter 使用,见 docs/08-FFmpeg设计.md §8.3.8)

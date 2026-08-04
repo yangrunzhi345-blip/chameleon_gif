@@ -1,0 +1,21 @@
+{
+  "streams": [
+    {
+      "index": 0,
+      "codec_name": "aac",
+      "codec_long_name": "AAC (Advanced Audio Coding)",
+      "codec_type": "audio",
+      "sample_rate": "44100",
+      "channels": 2,
+      "codec_tag_string": "mp4a"
+    }
+  ],
+  "format": {
+    "filename": "/tmp/audio_only.m4a",
+    "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+    "format_long_name": "QuickTime / MOV",
+    "duration": "5.000000",
+    "size": "80000",
+    "bit_rate": "128000"
+  }
+}

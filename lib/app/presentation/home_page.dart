@@ -47,9 +47,9 @@ class HomePage extends ConsumerWidget {
               ],
               selected: {themeMode},
               onSelectionChanged: (selection) {
-                ref.read(themeModeProvider.notifier).setThemeMode(
-                      selection.first,
-                    );
+                ref
+                    .read(themeModeProvider.notifier)
+                    .setThemeMode(selection.first);
               },
             ),
           ],

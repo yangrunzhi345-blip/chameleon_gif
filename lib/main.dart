@@ -28,14 +28,11 @@ Future<void> main() async {
     final docsDir = await getApplicationDocumentsDirectory();
     final isarDir = Directory('${docsDir.path}/gif_forge')
       ..createSync(recursive: true);
-    isar = await Isar.open(
-      [
-        ExportTaskSchemaSchema,
-        ExportHistorySchemaSchema,
-        ExportPresetSchemaSchema,
-      ],
-      directory: isarDir.path,
-    );
+    isar = await Isar.open([
+      ExportTaskSchemaSchema,
+      ExportHistorySchemaSchema,
+      ExportPresetSchemaSchema,
+    ], directory: isarDir.path);
   } catch (e, st) {
     logger.f('Isar 初始化失败', error: e, stackTrace: st);
     rethrow;
