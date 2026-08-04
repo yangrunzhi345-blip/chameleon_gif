@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// 参数下拉字段(P7 设计稿,docs/10 §10.3.1):M3 风格下拉选择。
@@ -78,8 +80,9 @@ class _ParamDropdownFieldState<T> extends State<ParamDropdownField<T>> {
   Widget _buildMenu(Rect anchorRect) {
     final scheme = Theme.of(context).colorScheme;
     final screenSize = MediaQuery.of(context).size;
-    // 下方可用高度(按钮底到屏幕底,留 8px 边距);不足时菜单压缩高度滚动
-    final maxHeight = screenSize.height - anchorRect.bottom - 8;
+    // 下方可用高度(按钮底到屏幕底,留 8px 边距);按钮接近窗口底部时
+    // 该值会 ≤0,钳制到至少 2 项高度(88px),不足部分菜单内部滚动
+    final maxHeight = math.max(88.0, screenSize.height - anchorRect.bottom - 8);
 
     return Stack(
       children: [
