@@ -33,10 +33,15 @@ class FfprobeKitFfprobeExecutor implements FfprobeExecutor {
       );
     }
     final code = await session.getReturnCode();
+    final mediaInformation = session.getMediaInformation();
     return FfprobeResult(
       exitCode: code?.getValue() ?? -1,
       stderr: await session.getOutput() ?? '',
-      mediaInformation: session.getMediaInformation(),
+      mediaInformation: mediaInformation,
+      // 关键:getAllProperties() 即 ffprobe JSON 原结构(format/streams),
+      // 填入 probeJson 供 FfprobeParseVideoPort 消费(缺失时业务层会兜底
+      // 报"错误码 0",曾致 Android 真机视频解析失败)。
+      probeJson: mediaInformation?.getAllProperties(),
     );
   }
 }

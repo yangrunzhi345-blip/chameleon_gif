@@ -88,5 +88,29 @@ void main() {
       final result = await executor.run('/tmp/a.mp4');
       expect(result.mediaInformation, same(info));
     });
+
+    test('probeJson 取 getAllProperties(ffprobe JSON 结构),修复真机解析失败', () async {
+      final info = MediaInformation(const {
+        'format': {'filename': '/tmp/a.mp4', 'duration': '3.000000'},
+        'streams': [
+          {
+            'codec_type': 'video',
+            'codec_name': 'h264',
+            'width': 1920,
+            'height': 1080,
+            'avg_frame_rate': '30/1',
+          },
+        ],
+      });
+      final executor = FfprobeKitFfprobeExecutor(
+        getMediaInformation: (path) async =>
+            _FakeSession(returnCodeValue: 0, info: info),
+      );
+
+      final result = await executor.run('/tmp/a.mp4');
+      expect(result.probeJson, isNotNull, reason: 'probeJson 不得为空');
+      expect(result.probeJson!['format'], isA<Map>());
+      expect(result.probeJson!['streams'], isA<List>());
+    });
   });
 }
