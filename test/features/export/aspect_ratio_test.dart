@@ -60,4 +60,49 @@ void main() {
       isTrue,
     );
   });
+
+  group('outputAspectRatio(预览所见即所得)', () {
+    test('默认/单边指定 → 源比例', () {
+      expect(
+        outputAspectRatio(const GifSetting(), video),
+        closeTo(640 / 360, 1e-9),
+      );
+      expect(
+        outputAspectRatio(const GifSetting(width: 480), video),
+        closeTo(640 / 360, 1e-9),
+      );
+      expect(
+        outputAspectRatio(const GifSetting(height: 270), video),
+        closeTo(640 / 360, 1e-9),
+      );
+    });
+
+    test('双边指定 → 设置比例', () {
+      expect(
+        outputAspectRatio(const GifSetting(width: 480, height: 300), video),
+        closeTo(480 / 300, 1e-9),
+      );
+      // 强制方形
+      expect(
+        outputAspectRatio(const GifSetting(width: 500, height: 500), video),
+        closeTo(1.0, 1e-9),
+      );
+    });
+
+    test('源尺寸未知 → 16:9 兜底', () {
+      const unknown = VideoInfo(
+        path: '/tmp/u.mp4',
+        formatName: 'mp4',
+        duration: Duration.zero,
+        width: 0,
+        height: 0,
+        fps: null,
+        codec: '',
+      );
+      expect(
+        outputAspectRatio(const GifSetting(), unknown),
+        closeTo(16 / 9, 1e-9),
+      );
+    });
+  });
 }

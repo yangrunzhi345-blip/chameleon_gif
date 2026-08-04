@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../domain/entities/video_info.dart';
+import '../../domain/value_objects/gif_setting.dart';
+import '../../features/export/application/aspect_ratio.dart';
 import '../../features/export/application/export_providers.dart';
 import '../../features/export/application/export_state.dart';
 import '../../features/export/presentation/export_complete_dialog.dart';
@@ -98,9 +100,24 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
       // 工作台双栏:中栏预览+控制条+时间轴;右栏参数面板(窄屏单列滚动)
       body: LayoutBuilder(
         builder: (context, constraints) {
+          // 预览画面按输出宽高比显示(宽高设置变化即时反映;单边/原图
+          // = 源比例不变形,双边不匹配时显示拉伸效果与导出结果一致)
+          final form = ref.watch(exportControllerProvider);
+          final outputRatio = outputAspectRatio(
+            GifSetting(width: form.width, height: form.height),
+            video,
+          );
+          final previewArea = Expanded(
+            child: Center(
+              child: AspectRatio(
+                aspectRatio: outputRatio,
+                child: VideoPreviewPanel(),
+              ),
+            ),
+          );
           final previewColumn = Column(
             children: [
-              Expanded(child: VideoPreviewPanel()),
+              previewArea,
               const SafeArea(child: PreviewControlsBar()),
               TimelineBar(enabled: !exporting),
             ],
@@ -124,7 +141,7 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
           }
           return Column(
             children: [
-              Expanded(child: VideoPreviewPanel()),
+              previewArea,
               const SafeArea(child: PreviewControlsBar()),
               TimelineBar(enabled: !exporting),
               Flexible(child: SingleChildScrollView(child: panel)),
