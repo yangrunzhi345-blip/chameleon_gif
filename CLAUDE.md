@@ -141,6 +141,12 @@ lib/
 - 文件 `snake_case.dart`;类 `PascalCase`;变量/方法 `camelCase`;常量前缀 `k`。
 - 私有成员前缀 `_`;对外 API 一律写 Dartdoc 注释;核心类必须带中文注释说明职责。
 
+### 5.6 功能层与 UI 层分离(强制红线)
+
+- **功能层**(`features/<模块>/application/`):用例、控制器、状态逻辑,纯 Dart,禁止 `import 'package:flutter/material.dart'` 与 `widgets.dart`,可独立单测。
+- **UI 层**(`features/<模块>/presentation/` 与 `shared/widgets/`):只渲染与转发事件,禁止业务逻辑(校验/计算/状态转换),禁止直调仓储与基础设施。
+- 依赖单向:`presentation → application`;功能层不感知 UI。跨模块协作经 application 用例(见 docs/04-系统架构.md §4.7)。
+
 ## 六、MP4 → GIF 转换设计
 
 > 全平台一致性:以下命令与参数逻辑由 `FFmpegEngine` 接口承载,六端行为一致;各平台实现仅负责"如何执行命令",不得改动参数语义。Android/Linux/Windows/macOS 与 iOS 直接用同一命令参数构造器(复用测试),Web 端命令结构一致但走 WASM 执行路径。
