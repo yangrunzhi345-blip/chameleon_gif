@@ -80,6 +80,9 @@ void main() {
   }
 
   testWidgets('导出成功 → 完成弹窗(含文件路径与大小)', (tester) async {
+    // 桌面尺寸:触发双栏布局,导出按钮在右栏可见
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final (app, svc) = buildApp();
     svc.result = const _FlowResult.success();
     await tester.pumpWidget(app);
@@ -90,7 +93,7 @@ void main() {
     // TaskManager 含真实 IO(建目录/写文件),fake async 下挂起:
     // 点击与等待整体放入 runAsync,让完整异步链在真实事件循环完成
     await tester.runAsync(() async {
-      await tester.tap(find.text('导出 GIF(默认参数)'));
+      await tester.tap(find.text('导出 GIF'));
       await Future<void>.delayed(const Duration(milliseconds: 300));
     });
     await tester.pumpAndSettle();
@@ -101,6 +104,8 @@ void main() {
   });
 
   testWidgets('导出失败 → SnackBar 展示用户文案,无弹窗', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final (app, svc) = buildApp();
     svc.result = const _FlowResult.failure(
       EncodeException(errorCode: 'GIF_1_ENCODE'),
@@ -111,7 +116,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.runAsync(() async {
-      await tester.tap(find.text('导出 GIF(默认参数)'));
+      await tester.tap(find.text('导出 GIF'));
       await Future<void>.delayed(const Duration(milliseconds: 300));
     });
     await tester.pumpAndSettle();

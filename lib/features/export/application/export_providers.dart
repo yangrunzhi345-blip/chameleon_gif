@@ -9,7 +9,7 @@ import 'export_state.dart';
 
 /// 导出会话控制器(层次二,autoDispose)。
 final exportControllerProvider =
-    NotifierProvider.autoDispose<ExportController, ExportUiState>(
+    NotifierProvider.autoDispose<ExportController, ExportFormState>(
       ExportController.new,
     );
 

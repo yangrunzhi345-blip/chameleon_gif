@@ -73,7 +73,7 @@ void main() {
     await tempRoot.delete(recursive: true);
   });
 
-  Future<ExportUiState> waitForLifecycle(ExportLifecycle want) async {
+  Future<ExportFormState> waitForLifecycle(ExportLifecycle want) async {
     for (var i = 0; i < 100; i++) {
       final s = container.read(exportControllerProvider);
       if (s.lifecycle == want) return s;
@@ -88,7 +88,7 @@ void main() {
     container = build();
     final ctl = container.read(exportControllerProvider.notifier);
 
-    await ctl.submit(const GifSetting(), video);
+    await ctl.submit(setting: const GifSetting(), video: video);
 
     expect(
       container.read(exportControllerProvider).lifecycle,
@@ -104,8 +104,11 @@ void main() {
     final ctl = container.read(exportControllerProvider.notifier);
 
     await ctl.submit(
-      const GifSetting(start: Duration(seconds: 5), end: Duration(seconds: 5)),
-      video,
+      setting: const GifSetting(
+        start: Duration(seconds: 5),
+        end: Duration(seconds: 5),
+      ),
+      video: video,
     );
 
     final state = container.read(exportControllerProvider);
@@ -117,7 +120,7 @@ void main() {
   test('转换成功 → done 态(含输出大小)', () async {
     container = build();
     final ctl = container.read(exportControllerProvider.notifier);
-    await ctl.submit(const GifSetting(), video);
+    await ctl.submit(setting: const GifSetting(), video: video);
 
     final state = await waitForLifecycle(ExportLifecycle.done);
     expect(state.task?.state, TaskState.completed);
@@ -129,7 +132,7 @@ void main() {
       serviceError: const EncodeException(errorCode: 'GIF_1_ENCODE'),
     );
     final ctl = container.read(exportControllerProvider.notifier);
-    await ctl.submit(const GifSetting(), video);
+    await ctl.submit(setting: const GifSetting(), video: video);
 
     final state = await waitForLifecycle(ExportLifecycle.failed);
     expect(state.errorMessage, isNotEmpty);
@@ -141,8 +144,11 @@ void main() {
     container = build();
     final ctl = container.read(exportControllerProvider.notifier);
 
-    final f1 = ctl.submit(const GifSetting(), video);
-    final f2 = ctl.submit(const GifSetting(), video); // await 期间连点
+    final f1 = ctl.submit(setting: const GifSetting(), video: video);
+    final f2 = ctl.submit(
+      setting: const GifSetting(),
+      video: video,
+    ); // await 期间连点
     await f1;
     await f2;
 
@@ -153,7 +159,7 @@ void main() {
     final blocked = FakeExportService(blockFirstConvert: true);
     container = build(custom: blocked);
     final ctl = container.read(exportControllerProvider.notifier);
-    await ctl.submit(const GifSetting(), video);
+    await ctl.submit(setting: const GifSetting(), video: video);
     await Future<void>.delayed(const Duration(milliseconds: 50)); // 进入 running
 
     await ctl.cancelTask();
@@ -166,7 +172,7 @@ void main() {
   test('reset → idle,可再次导出', () async {
     container = build();
     final ctl = container.read(exportControllerProvider.notifier);
-    await ctl.submit(const GifSetting(), video);
+    await ctl.submit(setting: const GifSetting(), video: video);
     await waitForLifecycle(ExportLifecycle.done);
 
     ctl.reset();
@@ -179,7 +185,7 @@ void main() {
   test('openOutputFolder:done 态转发目录路径(不含文件名)', () async {
     container = build();
     final ctl = container.read(exportControllerProvider.notifier);
-    await ctl.submit(const GifSetting(), video);
+    await ctl.submit(setting: const GifSetting(), video: video);
     await waitForLifecycle(ExportLifecycle.done);
 
     await ctl.openOutputFolder();

@@ -5,11 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../domain/entities/video_info.dart';
 import '../../features/export/application/export_providers.dart';
 import '../../features/export/application/export_state.dart';
-import '../../features/export/presentation/export_bar.dart';
 import '../../features/export/presentation/export_complete_dialog.dart';
+import '../../features/export/presentation/parameter_panel.dart';
 import '../../features/preview/application/preview_providers.dart';
 import '../../features/preview/presentation/preview_controls_bar.dart';
 import '../../features/preview/presentation/video_preview_panel.dart';
+import '../../features/timeline/presentation/timeline_bar.dart';
 
 /// 预览页组合壳(app 层组装,§5.3 app→features 仅组装)。
 ///
@@ -38,9 +39,11 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
         return;
       }
       ref.read(previewControllerProvider.notifier).load(video);
+      // 参数表单初始化(应用默认参数)
+      ref.read(exportControllerProvider.notifier).initForm(video: video);
     });
     // 导出终态监听:完成 → 弹窗;失败/取消 → SnackBar(initState 用 listenManual)
-    ref.listenManual<ExportUiState>(exportControllerProvider, (_, state) {
+    ref.listenManual<ExportFormState>(exportControllerProvider, (_, state) {
       if (!mounted) return;
       switch (state.lifecycle) {
         case ExportLifecycle.done:
@@ -70,20 +73,54 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
   @override
   Widget build(BuildContext context) {
     final video = widget.video;
+    if (video == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    final exporting =
+        ref.watch(exportControllerProvider).lifecycle ==
+        ExportLifecycle.exporting;
     return Scaffold(
       appBar: AppBar(
         // Windows 反斜杠路径兼容(纯字符串处理,不触 IO)
-        title: Text(
-          video == null ? '预览' : video.path.split(RegExp(r'[\\/]')).last,
-        ),
+        title: Text(video.path.split(RegExp(r'[\\/]')).last),
         leading: BackButton(onPressed: () => context.pop()),
       ),
-      body: Column(
-        children: [
-          Expanded(child: VideoPreviewPanel()),
-          const SafeArea(child: PreviewControlsBar()),
-          if (video != null) ExportBar(video: video),
-        ],
+      // 工作台双栏:中栏预览+控制条+时间轴;右栏参数面板(窄屏单列滚动)
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final previewColumn = Column(
+            children: [
+              Expanded(child: VideoPreviewPanel()),
+              const SafeArea(child: PreviewControlsBar()),
+              TimelineBar(enabled: !exporting),
+            ],
+          );
+          final panel = ParameterPanel(video: video, enabled: !exporting);
+          if (constraints.maxWidth >= 1024) {
+            return Row(
+              children: [
+                Expanded(child: previewColumn),
+                SizedBox(
+                  width: 360,
+                  child: SafeArea(
+                    child: ColoredBox(
+                      color: Theme.of(context).colorScheme.surfaceContainerLow,
+                      child: panel,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+          return Column(
+            children: [
+              Expanded(child: VideoPreviewPanel()),
+              const SafeArea(child: PreviewControlsBar()),
+              TimelineBar(enabled: !exporting),
+              Flexible(child: SingleChildScrollView(child: panel)),
+            ],
+          );
+        },
       ),
     );
   }

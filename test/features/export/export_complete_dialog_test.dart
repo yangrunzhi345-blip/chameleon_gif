@@ -2,11 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gif_forge/domain/entities/export_task.dart';
+import 'package:gif_forge/domain/entities/video_info.dart';
+import 'package:gif_forge/domain/repository_interfaces/ffmpeg_engine.dart';
+import 'package:gif_forge/domain/repository_interfaces/ffmpeg_service.dart';
 import 'package:gif_forge/domain/value_objects/gif_setting.dart';
+import 'package:gif_forge/domain/value_objects/task_progress.dart';
 import 'package:gif_forge/domain/value_objects/task_state.dart';
+import 'package:gif_forge/core/logger/app_logger.dart';
 import 'package:gif_forge/features/export/application/export_controller.dart';
 import 'package:gif_forge/features/export/application/export_providers.dart';
+import 'package:gif_forge/features/export/application/export_state.dart';
 import 'package:gif_forge/features/export/presentation/export_complete_dialog.dart';
+import 'package:gif_forge/shared/providers/core_providers.dart';
 
 /// [ExportCompleteDialog] 渲染与按钮测试(纯 UI,动作仅验证转发)。
 void main() {
@@ -30,6 +37,9 @@ void main() {
         overrides: [
           if (controller != null)
             exportControllerProvider.overrideWith(() => controller),
+          // 真实 controller 的 build 依赖任务链,注入 Noop 服务满足装配
+          appLoggerProvider.overrideWithValue(AppLogger()),
+          ffmpegServiceProvider.overrideWithValue(_NoopFfmpegService()),
         ],
         child: MaterialApp(
           home: Builder(
@@ -101,6 +111,10 @@ class _SpyExportController extends ExportController {
   int openFolderCalls = 0;
   int resetCount = 0;
 
+  /// 覆盖 build:spy 不接真实依赖链(taskManager/ffmpegService)。
+  @override
+  ExportFormState build() => const ExportFormState.idle();
+
   @override
   Future<void> openOutputFolder() async {
     openFolderCalls++;
@@ -110,5 +124,22 @@ class _SpyExportController extends ExportController {
   void reset() {
     resetCount++;
     super.reset();
+  }
+}
+
+/// 无操作 FFmpeg 服务(本测试不触导出,仅满足 controller 装配)。
+class _NoopFfmpegService implements FFmpegService {
+  @override
+  Future<ConvertResult> convert({
+    required GifSetting setting,
+    required VideoInfo video,
+    required int taskId,
+    required String workDir,
+    required String outputPath,
+    CancelToken? cancelToken,
+    void Function(TaskProgress)? onProgress,
+    void Function(String line)? onLog,
+  }) async {
+    throw UnimplementedError('本测试不执行导出');
   }
 }

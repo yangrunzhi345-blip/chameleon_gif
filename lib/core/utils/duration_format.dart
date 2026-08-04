@@ -16,3 +16,53 @@ String formatHumanDuration(Duration d) {
   if (s < 60) return '$s 秒';
   return '${s ~/ 60} 分 ${s % 60} 秒';
 }
+
+/// 时间输入解析(P4 表单,与 [formatFfmpegTime] 对称)。
+///
+/// 支持 `HH:MM:SS[.mmm]` / `MM:SS[.mmm]` / 裸秒 `S[.mmm]`;分/秒必须 <60;
+/// 毫秒 1–3 位补零;空串/空白/非法 → null(调用方语义:start=0,end=到结尾)。
+Duration? parseFfmpegTime(String input) {
+  final text = input.trim();
+  if (text.isEmpty) return null;
+  final match = RegExp(
+    r'^(\d+):(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?$'
+    r'|^(\d+):(\d{1,2})(?:\.(\d{1,3}))?$'
+    r'|^(\d+)(?:\.(\d{1,3}))?$',
+  ).firstMatch(text);
+  if (match == null) return null;
+
+  // 9 组:1-4 HH:MM:SS[.mmm] | 5-7 MM:SS[.mmm] | 8-9 裸秒[.mmm]
+  final groups = match.groups([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  int hours = 0, minutes = 0, seconds = 0, millis = 0;
+
+  if (groups[0] != null) {
+    // HH:MM:SS[.mmm]
+    hours = int.parse(groups[0]!);
+    minutes = int.parse(groups[1]!);
+    seconds = int.parse(groups[2]!);
+    millis = _parseMillis(groups[3]);
+  } else if (groups[4] != null) {
+    // MM:SS[.mmm]
+    minutes = int.parse(groups[4]!);
+    seconds = int.parse(groups[5]!);
+    millis = _parseMillis(groups[6]);
+  } else {
+    // 裸秒 S[.mmm]
+    seconds = int.parse(groups[7]!);
+    millis = _parseMillis(groups[8]);
+  }
+
+  if (minutes >= 60 || seconds >= 60) return null;
+  return Duration(
+    hours: hours,
+    minutes: minutes,
+    seconds: seconds,
+    milliseconds: millis,
+  );
+}
+
+int _parseMillis(String? raw) {
+  if (raw == null) return 0;
+  // 1–3 位毫秒:按位数补零(「5」→ 500ms? 否——按小数位补零:「.5」→ 500ms)
+  return int.parse(raw.padRight(3, '0'));
+}
