@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'application/providers.dart';
 import 'router.dart';
@@ -9,8 +10,11 @@ import 'theme/app_theme.dart';
 ///
 /// 运行时依赖(isar/prefs/logger)由 main() 经 ProviderScope overrides 注入,
 /// 本组件只做组装,不含业务逻辑。
+/// [router] 可注入独立实例(测试隔离;默认全局单例 [appRouter])。
 class GifForgeApp extends ConsumerWidget {
-  const GifForgeApp({super.key});
+  const GifForgeApp({super.key, this.router});
+
+  final GoRouter? router;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -21,7 +25,7 @@ class GifForgeApp extends ConsumerWidget {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,
-      routerConfig: appRouter,
+      routerConfig: router ?? appRouter,
     );
   }
 }
