@@ -1,0 +1,20 @@
+# deb 打包配置(P9;flutter_app_packager make_config 格式)
+# 桌面 FFmpeg 分发决策:依赖系统 ffmpeg(架构既定,PlatformAdapter),
+# dependencies 声明后 `apt install` 自动拉取,无需随包内嵌。
+display_name: Chameleon Gif
+package_name: chameleon-gif
+maintainer:
+  name: Chameleon Gif Developers
+  email: dev@chameleongif.local
+priority: optional
+section: video
+installed_size: 102400
+# 系统 ffmpeg 依赖(转码核心;缺失时安装 deb 自动拉取)
+dependencies:
+  - ffmpeg
+icon: linux/runner/resources/app_icon.png
+generic_name: MP4 转 GIF 工具
+keywords:
+  - gif
+  - mp4
+  - converter

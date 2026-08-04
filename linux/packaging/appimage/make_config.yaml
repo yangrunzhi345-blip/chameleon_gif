@@ -1,0 +1,14 @@
+# AppImage 打包配置(P9;flutter_app_packager make_config 格式)
+# 字段说明:display_name = 桌面入口名;icon = 源图(自动复制进 AppDir
+# 并生成 256x256 图标);generic_name/categories 进入 .desktop。
+display_name: Chameleon Gif
+icon: linux/runner/resources/app_icon.png
+generic_name: MP4 转 GIF 工具
+categories:
+  - Utility
+  - Graphics
+keywords:
+  - gif
+  - mp4
+  - converter
+startup_notify: true
