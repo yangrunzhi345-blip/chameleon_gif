@@ -1,7 +1,7 @@
 import 'package:ffmpeg_kit_flutter_minimal/media_information.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gif_forge/domain/exceptions/source_broken_exception.dart';
-import 'package:gif_forge/features/converter/application/ffprobe_video_info_parser.dart';
+import 'package:gif_forge/features/converter/infrastructure/ffprobe_video_info_parser.dart';
 
 import '../../fixtures/ffprobe_loader.dart';
 

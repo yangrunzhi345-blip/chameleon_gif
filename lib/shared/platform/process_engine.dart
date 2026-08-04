@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import '../../../domain/exceptions/ffmpeg_missing_exception.dart';
-import '../../../domain/repository_interfaces/ffmpeg_engine.dart';
-import '../application/cancellation_manager.dart';
+import '../../domain/exceptions/ffmpeg_missing_exception.dart';
+import '../../domain/repository_interfaces/ffmpeg_engine.dart';
+import 'cancellation_manager.dart';
 
 /// 桌面 FFmpeg 引擎(docs/08 §8.3.8:Linux/Windows 走系统 ffmpeg 二进制)。
 ///

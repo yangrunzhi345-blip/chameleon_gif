@@ -1,8 +1,8 @@
 import 'dart:io' show Directory, Platform, Process, ProcessException;
 
 import '../../domain/repository_interfaces/ffmpeg_engine.dart';
-import '../../features/converter/infrastructure/ffmpeg_kit_engine.dart';
-import '../../features/converter/infrastructure/process_engine.dart';
+import 'ffmpeg_kit_engine.dart';
+import 'process_engine.dart';
 import 'ffprobe_executor.dart';
 import 'ffprobe_kit_executor.dart';
 import 'process_ffprobe_executor.dart';

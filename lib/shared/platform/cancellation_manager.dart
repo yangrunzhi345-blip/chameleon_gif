@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import '../../../domain/repository_interfaces/ffmpeg_engine.dart';
+import '../../domain/repository_interfaces/ffmpeg_engine.dart';
 
 /// 子进程句柄抽象(便于单测注入,Fake 控制退出状态)。
 abstract interface class ProcessHandle {

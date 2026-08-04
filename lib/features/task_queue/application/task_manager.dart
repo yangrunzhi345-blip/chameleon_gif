@@ -16,7 +16,7 @@ import '../../../domain/value_objects/gif_setting.dart';
 import '../../../domain/value_objects/task_progress.dart';
 import '../../../domain/value_objects/task_state.dart';
 import '../../../shared/platform/platform_adapter.dart';
-import '../../converter/application/cancellation_manager.dart';
+import '../../../shared/platform/cancellation_manager.dart';
 
 /// 任务调度器(单并发槽 FIFO,docs/06 §6.3、docs/08 §8.3.7)。
 ///

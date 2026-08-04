@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gif_forge/domain/exceptions/file_pick_exception.dart';
 import 'package:gif_forge/domain/exceptions/source_broken_exception.dart';
 import 'package:gif_forge/domain/exceptions/source_missing_exception.dart';
-import 'package:gif_forge/features/converter/application/ffprobe_error_classifier.dart';
+import 'package:gif_forge/features/converter/infrastructure/ffprobe_error_classifier.dart';
 
 void main() {
   const classifier = FfprobeErrorClassifier();

@@ -12,7 +12,7 @@ import 'package:gif_forge/domain/entities/video_info.dart';
 import 'package:gif_forge/domain/value_objects/gif_setting.dart';
 import 'package:gif_forge/features/converter/application/command_builder.dart';
 import 'package:gif_forge/features/converter/application/ffmpeg_service_engine.dart';
-import 'package:gif_forge/features/converter/infrastructure/process_engine.dart';
+import 'package:gif_forge/shared/platform/process_engine.dart';
 
 const fixtures = [
   (

@@ -8,8 +8,8 @@ import '../../../domain/exceptions/file_pick_exception.dart';
 import '../../../domain/repository_interfaces/parse_video_port.dart';
 import '../../../shared/platform/ffprobe_executor.dart';
 import '../../../shared/platform/process_ffprobe_executor.dart';
-import '../application/ffprobe_error_classifier.dart';
-import '../application/ffprobe_video_info_parser.dart';
+import 'ffprobe_error_classifier.dart';
+import 'ffprobe_video_info_parser.dart';
 
 /// [ParseVideoPort] 的 ffprobe 实现(P1-WP1,见 docs/12-开发计划.md)。
 ///

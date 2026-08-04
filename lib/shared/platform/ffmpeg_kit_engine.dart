@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:ffmpeg_kit_flutter_minimal/ffmpeg_kit.dart';
 
-import '../../../domain/repository_interfaces/ffmpeg_engine.dart';
+import '../../domain/repository_interfaces/ffmpeg_engine.dart';
 
 /// Android FFmpeg 引擎(ffmpeg_kit_flutter_minimal 内嵌库,docs/08 §8.3.8)。
 ///
