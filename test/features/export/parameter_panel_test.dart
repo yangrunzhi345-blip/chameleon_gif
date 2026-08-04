@@ -136,6 +136,39 @@ void main() {
     expect(find.textContaining('比例不一致'), findsNothing);
   });
 
+  testWidgets('预估输出 > 50MB → 体积提醒(不阻塞导出)', (tester) async {
+    await pumpPanel(tester);
+    final container = containerOf(tester);
+
+    // 默认(小体积)→ 无提醒
+    expect(find.textContaining('体积较大'), findsNothing);
+
+    // 大体积:fps 60 + 宽高 1920×1920(10s 源)→ 远超 50MB
+    container.read(exportControllerProvider.notifier).updateFps(60);
+    container.read(exportControllerProvider.notifier).updateWidth(1920);
+    container.read(exportControllerProvider.notifier).updateHeight(1920);
+    await tester.pump();
+
+    expect(find.textContaining('体积较大'), findsOneWidget);
+    expect(find.textContaining('导出耗时与磁盘占用较高'), findsOneWidget);
+    // 提醒不阻塞导出按钮
+    expect(find.text('导出 GIF'), findsOneWidget);
+  });
+
+  testWidgets('比例警告与体积提醒可同时出现', (tester) async {
+    await pumpPanel(tester);
+    final container = containerOf(tester);
+
+    // 480×300(比例不符)+ fps 60 + 1920×1920 尺寸 → 两个提醒都在
+    container.read(exportControllerProvider.notifier).updateWidth(1920);
+    container.read(exportControllerProvider.notifier).updateHeight(1920);
+    container.read(exportControllerProvider.notifier).updateFps(60);
+    await tester.pump();
+
+    expect(find.textContaining('比例不一致'), findsOneWidget);
+    expect(find.textContaining('体积较大'), findsOneWidget);
+  });
+
   testWidgets('循环非法文本 → formError 红字', (tester) async {
     await pumpPanel(tester);
 

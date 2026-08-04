@@ -251,12 +251,21 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
             ],
           ),
           const SizedBox(height: 12),
-          if (_showAspectWarning(state, video))
-            _AspectWarning(
-              width: state.width,
-              height: state.height,
-              videoWidth: video.width,
-              videoHeight: video.height,
+          // 提醒区:比例不一致 / 体积过大(可同时出现,均不阻塞导出)
+          if (_showAspectWarning(state, video) ||
+              _showSizeWarning(state, video))
+            Column(
+              children: [
+                if (_showAspectWarning(state, video))
+                  _AspectWarning(
+                    width: state.width,
+                    height: state.height,
+                    videoWidth: video.width,
+                    videoHeight: video.height,
+                  ),
+                if (_showSizeWarning(state, video))
+                  _SizeWarning(sizeLabel: _estimateLabel(state, video)),
+              ],
             ),
           Text(
             '预估大小:${_estimateLabel(state, video)}',
@@ -284,7 +293,13 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
   }
 
   String _estimateLabel(ExportFormState state, VideoInfo video) {
-    final bytes = estimateGifSize(
+    final bytes = _estimateBytes(state, video);
+    return bytes <= 0 ? '—' : formatFileSize(bytes);
+  }
+
+  /// 当前表单的预估输出字节数(预估文本与体积提醒共用)。
+  int _estimateBytes(ExportFormState state, VideoInfo video) {
+    return estimateGifSize(
       setting: GifSetting(
         fps: state.fps,
         width: state.width,
@@ -295,7 +310,6 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
       ),
       video: video,
     );
-    return bytes <= 0 ? '—' : formatFileSize(bytes);
   }
 
   /// 宽高同时指定且比例与源视频不一致时显示变形警告(不阻塞导出)。
@@ -303,6 +317,43 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
     return !isAspectRatioMatch(
       GifSetting(width: state.width, height: state.height),
       video,
+    );
+  }
+
+  /// 预估输出超过 [kGifSizeWarningBytes](50MB)时显示体积提醒。
+  bool _showSizeWarning(ExportFormState state, VideoInfo video) {
+    return _estimateBytes(state, video) > kGifSizeWarningBytes;
+  }
+}
+
+/// 体积提醒条:预估输出较大,提示耗时与磁盘占用(不阻塞导出)。
+class _SizeWarning extends StatelessWidget {
+  const _SizeWarning({required this.sizeLabel});
+
+  /// 已格式化的预估体积(如 "65 MB")。
+  final String sizeLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 18, color: scheme.tertiary),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              '预计输出约 $sizeLabel,体积较大;导出耗时与磁盘占用较高,'
+              '仍可继续。',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.tertiary),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

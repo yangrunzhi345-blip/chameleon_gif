@@ -4,6 +4,9 @@ import '../../../domain/value_objects/gif_setting.dart';
 /// GIF 输出大小估算系数(LZW 压缩经验值,粗略;仅用于面板预估展示)。
 const kGifCompressionFactor = 0.35;
 
+/// 体积提醒阈值:预估输出超过 50MB 时在面板提醒(不阻塞导出)。
+const kGifSizeWarningBytes = 50 * 1024 * 1024;
+
 /// 预估输出 GIF 字节数(docs/10 §10.2.1"预估大小")。
 ///
 /// 帧数 × 输出像素 × 每像素字节(8 位调色板 = 1B)× 压缩系数。
