@@ -43,6 +43,7 @@ class ExportController extends Notifier<ExportFormState> {
     state = state.copyWith(
       fps: base.fps.clamp(1, 60),
       width: base.width.clamp(0, 4096),
+      height: base.height.clamp(0, 4096),
       loop: base.loop.clamp(0, 100),
       start: base.start,
       end: base.end,
