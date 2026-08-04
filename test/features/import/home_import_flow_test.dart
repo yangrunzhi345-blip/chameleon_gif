@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gif_forge/app/app.dart';
 import 'package:gif_forge/shared/providers/core_providers.dart';
+import 'package:gif_forge/shared/repositories/in_memory_history_repository.dart';
+import 'package:gif_forge/shared/repositories/in_memory_task_repository.dart';
 import 'package:gif_forge/app/router.dart';
 import 'package:gif_forge/core/logger/app_logger.dart';
 import 'package:gif_forge/domain/entities/video_info.dart';
@@ -75,6 +77,10 @@ void main() {
         previewPlayerPortProvider.overrideWithValue(FakePlayerPort()),
         // 预览页含导出区,注入 FFmpeg 服务避免共享 provider 抛注入桩
         ffmpegServiceProvider.overrideWithValue(_NoopFfmpegService()),
+        taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
+        historyRepositoryProvider.overrideWithValue(
+          InMemoryHistoryRepository(),
+        ),
       ],
       // 独立 router 实例:全局 appRouter 单例跨测试共享栈状态,会串扰
       child: GifForgeApp(router: GoRouter(routes: buildRoutes())),

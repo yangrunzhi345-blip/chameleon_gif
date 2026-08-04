@@ -11,6 +11,8 @@ import 'package:gif_forge/features/export/application/export_providers.dart';
 import 'package:gif_forge/features/export/presentation/parameter_panel.dart';
 import 'package:gif_forge/features/timeline/application/timeline_providers.dart';
 import 'package:gif_forge/shared/providers/core_providers.dart';
+import 'package:gif_forge/shared/repositories/in_memory_history_repository.dart';
+import 'package:gif_forge/shared/repositories/in_memory_task_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// [ParameterPanel] 交互测试(P4-WP2,§14.3 参数面板用例)。
@@ -38,6 +40,10 @@ void main() {
         sharedPrefsProvider.overrideWithValue(prefs),
         appLoggerProvider.overrideWithValue(AppLogger()),
         ffmpegServiceProvider.overrideWithValue(_NoopFfmpegService()),
+        taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
+        historyRepositoryProvider.overrideWithValue(
+          InMemoryHistoryRepository(),
+        ),
       ],
       child: MaterialApp(
         home: Scaffold(body: ParameterPanel(video: video)),

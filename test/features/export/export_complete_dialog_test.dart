@@ -14,6 +14,8 @@ import 'package:gif_forge/features/export/application/export_providers.dart';
 import 'package:gif_forge/features/export/application/export_state.dart';
 import 'package:gif_forge/features/export/presentation/export_complete_dialog.dart';
 import 'package:gif_forge/shared/providers/core_providers.dart';
+import 'package:gif_forge/shared/repositories/in_memory_history_repository.dart';
+import 'package:gif_forge/shared/repositories/in_memory_task_repository.dart';
 
 /// [ExportCompleteDialog] 渲染与按钮测试(纯 UI,动作仅验证转发)。
 void main() {
@@ -40,6 +42,10 @@ void main() {
           // 真实 controller 的 build 依赖任务链,注入 Noop 服务满足装配
           appLoggerProvider.overrideWithValue(AppLogger()),
           ffmpegServiceProvider.overrideWithValue(_NoopFfmpegService()),
+          taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
+          historyRepositoryProvider.overrideWithValue(
+            InMemoryHistoryRepository(),
+          ),
         ],
         child: MaterialApp(
           home: Builder(

@@ -1,9 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gif_forge/domain/entities/export_history.dart';
+import 'package:gif_forge/domain/entities/export_preset.dart';
 import 'package:gif_forge/domain/entities/export_task.dart';
 import 'package:gif_forge/domain/value_objects/gif_setting.dart';
 import 'package:gif_forge/domain/value_objects/task_state.dart';
 import 'package:gif_forge/shared/repositories/schemas/export_history_schema.dart';
+import 'package:gif_forge/shared/repositories/schemas/export_preset_schema.dart';
 import 'package:gif_forge/shared/repositories/schemas/export_task_schema.dart';
 
 /// Isar 集合 fromEntity/toEntity 往返(docs/14 §14.2 模型序列化,P5 仓储前置)。
@@ -80,6 +82,22 @@ void main() {
       expect(back.createdAt, history.createdAt);
       expect(back.sourceDurationMs, history.sourceDurationMs);
       expect(back.outputFrameCount, history.outputFrameCount);
+    });
+
+    group('ExportPresetSchema 往返', () {
+      test('全字段往返一致', () {
+        final preset = ExportPreset(
+          id: 9,
+          name: '默认 480p',
+          settings: const GifSetting(fps: 24, width: 480, loop: 1),
+          createdAt: DateTime(2026, 8, 4, 12),
+        );
+        final back = ExportPresetSchema.fromEntity(preset).toEntity();
+        expect(back.id, preset.id);
+        expect(back.name, preset.name);
+        expect(back.settings, preset.settings);
+        expect(back.createdAt, preset.createdAt);
+      });
     });
   });
 }

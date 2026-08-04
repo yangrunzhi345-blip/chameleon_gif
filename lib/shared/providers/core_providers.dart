@@ -10,8 +10,8 @@ import '../../domain/repository_interfaces/parse_video_port.dart';
 import '../../domain/repository_interfaces/settings_repository.dart';
 import '../../domain/repository_interfaces/task_repository.dart';
 import '../platform/platform_adapter.dart';
-import '../repositories/in_memory_history_repository.dart';
-import '../repositories/in_memory_task_repository.dart';
+import '../repositories/isar_history_repository.dart';
+import '../repositories/isar_task_repository.dart';
 import '../repositories/settings_repository_impl.dart';
 
 /// 共享 Provider 注册表(docs/09-状态管理.md §9.2 层次一)。
@@ -40,13 +40,20 @@ final settingsRepositoryProvider = Provider<SettingsRepository>(
   (ref) => SharedPrefsSettingsRepository(ref.watch(sharedPrefsProvider)),
 );
 
-/// 任务仓储(P3 内存过渡;P5-WP1 替换为 Isar 仓储,见 docs/12)。
+/// 任务仓储(Isar 持久化,P5-WP1;测试经 override 注入 InMemory 版)。
 final taskRepositoryProvider = Provider<TaskRepository>((ref) {
-  return InMemoryTaskRepository();
+  return IsarTaskRepository(
+    ref.watch(isarProvider),
+    logger: ref.watch(appLoggerProvider),
+  );
 });
 
+/// 历史仓储(Isar 持久化,P5-WP1;测试经 override 注入 InMemory 版)。
 final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
-  return InMemoryHistoryRepository();
+  return IsarHistoryRepository(
+    ref.watch(isarProvider),
+    logger: ref.watch(appLoggerProvider),
+  );
 });
 
 /// 视频元数据解析端口(接口型;实现由 main() 注入,见 main.dart)。
