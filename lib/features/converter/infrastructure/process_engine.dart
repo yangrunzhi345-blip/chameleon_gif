@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import '../../../domain/exceptions/ffmpeg_missing_exception.dart';
 import '../../../domain/repository_interfaces/ffmpeg_engine.dart';
+import '../application/cancellation_manager.dart';
 
 /// 桌面 FFmpeg 引擎(docs/08 §8.3.8:Linux/Windows 走系统 ffmpeg 二进制)。
 ///
@@ -10,8 +12,9 @@ import '../../../domain/repository_interfaces/ffmpeg_engine.dart';
 /// stdout/stderr 双流**并发**消费(`await for` 双循环 + `Future.wait`,
 /// 防管道缓冲填满导致死锁)。二进制缺失 → [FFmpegMissingException]。
 ///
-/// 取消:注册 [CancelToken.onCancel] 回调终止进程;3s 超时强杀与临时文件
-/// 清理由 CancellationManager(docs/08 §8.3.6)负责,本引擎只做首次 kill。
+/// 取消:注册 [CancelToken.onCancel] 回调 → [terminateProcess] 完整终止
+/// 时序(kill → 3s 超时 → 强杀,§8.3.6 ②③④);临时文件清理由
+/// [CancellationManager](§8.3.6 ⑤)负责。
 class ProcessEngine implements FFmpegEngine {
   const ProcessEngine({this.binaryName = 'ffmpeg'});
 
@@ -32,7 +35,9 @@ class ProcessEngine implements FFmpegEngine {
       // 二进制不存在/不可执行 → 语义等价 exit 127
       throw FFmpegMissingException(kind: 'ENCODE', cause: e);
     }
-    cancelToken?.onCancel(() => process.kill());
+    cancelToken?.onCancel(() {
+      unawaited(terminateProcess(ProcessHandleImpl(process)));
+    });
 
     final sw = Stopwatch()..start();
     final stdoutDone = _drain(process.stdout, onProgress);
