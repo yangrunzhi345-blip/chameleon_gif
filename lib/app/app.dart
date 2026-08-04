@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../domain/value_objects/app_theme_mode.dart';
+import '../features/task_queue/application/task_queue_providers.dart';
 import 'application/providers.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
@@ -21,6 +22,9 @@ class GifForgeApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appThemeMode = ref.watch(themeModeProvider);
+    // 启动即物化任务队列控制器:触发 TaskManager.start() 崩溃恢复扫描
+    // (kill 进程重启后 queued/running 任务重新排队,不依赖打开队列页)
+    ref.watch(taskQueueControllerProvider);
     return MaterialApp.router(
       title: 'GifForge',
       debugShowCheckedModeBanner: false,

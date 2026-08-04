@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -175,6 +176,30 @@ void main() {
       await manager.cancel(id); // 不应抛、不改状态
       final task = await repo.byId(id);
       expect(task!.state, TaskState.completed);
+    });
+
+    test('启动窗口取消:manager 已登记、running 未标记时取消不丢失(P6-WP3)', () async {
+      // gated 仓储阻塞 running 落库,把任务钉在"manager 已登记但 state 仍
+      // queued"的启动窗口;此时取消必须标记令牌并终态 cancelled,
+      // 不得被随后落库的 running 吞掉最终变成 completed
+      final gate = Completer<void>();
+      final gated = _GatedTaskRepository(gate: gate);
+      repo = gated;
+      final m = build();
+
+      final id = await m.submit(const GifSetting(), video);
+      for (var i = 0; i < 100; i++) {
+        if (gated.updateCalls >= 1) break; // running 写入已挂起 → 窗口内
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(gated.updateCalls, greaterThanOrEqualTo(1), reason: '应已进入启动窗口');
+
+      await m.cancel(id); // 窗口内取消:标记令牌 + 落 cancelled
+      gate.complete(); // 放行 running 落库(二次令牌检查拦截,不启动转换)
+
+      final task = await waitForState(id, TaskState.cancelled);
+      expect(task.finishedAt, isNotNull);
+      expect(service.convertCalls, isEmpty, reason: '启动窗口取消,转换不启动');
     });
   });
 
@@ -421,4 +446,21 @@ class _TestAdapter extends PlatformAdapter {
 
   @override
   String get systemTempDir => tempRoot;
+}
+
+/// 阻塞 running 落库的仓储:把任务钉在启动窗口(取消-启动竞态回归,P6-WP3)。
+class _GatedTaskRepository extends InMemoryTaskRepository {
+  _GatedTaskRepository({required this.gate});
+
+  final Completer<void> gate;
+  int updateCalls = 0;
+
+  @override
+  Future<void> update(ExportTask task) async {
+    updateCalls++;
+    if (task.state == TaskState.running) {
+      await gate.future;
+    }
+    return super.update(task);
+  }
 }

@@ -39,7 +39,10 @@ class ExportTask {
   final DateTime? startedAt;
   final DateTime? finishedAt;
 
-  /// 派生副本(供状态机推进时使用,字段级复制)
+  /// 派生副本(供状态机推进时使用,字段级复制)。
+  ///
+  /// 注意:`null` 参数为"保持原值"语义,**无法置空可空字段**(errorCode/
+  /// errorDetail/outputPath 等);需置空时显式构造新实体。
   ExportTask copyWith({
     String? outputPath,
     GifSetting? settings,

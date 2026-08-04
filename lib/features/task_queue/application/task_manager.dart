@@ -122,23 +122,39 @@ class TaskManager {
     _videos[id] = video;
     _queue.add(id);
     _logger.i('任务入队: id=$id path=${video.path}');
-    await _emitTask(task);
+    // 广播落库实体(真实 id),杜绝 id=0 幽灵事件
+    await _emitTask(await _taskRepository.byId(id) ?? task);
     unawaited(_pump());
     return id;
   }
 
-  /// 取消任务:queued 直接终态;running 触发令牌(引擎终止)+ 幂等清理。
+  /// 取消任务:queued 直接终态;running/启动窗口经 [CancellationManager]
+  /// 触发令牌(引擎终止)+ 幂等清理,状态由转换侧或本方法收尾。
+  ///
+  /// 竞态守卫(P6-WP3):[_run] 标记 running 前存在 await 窗口,期间 manager
+  /// 已登记但 state 仍是 queued;此处不再要求 state==running,manager 存在
+  /// 即取消,未 running 时补落 cancelled 终态,防"取消被吞、任务最终完成"。
   Future<void> cancel(int id) async {
     final task = await _taskRepository.byId(id);
     if (task == null || task.state.isFinal) return; // 终态幂等
     final manager = _cancelManagers[id];
-    if (task.state == TaskState.running && manager != null) {
-      await manager.cancel();
-      return; // 转换侧检测令牌后走 cancelled 收尾
+    if (manager != null) {
+      await manager.cancel(); // 幂等:标记令牌 + 清理临时文件
+      if (task.state != TaskState.running) {
+        // 启动窗口/退避期:转换尚未开始,本方法直接落终态
+        _queue.remove(id);
+        await _update(
+          task.copyWith(state: TaskState.cancelled, finishedAt: DateTime.now()),
+        );
+        _emitTask(task);
+      }
+      return; // running 由转换侧检测令牌后走 cancelled 收尾
     }
     _queue.remove(id);
     _videos.remove(id); // 未执行的排队任务,释放提交时缓存的元数据
-    await _update(task.copyWith(state: TaskState.cancelled));
+    await _update(
+      task.copyWith(state: TaskState.cancelled, finishedAt: DateTime.now()),
+    );
     _emitTask(task);
   }
 
@@ -154,7 +170,20 @@ class TaskManager {
   Future<void> retry(int id) async {
     final task = await _taskRepository.byId(id);
     if (task == null || task.state != TaskState.failed) return;
-    await _update(task.copyWith(state: TaskState.queued));
+    // 重排队清理陈旧错误字段(与 start() 恢复路径一致);copyWith 传 null
+    // 是"保持"语义无法置空,显式构造
+    await _update(
+      ExportTask(
+        id: task.id,
+        videoPath: task.videoPath,
+        outputPath: task.outputPath,
+        settings: task.settings,
+        state: TaskState.queued,
+        progress: task.progress,
+        retryCount: task.retryCount,
+        createdAt: task.createdAt,
+      ),
+    );
     _queue.add(id);
     _logger.i('任务重试入队: id=$id');
     await _emitTask(task);
@@ -162,15 +191,29 @@ class TaskManager {
   }
 
   /// 启动恢复:扫描仓储 pending → 全部重置 queued 重排队(崩溃恢复,§8.3.7)。
-  /// 幂等:重复调用不重复入队。
+  /// 幂等:重复调用不重复入队;恢复顺序按 id 升序(提交 FIFO 序,接口契约)。
   Future<void> start() async {
     if (_started) return;
     _started = true;
     final pending = await _taskRepository.pending();
     if (pending.isEmpty) return;
+    pending.sort((a, b) => a.id.compareTo(b.id));
     _logger.i('恢复扫描: ${pending.length} 个待恢复任务重新排队');
     for (final task in pending) {
-      await _update(task.copyWith(state: TaskState.queued, errorCode: null));
+      // 重排队 = 全新执行:错误残留/起止时间清除(copyWith 传 null 是
+      // "保持"语义无法置空,故显式构造,见 ExportTask.copyWith 文档)
+      await _update(
+        ExportTask(
+          id: task.id,
+          videoPath: task.videoPath,
+          outputPath: task.outputPath,
+          settings: task.settings,
+          state: TaskState.queued,
+          progress: task.progress,
+          retryCount: task.retryCount,
+          createdAt: task.createdAt,
+        ),
+      );
       _queue.add(task.id);
       await _emitTask(task);
     }
@@ -230,12 +273,24 @@ class TaskManager {
         workDir: workDir,
       );
       await Directory(workDir).create(recursive: true);
+      // 启动窗口竞态守卫:标记 running 前 cancel 已标记令牌([cancel] 不再
+      // 要求 running),此处直接落 cancelled,转换不进入执行
+      if (token.isCancelled) {
+        await _finish(id, TaskState.cancelled);
+        return; // finally 释放槽位
+      }
 
       var current = task.copyWith(
         state: TaskState.running,
         startedAt: DateTime.now(),
       );
       await _update(current);
+      // 竞态二次检查:running 落库挂起期间取消已标记令牌(启动窗口取消),
+      // 不再启动转换,避免无效进程与工作目录已清理引发的异常
+      if (token.isCancelled) {
+        await _finish(id, TaskState.cancelled);
+        return; // finally 释放槽位
+      }
       _emitTask(current);
       _logger.i('任务开始执行: id=$id');
 

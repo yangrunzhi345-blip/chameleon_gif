@@ -64,7 +64,10 @@ class IsarTaskRepository implements TaskRepository {
     return schemas
         .map((s) => _safeToEntity(s, 'task pending id=${s.id}'))
         .whereType<ExportTask>()
-        .toList();
+        .toList()
+      // 接口契约(id 升序,与 InMemory 对齐):stateBetween 走 state 索引,
+      // 返回顺序按 state 值(queued 在前),恢复重排必须按提交序
+      ..sort((a, b) => a.id.compareTo(b.id));
   }
 
   @override

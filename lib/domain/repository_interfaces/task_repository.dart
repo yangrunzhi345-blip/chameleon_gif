@@ -16,7 +16,7 @@ abstract interface class TaskRepository {
   /// 按 id 查询;不存在返回 null。
   Future<ExportTask?> byId(int id);
 
-  /// 待恢复任务(queued/running),用于应用启动后重新排队
+  /// 待恢复任务(queued/running,按 id 升序),用于应用启动后重新排队
   Future<List<ExportTask>> pending();
 
   /// 全部任务(按 id 升序)。
