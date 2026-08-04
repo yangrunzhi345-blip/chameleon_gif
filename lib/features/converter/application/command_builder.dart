@@ -11,6 +11,8 @@ import 'gif_command.dart';
 ///
 /// 契约(快照单测锁定,禁止随意改动参数语义):
 /// - `-ss`/`-to` 前置在 `-i` 前(快速定位,提高裁剪精度);
+/// - `end == Duration.zero`(时长未知的恢复兜底哨兵)省略 `-to`,输出全片
+///   (ffmpeg 8 对 `-to 0` 报 "-to value smaller than -ss" abort,见 P7 修复);
 /// - `width=0` 省略 scale 滤镜项(原图等比);
 /// - `end == null` 时取 `video.duration`(导入时未裁剪);
 /// - `loop` 映射为 `-loop <n>`(0 = 无限循环),两个模式均生效;
@@ -88,12 +90,13 @@ class GifCommandBuilder {
   }
 
   /// 裁剪参数(`-ss`/`-to` 前置在 `-i` 前)。
+  ///
+  /// [end] 为 [Duration.zero] 时省略 `-to`(时长未知 → 输出全片)。
   List<String> _trimArgs(GifSetting setting, Duration end, String inputPath) {
     return [
       '-ss',
       formatFfmpegTime(setting.start),
-      '-to',
-      formatFfmpegTime(end),
+      if (end > Duration.zero) ...['-to', formatFfmpegTime(end)],
       '-i',
       inputPath,
     ];

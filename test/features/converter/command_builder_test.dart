@@ -126,6 +126,35 @@ void main() {
       ]);
     });
 
+    test('end=Duration.zero(时长未知的恢复兜底)→ 省略 -to,输出全片', () {
+      // 崩溃恢复路径:ExportTask 无持久化时长,settings.end 为 null 时
+      // video 兜底 duration=0;ffmpeg 8 对 -to 0 报 abort(P7 修复锁定)
+      final cmd = builder
+          .build(
+            setting: const GifSetting(),
+            video: VideoInfo(
+              path: '/tmp/recovered.mp4',
+              formatName: '',
+              duration: Duration.zero,
+              width: 480,
+              height: 0,
+              codec: '',
+            ),
+            inputPath: '/tmp/recovered.mp4',
+            workDir: '/tmp/work',
+            outputPath: '/tmp/work/out.gif',
+            usePalette: false,
+          )
+          .single;
+      expect(cmd.args.take(4), [
+        '-ss',
+        '00:00:00.000',
+        '-i',
+        '/tmp/recovered.mp4',
+      ]);
+      expect(cmd.args, isNot(contains('-to')));
+    });
+
     test('end=null 时取 video.duration', () {
       const setting = GifSetting();
       final cmd = builder
