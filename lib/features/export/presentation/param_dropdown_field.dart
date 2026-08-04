@@ -52,6 +52,10 @@ class _ParamDropdownFieldState<T> extends State<ParamDropdownField<T>> {
         final width = constraints.maxWidth;
         return MenuAnchor(
           controller: _menuController,
+          // 关闭交叉轴解约束:菜单宽度受 effectiveConstraints 约束
+          // (否则 IntrinsicWidth + UnconstrainedBox 让菜单按内容收缩,
+          // 锁宽失效,实测菜单 152px vs 按钮 800px)
+          crossAxisUnconstrained: false,
           style: MenuStyle(
             elevation: const WidgetStatePropertyAll(2),
             backgroundColor: WidgetStatePropertyAll(
@@ -62,9 +66,9 @@ class _ParamDropdownFieldState<T> extends State<ParamDropdownField<T>> {
                 borderRadius: BorderRadius.all(Radius.circular(8)),
               ),
             ),
-            // 菜单与按钮同宽(锁宽:minimum + maximum 均为按钮宽)
-            minimumSize: WidgetStatePropertyAll(Size(width, 0)),
-            maximumSize: WidgetStatePropertyAll(Size(width, double.infinity)),
+            // standard density:避免桌面 compact 对菜单约束压缩
+            // (实测 compact 下面板 784 vs 按钮 800,差 16)
+            visualDensity: VisualDensity.standard,
           ),
           builder: (context, controller, child) {
             return InkWell(
@@ -116,24 +120,29 @@ class _ParamDropdownFieldState<T> extends State<ParamDropdownField<T>> {
           },
           menuChildren: [
             for (final item in widget.items)
-              MenuItemButton(
-                onPressed: () {
-                  widget.onChanged(item.value);
-                  _menuController.close();
-                },
-                leadingIcon: item.value == widget.value
-                    ? Icon(Icons.check, size: 18, color: scheme.primary)
-                    : const SizedBox(width: 18),
-                child: Text(
-                  item.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: item.value == widget.value
-                      ? TextStyle(
-                          color: scheme.primary,
-                          fontWeight: FontWeight.w600,
-                        )
-                      : null,
+              // 菜单项固定宽 = 按钮宽:菜单面板(IntrinsicWidth)固有宽即
+              // 按钮宽,与按钮左对齐完全一致
+              SizedBox(
+                width: width,
+                child: MenuItemButton(
+                  onPressed: () {
+                    widget.onChanged(item.value);
+                    _menuController.close();
+                  },
+                  leadingIcon: item.value == widget.value
+                      ? Icon(Icons.check, size: 18, color: scheme.primary)
+                      : const SizedBox(width: 18),
+                  child: Text(
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: item.value == widget.value
+                        ? TextStyle(
+                            color: scheme.primary,
+                            fontWeight: FontWeight.w600,
+                          )
+                        : null,
+                  ),
                 ),
               ),
           ],

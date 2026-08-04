@@ -20,15 +20,20 @@ void main() {
     var current = value;
     return MaterialApp(
       home: Scaffold(
-        body: StatefulBuilder(
-          builder: (context, setState) => ParamDropdownField<int>(
-            value: current,
-            items: items,
-            enabled: enabled,
-            onChanged: (v) {
-              setState(() => current = v);
-              onChanged?.call(v);
-            },
+        body: Center(
+          child: SizedBox(
+            width: 300, // 贴近真实面板按钮宽(Expanded 约束)
+            child: StatefulBuilder(
+              builder: (context, setState) => ParamDropdownField<int>(
+                value: current,
+                items: items,
+                enabled: enabled,
+                onChanged: (v) {
+                  setState(() => current = v);
+                  onChanged?.call(v);
+                },
+              ),
+            ),
           ),
         ),
       ),
@@ -48,6 +53,31 @@ void main() {
     await tester.pumpWidget(build(value: 999));
 
     expect(find.text('原图等比'), findsOneWidget);
+  });
+
+  testWidgets('菜单在按钮正下方弹出(强制下拉)且与按钮同宽', (tester) async {
+    await tester.pumpWidget(build());
+
+    final btnRect = tester.getRect(find.byType(ParamDropdownField<int>));
+    await tester.tap(find.text('480 px'));
+    await tester.pumpAndSettle();
+
+    final firstItem = find.byType(MenuItemButton, skipOffstage: false).first;
+    expect(firstItem, findsOneWidget);
+    // 菜单面板(Material,elevation 2 圆角)顶部 >= 按钮底部(向下弹出)
+    final menuPanel = find.byWidgetPredicate(
+      (w) =>
+          w is Material &&
+          w.shape is RoundedRectangleBorder &&
+          w.elevation == 2,
+      skipOffstage: false,
+    );
+    expect(menuPanel, findsOneWidget);
+    final panelRect = tester.getRect(menuPanel);
+    expect(panelRect.top, greaterThanOrEqualTo(btnRect.bottom - 1));
+    // 菜单面板宽度 == 按钮宽度(菜单项 SizedBox 固定宽驱动,左对齐)
+    expect(panelRect.width, closeTo(btnRect.width, 0.5));
+    expect(panelRect.left, closeTo(btnRect.left, 0.5));
   });
 
   testWidgets('点击展开菜单,选择后触发回调并收起', (tester) async {
