@@ -10,6 +10,7 @@ import '../../features/export/presentation/parameter_panel.dart';
 import '../../features/preview/application/preview_providers.dart';
 import '../../features/preview/presentation/preview_controls_bar.dart';
 import '../../features/preview/presentation/video_preview_panel.dart';
+import '../../features/timeline/application/timeline_providers.dart';
 import '../../features/timeline/presentation/timeline_bar.dart';
 
 /// 预览页组合壳(app 层组装,§5.3 app→features 仅组装)。
@@ -41,6 +42,15 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
       ref.read(previewControllerProvider.notifier).load(video);
       // 参数表单初始化(应用默认参数)
       ref.read(exportControllerProvider.notifier).initForm(video: video);
+      // 时间轴初始化:选区取表单当前起止(initForm 之后)
+      final form = ref.read(exportControllerProvider);
+      ref
+          .read(timelineControllerProvider.notifier)
+          .init(
+            videoDuration: video.duration,
+            start: form.start,
+            end: form.end,
+          );
     });
     // 导出终态监听:完成 → 弹窗;失败/取消 → SnackBar(initState 用 listenManual)
     ref.listenManual<ExportFormState>(exportControllerProvider, (_, state) {

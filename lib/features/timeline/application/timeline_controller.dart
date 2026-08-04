@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/duration_math.dart';
+import '../../export/application/export_providers.dart';
 import '../../preview/application/preview_controller.dart';
 import '../../preview/application/preview_providers.dart';
 import 'range_selection.dart';
@@ -47,13 +48,11 @@ class TimelineController extends Notifier<RangeSelection> {
     state = RangeSelection(start: s, end: e);
   }
 
-  /// 拖动结束 / I/O 快捷键:更新选区。
-  ///
-  /// 联动导出表单(syncRange)在 WP3 接线提交接入,见
-  /// [ExportController.syncRange]。
+  /// 拖动结束 / I/O 快捷键:更新选区 + 联动导出表单(syncRange)。
   void commitRange({required Duration start, required Duration end}) {
     final (s, e) = _normalized(start, end);
     state = RangeSelection(start: s, end: e);
+    ref.read(exportControllerProvider.notifier).syncRange(start: s, end: e);
   }
 
   /// 表单回写起点(钳制 + 交换 + 联动表单,幂等)。

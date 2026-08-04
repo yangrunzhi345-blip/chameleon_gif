@@ -9,6 +9,7 @@ import 'package:gif_forge/domain/value_objects/gif_setting.dart';
 import 'package:gif_forge/domain/value_objects/task_progress.dart';
 import 'package:gif_forge/features/export/application/export_providers.dart';
 import 'package:gif_forge/features/export/presentation/parameter_panel.dart';
+import 'package:gif_forge/features/timeline/application/timeline_providers.dart';
 import 'package:gif_forge/shared/providers/core_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -47,12 +48,18 @@ void main() {
   ProviderContainer containerOf(WidgetTester tester) =>
       ProviderScope.containerOf(tester.element(find.byType(ParameterPanel)));
 
-  /// 模拟壳的 initForm 接线(否则 _videoDuration 为空,时间钳制一切为 0)。
+  /// 模拟壳的 initForm + timeline init 接线(否则视频时长未知,
+  /// updateStart 经 timeline 回流时被钳制为 0)。
   Future<void> pumpPanel(WidgetTester tester) async {
     await tester.pumpWidget(wrap());
-    containerOf(
-      tester,
-    ).read(exportControllerProvider.notifier).initForm(video: video);
+    final container = containerOf(tester);
+    container.read(exportControllerProvider.notifier).initForm(video: video);
+    // timeline 无渲染 watcher 会被 autoDispose GC,listen 保持存活(真实场景
+    // 由 TimelineBar 渲染 watch 保证)
+    container.listen(timelineControllerProvider, (_, _) {});
+    container
+        .read(timelineControllerProvider.notifier)
+        .init(videoDuration: video.duration);
     await tester.pump();
   }
 

@@ -2,21 +2,57 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gif_forge/core/logger/app_logger.dart';
 import 'package:gif_forge/domain/entities/video_info.dart';
+import 'package:gif_forge/domain/repository_interfaces/ffmpeg_engine.dart';
+import 'package:gif_forge/domain/repository_interfaces/ffmpeg_service.dart';
+import 'package:gif_forge/domain/value_objects/gif_setting.dart';
+import 'package:gif_forge/domain/value_objects/task_progress.dart';
 import 'package:gif_forge/features/preview/application/preview_controller.dart';
 import 'package:gif_forge/features/preview/application/preview_providers.dart';
+import 'package:gif_forge/features/task_queue/application/task_manager.dart';
+import 'package:gif_forge/features/task_queue/application/task_queue_providers.dart';
 import 'package:gif_forge/features/timeline/application/timeline_providers.dart';
 import 'package:gif_forge/features/timeline/presentation/timeline_bar.dart';
+import 'package:gif_forge/shared/platform/platform_adapter.dart';
+import 'package:gif_forge/shared/providers/core_providers.dart';
+import 'package:gif_forge/shared/repositories/in_memory_history_repository.dart';
+import 'package:gif_forge/shared/repositories/in_memory_task_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../fixtures/fake_player_port.dart';
 
 /// [TimelineBar] 交互测试(参照 preview_controls_bar_test 拖动模式)。
 void main() {
   late FakePlayerPort port;
+  late SharedPreferences prefs;
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
+  });
 
   Widget wrap({bool enabled = true}) {
     return ProviderScope(
-      overrides: [previewPlayerPortProvider.overrideWithValue(port)],
+      overrides: [
+        previewPlayerPortProvider.overrideWithValue(port),
+        // commitRange 联动导出表单,装配 export 链
+        sharedPrefsProvider.overrideWithValue(prefs),
+        taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
+        historyRepositoryProvider.overrideWithValue(
+          InMemoryHistoryRepository(),
+        ),
+        taskManagerProvider.overrideWith(
+          (ref) => TaskManager(
+            taskRepository: ref.read(taskRepositoryProvider),
+            historyRepository: ref.read(historyRepositoryProvider),
+            ffmpegService: _NoopFfmpegService(),
+            platformAdapter: _TestAdapter(),
+            logger: AppLogger(),
+            retryDelay: (_) async {},
+          ),
+        ),
+      ],
       child: MaterialApp(
         home: Scaffold(body: TimelineBar(enabled: enabled)),
       ),
@@ -129,4 +165,25 @@ void main() {
     final slider = tester.widget<RangeSlider>(find.byType(RangeSlider));
     expect(slider.onChanged, isNull);
   });
+}
+
+class _NoopFfmpegService implements FFmpegService {
+  @override
+  Future<ConvertResult> convert({
+    required GifSetting setting,
+    required VideoInfo video,
+    required int taskId,
+    required String workDir,
+    required String outputPath,
+    CancelToken? cancelToken,
+    void Function(TaskProgress)? onProgress,
+    void Function(String line)? onLog,
+  }) async {
+    throw UnimplementedError('本测试不执行导出');
+  }
+}
+
+class _TestAdapter extends PlatformAdapter {
+  @override
+  String get systemTempDir => '/tmp/timeline_bar_test';
 }

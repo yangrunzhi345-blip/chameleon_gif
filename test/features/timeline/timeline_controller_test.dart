@@ -1,9 +1,23 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gif_forge/core/logger/app_logger.dart';
+import 'package:gif_forge/domain/entities/video_info.dart';
+import 'package:gif_forge/domain/repository_interfaces/ffmpeg_engine.dart';
+import 'package:gif_forge/domain/repository_interfaces/ffmpeg_service.dart';
+import 'package:gif_forge/domain/value_objects/gif_setting.dart';
+import 'package:gif_forge/domain/value_objects/task_progress.dart';
+import 'package:gif_forge/features/export/application/export_providers.dart';
 import 'package:gif_forge/features/preview/application/preview_controller.dart';
+import 'package:gif_forge/features/task_queue/application/task_manager.dart';
+import 'package:gif_forge/features/task_queue/application/task_queue_providers.dart';
 import 'package:gif_forge/features/timeline/application/range_selection.dart';
 import 'package:gif_forge/features/timeline/application/timeline_controller.dart';
 import 'package:gif_forge/features/timeline/application/timeline_providers.dart';
+import 'package:gif_forge/shared/platform/platform_adapter.dart';
+import 'package:gif_forge/shared/providers/core_providers.dart';
+import 'package:gif_forge/shared/repositories/in_memory_history_repository.dart';
+import 'package:gif_forge/shared/repositories/in_memory_task_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../fixtures/fake_player_port.dart';
 
@@ -11,11 +25,35 @@ import '../../fixtures/fake_player_port.dart';
 void main() {
   late ProviderContainer container;
   late FakePlayerPort port;
+  late SharedPreferences prefs;
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
+  });
 
   ProviderContainer buildContainer() {
     port = FakePlayerPort();
     return ProviderContainer(
-      overrides: [previewPlayerPortProvider.overrideWithValue(port)],
+      overrides: [
+        previewPlayerPortProvider.overrideWithValue(port),
+        // commitRange 联动导出表单,装配 export 链
+        sharedPrefsProvider.overrideWithValue(prefs),
+        taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
+        historyRepositoryProvider.overrideWithValue(
+          InMemoryHistoryRepository(),
+        ),
+        taskManagerProvider.overrideWith(
+          (ref) => TaskManager(
+            taskRepository: ref.read(taskRepositoryProvider),
+            historyRepository: ref.read(historyRepositoryProvider),
+            ffmpegService: _NoopFfmpegService(),
+            platformAdapter: _TestAdapter(),
+            logger: AppLogger(),
+            retryDelay: (_) async {},
+          ),
+        ),
+      ],
     )..listen(timelineControllerProvider, (_, _) {});
   }
 
@@ -141,4 +179,52 @@ void main() {
     expect(sel().start, const Duration(seconds: 1));
     expect(sel().end, const Duration(seconds: 3));
   });
+
+  test('commitRange 联动导出表单(syncRange)', () {
+    container = buildContainer();
+    ctl().init(videoDuration: tenSec);
+    container
+        .read(exportControllerProvider.notifier)
+        .initForm(
+          video: const VideoInfo(
+            path: '/tmp/a.mp4',
+            formatName: 'mp4',
+            duration: Duration(seconds: 10),
+            width: 640,
+            height: 360,
+            fps: 30,
+            codec: 'h264',
+          ),
+        );
+
+    ctl().commitRange(
+      start: const Duration(seconds: 3),
+      end: const Duration(seconds: 8),
+    );
+
+    final form = container.read(exportControllerProvider);
+    expect(form.start, const Duration(seconds: 3));
+    expect(form.end, const Duration(seconds: 8));
+  });
+}
+
+class _NoopFfmpegService implements FFmpegService {
+  @override
+  Future<ConvertResult> convert({
+    required GifSetting setting,
+    required VideoInfo video,
+    required int taskId,
+    required String workDir,
+    required String outputPath,
+    CancelToken? cancelToken,
+    void Function(TaskProgress)? onProgress,
+    void Function(String line)? onLog,
+  }) async {
+    throw UnimplementedError('本测试不执行导出');
+  }
+}
+
+class _TestAdapter extends PlatformAdapter {
+  @override
+  String get systemTempDir => '/tmp/timeline_test';
 }
