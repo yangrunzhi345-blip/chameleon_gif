@@ -1,0 +1,25 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../domain/exceptions/file_pick_exception.dart';
+import '../../features/import/application/import_providers.dart';
+
+/// 选 MP4 → 解析 → 跳预览(首页"导入 MP4"与完成弹窗"返回单独导入mp4"
+/// 共用,防逻辑漂移)。
+///
+/// 取消选择静默;解析失败以 SnackBar 展示用户可读中文文案。
+Future<void> pickMp4AndPreview(BuildContext context, WidgetRef ref) async {
+  final path = await ref.read(filePickPortProvider).pickMp4();
+  if (path == null || !context.mounted) return;
+  try {
+    final info = await ref.read(importVideoUseCaseProvider).execute(path);
+    if (!context.mounted) return;
+    context.push('/preview', extra: info);
+  } on FilePickException catch (e) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(e.userMessage)));
+  }
+}

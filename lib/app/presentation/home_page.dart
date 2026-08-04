@@ -2,30 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../domain/exceptions/file_pick_exception.dart';
 import '../../features/import/application/import_providers.dart';
+import 'import_actions.dart';
 
 /// 主页(P0 占位 + P2 导入入口):验证 初始化→路由→主题→导入 链路。
 ///
 /// 转换工作台(时间轴/参数)由 P4 阶段组装,见 docs/10-UI设计.md §10.3.1。
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
-
-  /// 选文件 → 解析 → 跳预览;取消静默,异常以 SnackBar 展示中文文案。
-  Future<void> _importAndPreview(BuildContext context, WidgetRef ref) async {
-    final path = await ref.read(filePickPortProvider).pickMp4();
-    if (path == null || !context.mounted) return;
-    try {
-      final info = await ref.read(importVideoUseCaseProvider).execute(path);
-      if (!context.mounted) return;
-      context.push('/preview', extra: info);
-    } on FilePickException catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.userMessage)));
-    }
-  }
 
   /// 批量导入(P6-WP1):多选 → 跳批量导入设置页(无预览,参数装配后入队)。
   Future<void> _batchImport(BuildContext context, WidgetRef ref) async {
@@ -80,7 +64,7 @@ class HomePage extends ConsumerWidget {
             const Text('基础架构就绪'),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: () => _importAndPreview(context, ref),
+              onPressed: () => pickMp4AndPreview(context, ref),
               icon: const Icon(Icons.movie_outlined),
               label: const Text('导入 MP4'),
             ),

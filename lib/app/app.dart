@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../domain/value_objects/app_theme_mode.dart';
 import '../features/task_queue/application/task_queue_providers.dart';
 import 'application/providers.dart';
+import 'presentation/batch_completion_host.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
 
@@ -36,6 +37,9 @@ class ChameleonGifApp extends ConsumerWidget {
         AppThemeMode.system => ThemeMode.system,
       },
       routerConfig: router ?? appRouter,
+      // 批量完成弹窗宿主(全局常驻,任何页面之上任务落定都弹窗)
+      builder: (context, child) =>
+          BatchCompletionHost(child: child ?? const SizedBox.shrink()),
     );
   }
 }

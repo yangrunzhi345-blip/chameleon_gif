@@ -131,7 +131,7 @@ class BatchSessionSnapshot {
     this.stats = const BatchStats(completed: 0, failed: 0, cancelled: 0),
   });
 
-  const BatchSessionSnapshot.phaseOnly(BatchSessionPhase this.phase)
+  const BatchSessionSnapshot.phaseOnly(this.phase)
     : failedItems = const [],
       stats = const BatchStats(completed: 0, failed: 0, cancelled: 0);
 

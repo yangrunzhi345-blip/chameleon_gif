@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../domain/entities/video_info.dart';
@@ -7,6 +8,10 @@ import 'presentation/batch_import_screen.dart';
 import 'presentation/home_page.dart';
 import 'presentation/preview_screen.dart';
 import 'presentation/settings_screen.dart';
+
+/// 根 Navigator key(批量完成弹窗宿主经此弹窗/导航,见 batch_completion_host)。
+/// 测试注入 router 时传同一 key 可使完成弹窗生效;不传则宿主静默跳过。
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// 路由表构建(供 [appRouter] 与测试注入独立实例复用)。
 List<RouteBase> buildRoutes() => [
@@ -54,4 +59,7 @@ List<RouteBase> buildRoutes() => [
 
 /// 全局路由表(声明式,见 docs/09-状态管理.md 与 docs/10-UI设计.md)。
 /// 全局单例;测试经 [ChameleonGifApp.router] 注入独立实例避免栈状态串扰。
-final appRouter = GoRouter(routes: buildRoutes());
+final appRouter = GoRouter(
+  routes: buildRoutes(),
+  navigatorKey: rootNavigatorKey,
+);
