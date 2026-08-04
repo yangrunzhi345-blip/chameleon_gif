@@ -1,0 +1,59 @@
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../domain/entities/export_task.dart';
+import '../../../domain/entities/video_info.dart';
+import '../../../domain/value_objects/gif_setting.dart';
+import '../../../domain/value_objects/task_state.dart';
+import 'task_queue_providers.dart';
+import 'task_queue_state.dart';
+
+/// 任务队列控制器(docs/09 §9.2 层次一,常驻非 autoDispose)。
+///
+/// 包装 [TaskManager]:submit/cancel/retry 转发;订阅任务事件流维护
+/// [TaskQueueState](进度高频更新不重建 state,由 ExportProgressProvider
+/// 独立消费)。UI 层只 watch 状态与进度,不触调度细节。
+class TaskQueueController extends Notifier<TaskQueueState> {
+  StreamSubscription<ExportTask>? _taskSub;
+  bool _restored = false;
+
+  @override
+  TaskQueueState build() {
+    final manager = ref.watch(taskManagerProvider);
+    _taskSub ??= manager.taskEvents.listen((_) => unawaited(_refresh()));
+    ref.onDispose(() => _taskSub?.cancel());
+    if (!_restored) {
+      _restored = true;
+      // 启动恢复:扫描仓储 pending 重新排队(§8.3.7)
+      unawaited(manager.start().then((_) => _refresh()));
+    }
+    return const TaskQueueState();
+  }
+
+  /// 提交转换任务,返回 taskId。
+  Future<int> submit(GifSetting setting, VideoInfo video) async {
+    final id = await ref.read(taskManagerProvider).submit(setting, video);
+    await _refresh();
+    return id;
+  }
+
+  Future<void> cancel(int id) async {
+    await ref.read(taskManagerProvider).cancel(id);
+    await _refresh();
+  }
+
+  Future<void> retry(int id) async {
+    await ref.read(taskManagerProvider).retry(id);
+    await _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final tasks = await ref.read(taskManagerProvider).tasks;
+    final running = tasks.where((t) => t.state == TaskState.running).toList();
+    state = TaskQueueState(
+      tasks: tasks,
+      active: running.isEmpty ? null : running.first,
+    );
+  }
+}

@@ -10,6 +10,8 @@ import '../../domain/repository_interfaces/settings_repository.dart';
 import '../../domain/repository_interfaces/task_repository.dart';
 import '../../features/converter/infrastructure/ffprobe_parse_video_port.dart';
 import '../../shared/platform/platform_adapter.dart';
+import '../../shared/repositories/in_memory_history_repository.dart';
+import '../../shared/repositories/in_memory_task_repository.dart';
 import '../../shared/repositories/settings_repository_impl.dart';
 import 'theme_controller.dart';
 
@@ -43,14 +45,14 @@ final parseVideoPortProvider = Provider<ParseVideoPort>(
   ),
 );
 
-/// Task/History 仓储实现由 P5 落地(Isar 仓储),当前留桩,
-/// 见 docs/12-开发计划.md P5-WP1。
+/// Task/History 仓储实现(P3 用内存过渡;P5-WP1 替换为 Isar 仓储,
+/// 见 docs/12-开发计划.md P5-WP1)。
 final taskRepositoryProvider = Provider<TaskRepository>((ref) {
-  throw UnimplementedError('P5 阶段落地(Isar 实现)');
+  return InMemoryTaskRepository();
 });
 
 final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
-  throw UnimplementedError('P5 阶段落地(Isar 实现)');
+  return InMemoryHistoryRepository();
 });
 
 /// 主题三态(持久化)

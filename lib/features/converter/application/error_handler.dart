@@ -1,4 +1,3 @@
-import '../../../domain/exceptions/conversion_exception.dart';
 import '../../../domain/exceptions/disk_full_exception.dart';
 import '../../../domain/exceptions/domain_exception.dart';
 import '../../../domain/exceptions/encode_exception.dart';

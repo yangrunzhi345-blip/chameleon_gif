@@ -10,19 +10,13 @@ import '../../../domain/value_objects/task_progress.dart';
 /// - speed 恒 0 时降级:按已耗时线性预估 remaining(percent>0 时);
 /// - 非法行返回 null 丢弃不中断(R-09)。
 class ProgressParser {
-  ProgressParser({
-    required this.taskId,
-    required Duration denominator,
-    DateTime Function()? clock,
-  }) : _denominatorUs = denominator.inMicroseconds,
-       _clock = clock ?? DateTime.now;
+  ProgressParser({required this.taskId, required Duration denominator})
+    : _denominatorUs = denominator.inMicroseconds;
 
   final int taskId;
 
   /// 裁剪总时长(微秒);非正时进度恒 100%(除零防护)。
   final int _denominatorUs;
-
-  final DateTime Function() _clock;
 
   Duration? _lastElapsed;
   int? _lastTotalSize;

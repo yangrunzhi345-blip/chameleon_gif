@@ -8,7 +8,6 @@ import 'package:gif_forge/domain/repository_interfaces/ffmpeg_engine.dart';
 import 'package:gif_forge/domain/value_objects/gif_setting.dart';
 import 'package:gif_forge/domain/value_objects/task_progress.dart';
 import 'package:gif_forge/features/converter/application/ffmpeg_service_engine.dart';
-import 'package:gif_forge/features/converter/application/gif_command.dart';
 
 /// [FfmpegServiceEngine] 编排测试(注入 [FakeEngine],纯 Dart)。
 void main() {
