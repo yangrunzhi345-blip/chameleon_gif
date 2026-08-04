@@ -1,0 +1,85 @@
+name: gif_forge
+description: "GifForge — 跨平台 MP4 转 GIF 工具(技术选型版本锁定见 docs/03-技术选型.md)"
+publish_to: 'none'
+
+# 语义化版本:major.minor.patch+build,遵循 docs/15-发布计划.md
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+  flutter: ">=3.38.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # 状态管理
+  # ^3.3.1 精确对齐:与 riverpod_annotation 4.0.2(riverpod 3.2.1)兼容
+  flutter_riverpod: ^3.3.1
+  # 4.0.2 精确锁定:与 riverpod_generator 4.0.3(见下)匹配
+  riverpod_annotation: 4.0.2
+
+  # 路由
+  go_router: ^17.3.0
+
+  # 不可变模型与序列化
+  freezed_annotation: ^3.1.0
+  json_annotation: ^4.11.0
+
+  # 本地数据库
+  # Isar 官方包(3.1.0)生成器与现代化工具链(source_gen 3+)不兼容,
+  # 采用社区维护版 isar_community(API 兼容,import 'package:isar_community/isar.dart'),
+  # 详见 docs/13-风险分析.md R-04
+  isar_community: ^3.3.2
+  isar_community_flutter_libs: ^3.3.2
+
+  # 轻量偏好存储
+  shared_preferences: ^2.5.5
+
+  # 日志
+  logger: ^2.7.0
+
+  # 媒体:播放(预览)
+  media_kit: ^1.2.6
+  media_kit_video: ^2.0.1
+  media_kit_libs_video: ^1.0.7
+
+  # 转码引擎:FFmpeg CLI 封装(ffmpeg_kit_flutter 的活跃维护 fork,
+  # 支持 Linux/Windows/Android,内置 FFmpeg + FFprobe,见 docs/03-技术选型.md)
+  ffmpeg_kit_flutter_minimal: ^6.0.8
+
+  # 文件选择
+  file_picker: ^11.0.3
+  file_selector: ^1.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+  # 代码生成
+  # 2.15.1 精确锁定:2.15.2+ 要求 analyzer >=13.3,与下方生成器组合冲突
+  build_runner: 2.15.1
+  # 代码生成器版本处于 analyzer 生态迁移期(analyzer 9→13),以下版本经
+  # 依赖交集验证可共存(analyzer >=9 <11, source_gen >=4 <5),勿随意升级:
+  #   freezed 3.2.5 | json_serializable 6.13.0 | isar_community_generator 3.3.2
+  #   riverpod_generator 4.0.3(精确,上浮会拉入 analyzer 13 破坏组合)
+  freezed: 3.2.5
+  json_serializable: 6.13.0
+  isar_community_generator: ^3.3.2
+  riverpod_generator: 4.0.3
+  # 注意:custom_lint/riverpod_lint 暂未引入 —— analyzer 约束与
+  # 上述生成器组合冲突,待生态对齐后启用
+  # custom_lint: ^0.8.1
+  # riverpod_lint: ^3.1.3
+
+flutter:
+  uses-material-design: true
+
+  # 资产目录预留(由 P 阶段按功能添加):
+  # assets:
+  #   - assets/images/
+  #   - assets/i18n/
