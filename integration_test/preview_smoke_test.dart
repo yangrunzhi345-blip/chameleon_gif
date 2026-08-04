@@ -38,6 +38,8 @@ void main() {
 
       // 3. dispose 无异常(泄漏回归)
       await port.dispose();
+      // 幂等回归:二次 dispose 不抛(双路径释放防护,MediaKitPlayerPort._disposed)
+      await port.dispose();
     }
   });
 }

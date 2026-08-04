@@ -24,6 +24,8 @@ void main() {
 
   ProviderContainer buildContainer(FakePlayerPort p) {
     final container = ProviderContainer(
+      // 端口释放经控制器 onDispose 路径(双路径中先行者);overrideWithValue
+      // 不执行 create 闭包,不会注册端口自身的 onDispose,不影响本测试组。
       overrides: [previewPlayerPortProvider.overrideWithValue(p)],
     );
     // 保持 autoDispose provider 存活:纯 read 不建立 watcher,空闲期会被
@@ -132,6 +134,52 @@ void main() {
 
     container.dispose();
     expect(port.disposed, isTrue);
+  });
+
+  test('会话结束 → 端口释放;新会话重建全新端口(连续导入回归)', () async {
+    final ports = <FakePlayerPort>[];
+    final container = ProviderContainer(
+      overrides: [
+        previewPlayerPortProvider.overrideWith((ref) {
+          final p = FakePlayerPort();
+          ports.add(p);
+          ref.onDispose(() => p.dispose());
+          return p;
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    // 会话 A:打开 → 就绪
+    final subA = container.listen(previewControllerProvider, (_, _) {});
+    final ctlA = container.read(previewControllerProvider.notifier);
+    await ctlA.load(video);
+    expect(
+      container.read(previewControllerProvider).lifecycle,
+      PreviewLifecycle.ready,
+    );
+    final portA = ports.single;
+
+    // 模拟离开预览页:取消最后一个监听者 → autoDispose 调度销毁(零时长 Timer)
+    subA.close();
+    await pumpEventQueue();
+    expect(portA.disposed, isTrue, reason: '会话 A 结束端口必须释放');
+
+    // 会话 B:销毁后重建,create 重新求值 → 全新端口,加载成功
+    final subB = container.listen(previewControllerProvider, (_, _) {});
+    final ctlB = container.read(previewControllerProvider.notifier);
+    final portB = ports.last;
+    expect(identical(portB, portA), isFalse, reason: '新会话必须重建全新端口');
+    await ctlB.load(video);
+    expect(
+      container.read(previewControllerProvider).lifecycle,
+      PreviewLifecycle.ready,
+    );
+    expect(portB.openedPath, video.path);
+
+    subB.close();
+    await pumpEventQueue();
+    expect(portB.disposed, isTrue);
   });
 
   test('load 中途容器销毁 → 不抛异常(竞态防护)', () async {

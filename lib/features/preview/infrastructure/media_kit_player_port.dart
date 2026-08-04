@@ -10,6 +10,7 @@ class MediaKitPlayerPort implements PreviewPlayerPort {
   MediaKitPlayerPort({Player? player}) : _player = player ?? Player();
 
   final Player _player;
+  bool _disposed = false;
 
   @override
   Object get renderHandle => _player;
@@ -30,7 +31,11 @@ class MediaKitPlayerPort implements PreviewPlayerPort {
   Future<void> seek(Duration position) => _player.seek(position);
 
   @override
-  Future<void> dispose() => _player.dispose(); // dispose 内含 stop
+  Future<void> dispose() async {
+    if (_disposed) return; // 幂等:media_kit Player.dispose 二次调用必抛断言
+    _disposed = true;
+    await _player.dispose(); // dispose 内含 stop
+  }
 
   @override
   PlayerStateSnapshot get state {

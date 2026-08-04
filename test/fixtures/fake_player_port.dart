@@ -63,6 +63,7 @@ class FakePlayerPort implements PreviewPlayerPort {
 
   @override
   Future<void> dispose() async {
+    if (disposed) return; // 幂等:流控制器二次 close 抛 StateError
     disposed = true;
     await _positionCtrl.close();
     await _durationCtrl.close();

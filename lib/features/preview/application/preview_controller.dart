@@ -8,11 +8,18 @@ import '../infrastructure/media_kit_player_port.dart';
 import 'preview_state.dart';
 import 'throttle_stream.dart';
 
-/// 播放器端口(app 生命周期;测试经 override 注入 FakePlayerPort)。
+/// 播放器端口(会话生命周期,autoDispose:随预览会话创建与销毁,谁创建谁销毁)。
 /// 与控制器同文件定义,避免 providers 与 controller 循环 import。
-final previewPlayerPortProvider = Provider<PreviewPlayerPort>(
-  (ref) => MediaKitPlayerPort(),
-);
+/// 测试经 overrideWith 注入 FakePlayerPort(销毁后重建会重新调用 create)。
+final previewPlayerPortProvider = Provider.autoDispose<PreviewPlayerPort>((
+  ref,
+) {
+  final port = MediaKitPlayerPort();
+  // 会话结束(无任何监听者)时释放 Player;与 Controller 的 onDispose 构成
+  // 双路径释放(dispose 已幂等,二次调用直接返回)。
+  ref.onDispose(() => port.dispose());
+  return port;
+});
 
 /// 预览会话控制器(docs/06-模块设计.md §6.2 M02,docs/09-状态管理.md §9.2)。
 ///
@@ -20,7 +27,8 @@ final previewPlayerPortProvider = Provider<PreviewPlayerPort>(
 /// [PreviewState] 状态机;对外暴露 200ms 节流的 position 流与 duration 流。
 ///
 /// 生命周期纪律(R-06 缓解,见 docs/13-风险分析.md):autoDispose + `ref.onDispose`
-/// 内取消订阅并 dispose 播放器,防资源泄漏。
+/// 内取消订阅并 dispose 播放器([previewPlayerPortProvider] 的 onDispose 亦释放,
+/// 双路径幂等兜底);端口随本控制器销毁后重建,不复用已销毁的 Player。
 class PreviewController extends Notifier<PreviewState> {
   PreviewPlayerPort? _port;
   StreamSubscription<String>? _errorSub;
@@ -51,6 +59,8 @@ class PreviewController extends Notifier<PreviewState> {
       _errorSub?.cancel();
       _playingSub?.cancel();
       _completedSub?.cancel();
+      // 双路径释放:本处先行 dispose(本控制器是端口唯一 watcher,销毁时端口
+      // 尚存活),端口 provider 的 onDispose 再调时幂等跳过。
       port.dispose();
     });
     return const PreviewState.idle();
