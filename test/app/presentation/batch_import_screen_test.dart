@@ -13,9 +13,11 @@ import 'package:chameleon_gif/core/logger/app_logger.dart';
 import 'package:chameleon_gif/domain/entities/video_info.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_service.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/file_pick_port.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/parse_video_port.dart';
 import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
 import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
+import 'package:chameleon_gif/features/import/application/import_providers.dart';
 import 'package:chameleon_gif/features/preview/application/preview_controller.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_queue_providers.dart';
@@ -46,7 +48,9 @@ void main() {
     await tempRoot.delete(recursive: true);
   });
 
-  (Widget, GoRouter, InMemoryTaskRepository) buildApp() {
+  (Widget, GoRouter, InMemoryTaskRepository) buildApp({
+    FilePickPort? pickPort,
+  }) {
     final taskRepo = InMemoryTaskRepository();
     final router = GoRouter(routes: buildRoutes());
     final adapter = _TestAdapter(tempRoot.path);
@@ -58,6 +62,7 @@ void main() {
         parseVideoPortProvider.overrideWithValue(parsePort),
         previewPlayerPortProvider.overrideWithValue(FakePlayerPort()),
         platformAdapterProvider.overrideWithValue(adapter),
+        if (pickPort != null) filePickPortProvider.overrideWithValue(pickPort),
         taskRepositoryProvider.overrideWithValue(taskRepo),
         historyRepositoryProvider.overrideWithValue(
           InMemoryHistoryRepository(),
@@ -162,11 +167,44 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    expect(find.text('文件列表为空,请返回重新选择'), findsOneWidget);
+    expect(find.text('文件列表为空'), findsOneWidget);
+    expect(find.text('文件列表为空,请点击"重新选择视频"添加文件'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, '重新选择视频'), findsOneWidget);
     final button = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, '开始批量转换'),
     );
     expect(button.onPressed, isNull, reason: '空列表禁用开始');
+  });
+
+  testWidgets('extra 空列表 → 停留空态(不回退),重新选择视频可填充', (tester) async {
+    final pickPort = _FakeFilePickPort(
+      pickMp4sResult: ['/tmp/x.mp4', '/tmp/y.mp4'],
+    );
+    final (app, router, _) = buildApp(pickPort: pickPort);
+    await pumpApp(tester, app);
+
+    unawaited(router.push('/batch-import', extra: const <String>[]));
+    await tester.pumpAndSettle();
+
+    // 停留空态:不回退、空提示 + 重新选择按钮 + 开始禁用
+    expect(find.byType(BatchImportScreen), findsOneWidget);
+    expect(find.text('已选 0 个文件'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, '重新选择视频'), findsOneWidget);
+    var button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '开始批量转换'),
+    );
+    expect(button.onPressed, isNull, reason: '空列表禁用开始');
+
+    // 点击重新选择 → 文件填充、开始启用(恢复初始后可继续导入)
+    await tester.tap(find.widgetWithText(TextButton, '重新选择视频'));
+    await tester.pumpAndSettle();
+    expect(find.text('x.mp4'), findsOneWidget);
+    expect(find.text('y.mp4'), findsOneWidget);
+    expect(find.text('已选 2 个文件'), findsOneWidget);
+    button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '开始批量转换'),
+    );
+    expect(button.onPressed, isNotNull, reason: '填充后启用开始');
   });
 
   testWidgets('点开始 → 3 任务入队并跳队列页', (tester) async {
@@ -195,6 +233,18 @@ void main() {
     expect(find.byType(BatchImportScreen), findsNothing);
     expect(find.byType(HomePage), findsOneWidget, reason: '回退到主页');
   });
+}
+
+class _FakeFilePickPort implements FilePickPort {
+  _FakeFilePickPort({this.pickMp4sResult});
+
+  List<String>? pickMp4sResult;
+
+  @override
+  Future<String?> pickMp4() async => null;
+
+  @override
+  Future<List<String>?> pickMp4s() async => pickMp4sResult;
 }
 
 class _FakeParseVideoPort implements ParseVideoPort {

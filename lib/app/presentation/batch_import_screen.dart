@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/utils/duration_format.dart';
+import '../../features/import/application/import_providers.dart';
 import '../application/batch_import_controller.dart';
 import '../application/batch_import_state.dart';
 import 'batch_parameter_form.dart';
@@ -10,11 +11,12 @@ import 'batch_parameter_form.dart';
 /// 批量导入页(app 层跨模块组合壳;与预览页的区别:无视频预览、
 /// 无时间轴)。
 ///
-/// 左栏文件列表(可移除单个,页面本地状态),右栏**当前默认参数摘要**
-/// (只读,来源持久化默认)+"批量导入设置"入口(进设置界面改默认,
-/// 返回时回到本页);点"开始批量转换"后经 [BatchImportController.start]
-/// 以默认参数逐文件解析入队,成功跳队列页。
-/// extra 非 List\<String\>(恢复/深链)或为空时立即回退返回。
+/// 左栏文件列表(可移除单个/重新选择,页面本地状态),右栏**当前默认
+/// 参数摘要**(只读,来源持久化默认)+"批量导入设置"入口(进设置界面
+/// 改默认,返回时回到本页);点"开始批量转换"后经
+/// [BatchImportController.start] 以默认参数逐文件解析入队,成功跳队列页。
+/// extra 为 null(恢复/深链)时立即回退返回;空列表停留空态(完成弹窗
+/// "返回批量导入"经空 extra 进入),由"重新选择视频"入口补充文件。
 class BatchImportScreen extends ConsumerStatefulWidget {
   const BatchImportScreen({super.key, required this.paths});
 
@@ -35,10 +37,11 @@ class _BatchImportScreenState extends ConsumerState<BatchImportScreen> {
     final paths = widget.paths;
     // 纯字段初始化须在 initState 同步完成(首次 build 先于 microtask)
     _paths = paths == null ? [] : [...paths];
-    // 恢复/深链路径下 extra 非 List<String> 或为空 → 回退返回
+    // 仅 extra 非 List<String>(恢复/深链)时回退返回;空列表停留空态,
+    // 表单照常 init(重置为持久化默认,恢复初始语义)
     Future.microtask(() {
       if (!mounted) return;
-      if (paths == null || paths.isEmpty) {
+      if (paths == null) {
         context.pop();
         return;
       }
@@ -48,6 +51,13 @@ class _BatchImportScreenState extends ConsumerState<BatchImportScreen> {
 
   void _removePath(int index) {
     setState(() => _paths.removeAt(index));
+  }
+
+  /// 重新选择/追加视频文件(空态下的唯一入口,恢复初始后可继续导入)。
+  Future<void> _pickMore() async {
+    final picked = await ref.read(filePickPortProvider).pickMp4s();
+    if (picked == null || picked.isEmpty || !mounted) return;
+    setState(() => _paths = [..._paths, ...picked]);
   }
 
   /// 开始批量转换:校验通过 → 入队 → 提示/跳转队列页。
@@ -79,7 +89,11 @@ class _BatchImportScreenState extends ConsumerState<BatchImportScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(batchImportControllerProvider);
 
-    final fileList = _FileListPanel(paths: _paths, onRemove: _removePath);
+    final fileList = _FileListPanel(
+      paths: _paths,
+      onRemove: _removePath,
+      onPickMore: _pickMore,
+    );
     final form = SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -106,7 +120,7 @@ class _BatchImportScreenState extends ConsumerState<BatchImportScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                '文件列表为空,请返回重新选择',
+                '文件列表为空,请点击"重新选择视频"添加文件',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
@@ -182,12 +196,17 @@ class _DefaultSummary extends StatelessWidget {
   }
 }
 
-/// 已选文件列表面板(纯渲染;移除回调由壳 setState 处理)。
+/// 已选文件列表面板(纯渲染;移除/重新选择回调由壳 setState 处理)。
 class _FileListPanel extends StatelessWidget {
-  const _FileListPanel({required this.paths, required this.onRemove});
+  const _FileListPanel({
+    required this.paths,
+    required this.onRemove,
+    required this.onPickMore,
+  });
 
   final List<String> paths;
   final void Function(int index) onRemove;
+  final VoidCallback onPickMore;
 
   @override
   Widget build(BuildContext context) {
@@ -196,11 +215,23 @@ class _FileListPanel extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text(
-            '已选 ${paths.length} 个文件',
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '已选 ${paths.length} 个文件',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ),
+              // 重新选择/追加文件(空态下也可用,恢复初始后继续导入)
+              TextButton.icon(
+                onPressed: onPickMore,
+                icon: const Icon(Icons.video_library_outlined, size: 18),
+                label: const Text('重新选择视频'),
+              ),
+            ],
           ),
         ),
         Expanded(
