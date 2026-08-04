@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/app.dart';
 import 'core/logger/app_logger.dart';
+import 'core/utils/startup_tracer.dart';
 import 'features/converter/application/ffmpeg_service_engine.dart';
 import 'features/converter/infrastructure/ffprobe_parse_video_port.dart';
 import 'shared/platform/platform_adapter.dart';
@@ -23,12 +24,15 @@ import 'shared/repositories/schemas/export_task_schema.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final logger = AppLogger();
+  final tracer = StartupTracer(logger);
+  tracer.mark('t0 入口');
   logger.i('GifForge 启动中...');
 
   final Isar isar;
   try {
     // 数据目录:平台应用文档目录下的 gif_forge(三平台统一,见 PlatformAdapter)
     final docsDir = await getApplicationDocumentsDirectory();
+    tracer.mark('t1 docsDir 就绪');
     final isarDir = Directory('${docsDir.path}/gif_forge')
       ..createSync(recursive: true);
     isar = await Isar.open([
@@ -36,13 +40,16 @@ Future<void> main() async {
       ExportHistorySchemaSchema,
       ExportPresetSchemaSchema,
     ], directory: isarDir.path);
+    tracer.mark('t2 Isar.open 完成');
   } catch (e, st) {
     logger.f('Isar 初始化失败', error: e, stackTrace: st);
     rethrow;
   }
 
   MediaKit.ensureInitialized();
+  tracer.mark('t3 MediaKit 完成');
   final prefs = await SharedPreferences.getInstance();
+  tracer.mark('t4 prefs 完成');
   final adapter = PlatformAdapter();
 
   runApp(
@@ -69,4 +76,9 @@ Future<void> main() async {
       child: const GifForgeApp(),
     ),
   );
+  // 首帧打点 + 分段输出(P7 基线;默认关闭)
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    tracer.mark('t5 首帧');
+    tracer.dump();
+  });
 }
