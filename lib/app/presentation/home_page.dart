@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../domain/exceptions/file_pick_exception.dart';
+import '../../domain/value_objects/app_theme_mode.dart';
 import '../../features/import/application/import_providers.dart';
 import '../application/providers.dart';
 
@@ -52,20 +53,20 @@ class HomePage extends ConsumerWidget {
               label: const Text('导入 MP4'),
             ),
             const SizedBox(height: 24),
-            SegmentedButton<ThemeMode>(
+            SegmentedButton<AppThemeMode>(
               segments: const [
                 ButtonSegment(
-                  value: ThemeMode.light,
+                  value: AppThemeMode.light,
                   icon: Icon(Icons.light_mode_outlined),
                   label: Text('浅色'),
                 ),
                 ButtonSegment(
-                  value: ThemeMode.dark,
+                  value: AppThemeMode.dark,
                   icon: Icon(Icons.dark_mode_outlined),
                   label: Text('深色'),
                 ),
                 ButtonSegment(
-                  value: ThemeMode.system,
+                  value: AppThemeMode.system,
                   icon: Icon(Icons.brightness_auto_outlined),
                   label: Text('跟随系统'),
                 ),

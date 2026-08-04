@@ -1,16 +1,16 @@
-import 'package:flutter/material.dart';
-
+import '../value_objects/app_theme_mode.dart';
 import '../value_objects/gif_setting.dart';
 
 /// 偏好设置仓储(SharedPreferences 实现,见 docs/07-数据库设计.md §7.1)。
 ///
 /// 仅存"小而高频读"的偏好;结构化数据(Task/History/Preset)走 Isar。
+/// 主题使用领域自有枚举 [AppThemeMode](domain 不依赖 Flutter)。
 abstract interface class SettingsRepository {
   // ---- 外观 ----
 
-  ThemeMode get themeMode;
+  AppThemeMode get themeMode;
 
-  Future<void> setThemeMode(ThemeMode mode);
+  Future<void> setThemeMode(AppThemeMode mode);
 
   String get language;
 

@@ -1,9 +1,9 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/repository_interfaces/settings_repository.dart';
+import '../../domain/value_objects/app_theme_mode.dart';
 import '../../domain/value_objects/gif_setting.dart';
 
 /// SettingsRepository 的 SharedPreferences 实现。
@@ -23,19 +23,19 @@ class SharedPrefsSettingsRepository implements SettingsRepository {
   static const _kThemeSystem = 'system';
 
   @override
-  ThemeMode get themeMode {
+  AppThemeMode get themeMode {
     switch (_prefs.getString(_kThemeMode) ?? _kThemeSystem) {
       case 'light':
-        return ThemeMode.light;
+        return AppThemeMode.light;
       case 'dark':
-        return ThemeMode.dark;
+        return AppThemeMode.dark;
       default:
-        return ThemeMode.system;
+        return AppThemeMode.system;
     }
   }
 
   @override
-  Future<void> setThemeMode(ThemeMode mode) =>
+  Future<void> setThemeMode(AppThemeMode mode) =>
       _prefs.setString(_kThemeMode, mode.name);
 
   @override
