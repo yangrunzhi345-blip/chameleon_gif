@@ -40,25 +40,35 @@ class ProcessEngine implements FFmpegEngine {
     });
 
     final sw = Stopwatch()..start();
-    final stdoutDone = _drain(process.stdout, onProgress);
-    final stderrDone = _drain(process.stderr, onLog);
-    final exitCode = await process.exitCode;
-    await Future.wait([stdoutDone, stderrDone]);
-
-    return ConvertResult(
-      exitCode: exitCode,
-      elapsed: sw.elapsed,
-      cancelled: cancelToken?.isCancelled ?? false,
-    );
+    try {
+      final stdoutDone = _drain(process.stdout, onProgress);
+      final stderrDone = _drain(process.stderr, onLog);
+      final exitCode = await process.exitCode;
+      await Future.wait([stdoutDone, stderrDone]);
+      return ConvertResult(
+        exitCode: exitCode,
+        elapsed: sw.elapsed,
+        cancelled: cancelToken?.isCancelled ?? false,
+      );
+    } catch (_) {
+      // 流消费异常(如畸形字节)时兜底终止进程,防孤儿 ffmpeg
+      process.kill();
+      rethrow;
+    }
   }
 
-  /// 逐行消费流(UTF-8 解码 + 行切分),每行回调一次。
+  /// 逐行消费流(UTF-8 容错解码 + 行切分),每行回调一次。
+  ///
+  /// `allowMalformed: true`:非 UTF-8 文件名(如 GBK)会让 ffmpeg 输出
+  /// 畸形字节,默认解码器抛 FormatException 会把任务误判失败且进程残留。
   Future<void> _drain(
     Stream<List<int>> stream,
     void Function(String line)? onLine,
   ) async {
     await for (final line
-        in stream.transform(utf8.decoder).transform(const LineSplitter())) {
+        in stream
+            .transform(const Utf8Decoder(allowMalformed: true))
+            .transform(const LineSplitter())) {
       onLine?.call(line);
     }
   }

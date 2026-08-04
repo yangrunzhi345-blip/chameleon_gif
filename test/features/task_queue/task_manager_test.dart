@@ -74,6 +74,7 @@ void main() {
     final task = await waitForState(id, TaskState.completed);
     expect(task.outputPath, endsWith('/gifforge_$id/out.gif'));
     expect(service.convertCalls, [id]);
+    expect(task.settings.end, video.duration, reason: 'end 缺省装配源时长');
 
     final histories = await historyRepo.list();
     expect(histories, hasLength(1));
@@ -197,6 +198,9 @@ void main() {
       final task = await waitForState(id, TaskState.completed);
       expect(task.retryCount, 1);
       expect(flaky.convertCalls, [id, id], reason: '失败后重试执行');
+      // B1 回归:重试路径 _videos 已消费,兜底 video 宽度须取设置宽度,
+      // 保证 scale 滤镜不因兜底缺失而输出原始分辨率
+      expect(flaky.receivedVideos.last.width, 480);
     });
 
     test('重试超 2 次 → 终态 failed', () async {
@@ -313,6 +317,7 @@ class FakeFfmpegService implements FFmpegService {
   final bool blockFirstConvert;
 
   final convertCalls = <int>[];
+  final receivedVideos = <VideoInfo>[];
   CancelToken? lastCancelToken;
   Completer<void>? _blocker;
 
@@ -331,6 +336,7 @@ class FakeFfmpegService implements FFmpegService {
     void Function(String line)? onLog,
   }) async {
     convertCalls.add(taskId);
+    receivedVideos.add(video);
     lastCancelToken = cancelToken;
     if (cancelOnRun) cancelToken?.cancel();
     if (blockFirstConvert && convertCalls.length == 1) {

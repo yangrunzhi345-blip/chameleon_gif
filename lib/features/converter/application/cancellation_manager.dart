@@ -91,11 +91,17 @@ class CancellationManager {
   }
 
   /// 幂等清理:临时文件存在才删;工作目录清空后移除目录。
+  ///
+  /// 删除失败(如 Windows 下文件被进程占用)仅忽略,不阻断取消流程。
   Future<void> cleanupTempFiles() async {
     for (final path in _tempFiles) {
       final file = File(path);
       if (await file.exists()) {
-        await file.delete();
+        try {
+          await file.delete();
+        } on FileSystemException {
+          // 打开中文件删除失败:Windows 竞态,忽略并继续
+        }
       }
     }
     final dir = Directory(_workDir);

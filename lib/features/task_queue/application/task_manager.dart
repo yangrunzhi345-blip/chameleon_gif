@@ -71,11 +71,17 @@ class TaskManager {
   bool get _busy => _runningId != null;
 
   /// 提交转换任务(FIFO 入队;若空闲立即启动)。
+  ///
+  /// [setting.end] 缺省时装配为 [video.duration](公共 API 自洽,直连不产生
+  /// `-to 00:00:00.000` 空窗口)。
   Future<int> submit(GifSetting setting, VideoInfo video) async {
+    final effective = setting.end == null
+        ? setting.copyWith(end: video.duration)
+        : setting;
     final task = ExportTask(
       id: 0,
       videoPath: video.path,
-      settings: setting,
+      settings: effective,
       state: TaskState.queued,
       createdAt: DateTime.now(),
     );
@@ -98,6 +104,7 @@ class TaskManager {
       return; // 转换侧检测令牌后走 cancelled 收尾
     }
     _queue.remove(id);
+    _videos.remove(id); // 未执行的排队任务,释放提交时缓存的元数据
     await _update(task.copyWith(state: TaskState.cancelled));
     _emitTask(task);
   }
@@ -139,15 +146,16 @@ class TaskManager {
       _runningId = null;
       return;
     }
-    // 提交时携带的完整 video;恢复路径(end==null 需兜底)以 settings 推算,
-    // 完整元数据持久化留 P5 Isar 仓储
+    // 提交时携带的完整 video;重试/恢复路径 _videos 已消费,以 settings 兜底
+    // (width 取设置宽度而非 0:保证 scale 滤镜不因兜底缺失而输出原始分辨率;
+    // 完整元数据持久化留 P5 Isar 仓储)
     final video =
         _videos.remove(id) ??
         VideoInfo(
           path: task.videoPath,
           formatName: '',
           duration: task.settings.end ?? Duration.zero,
-          width: 0,
+          width: task.settings.width,
           height: 0,
           codec: '',
         );
