@@ -110,7 +110,8 @@ lib/
 │   ├── import/                # 文件选择 + 导入用例
 │   ├── preview/               # 视频预览(播放器端口/控制器/面板/控制条)
 │   ├── task_queue/            # 任务调度状态机(application)
-│   └── export/                # 导出会话控制器 + 进度面板/完成弹窗
+│   ├── export/                # 导出会话控制器 + 参数面板/进度/完成弹窗
+│   └── history/               # 历史列表/详情/重转(P5;缩略图经 FFmpegEngine 端口)
 └── shared/                    # 被所有层依赖,禁止反向依赖 features
     ├── platform/              # PlatformAdapter + ffprobe/ffmpeg 执行器 + 引擎 + 取消管理器
     ├── providers/             # core_providers.dart(共享 provider 注册表,实现由 main 注入)
