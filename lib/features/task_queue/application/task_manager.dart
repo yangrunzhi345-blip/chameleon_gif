@@ -55,6 +55,8 @@ class TaskManager {
   final Map<int, VideoInfo> _videos = {};
   final Map<int, CancelToken> _tokens = {};
   final Map<int, CancellationManager> _cancelManagers = {};
+  bool _started = false;
+  DateTime? _lastProgressWrite;
 
   final _progressController = StreamController<TaskProgress>.broadcast();
   final _taskEvents = StreamController<ExportTask>.broadcast();
@@ -121,7 +123,10 @@ class TaskManager {
   }
 
   /// 启动恢复:扫描仓储 pending → 全部重置 queued 重排队(崩溃恢复,§8.3.7)。
+  /// 幂等:重复调用不重复入队。
   Future<void> start() async {
+    if (_started) return;
+    _started = true;
     final pending = await _taskRepository.pending();
     if (pending.isEmpty) return;
     _logger.i('恢复扫描: ${pending.length} 个待恢复任务重新排队');
@@ -188,10 +193,19 @@ class TaskManager {
         cancelToken: token,
         onProgress: (p) {
           _progressController.add(p);
-          // 进度高频更新,不落 errorDetail
-          _update(
-            current.copyWith(state: TaskState.running, progress: p.percent),
-          );
+          // 仓储进度写节流 500ms:ffmpeg 按帧输出,高频写对内存实现无碍,
+          // Isar 化后避免每帧持久化;失败仅日志不阻断进度流
+          final now = DateTime.now();
+          if (_lastProgressWrite == null ||
+              now.difference(_lastProgressWrite!) >=
+                  const Duration(milliseconds: 500)) {
+            _lastProgressWrite = now;
+            unawaited(
+              _update(
+                current.copyWith(state: TaskState.running, progress: p.percent),
+              ),
+            );
+          }
         },
       );
       if (result.cancelled || token.isCancelled) {

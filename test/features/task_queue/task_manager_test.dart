@@ -180,6 +180,69 @@ void main() {
     });
   });
 
+  test('非法转移静默拒绝:retry 对 running/completed/cancelled 无效果', () async {
+    // running 任务 retry
+    final slow = FakeFfmpegService(blockFirstConvert: true);
+    final m = TaskManager(
+      taskRepository: repo,
+      historyRepository: historyRepo,
+      ffmpegService: slow,
+      platformAdapter: _TestAdapter(tempRoot.path),
+      logger: logger,
+      retryDelay: (_) async {},
+    );
+    final runningId = await m.submit(const GifSetting(), video);
+    await waitForState(runningId, TaskState.running);
+    await m.retry(runningId); // 应静默忽略
+    expect((await repo.byId(runningId))!.state, TaskState.running);
+    slow.unblock();
+
+    // completed 任务 retry
+    final doneId = await m.submit(const GifSetting(), video);
+    await waitForState(doneId, TaskState.completed);
+    await m.retry(doneId);
+    expect((await repo.byId(doneId))!.state, TaskState.completed);
+
+    // cancelled 任务 retry
+    final blocked = FakeFfmpegService(blockFirstConvert: true);
+    final m2 = TaskManager(
+      taskRepository: repo,
+      historyRepository: historyRepo,
+      ffmpegService: blocked,
+      platformAdapter: _TestAdapter(tempRoot.path),
+      logger: logger,
+      retryDelay: (_) async {},
+    );
+    final cancelId = await m2.submit(const GifSetting(), video);
+    await waitForState(cancelId, TaskState.running);
+    await m2.cancel(cancelId);
+    blocked.unblock();
+    await waitForState(cancelId, TaskState.cancelled);
+    await m2.retry(cancelId);
+    expect((await repo.byId(cancelId))!.state, TaskState.cancelled);
+  });
+
+  test('start 幂等:重复调用不重复入队', () async {
+    repo = InMemoryTaskRepository(
+      seed: [
+        ExportTask(
+          id: 1,
+          videoPath: video.path,
+          settings: const GifSetting(),
+          state: TaskState.queued,
+          createdAt: DateTime(2026, 1, 1),
+        ),
+      ],
+    );
+    final m = build();
+
+    await m.start();
+    await m.start(); // 幂等:不应再次入队
+
+    await waitForState(1, TaskState.completed);
+    expect(service.convertCalls, [1], reason: '只执行一次');
+  });
+
   group('retry', () {
     test('EncodeException 可重试:重入队 + retryCount 递增,成功收尾', () async {
       final flaky = FakeFfmpegService(
