@@ -102,6 +102,14 @@ class FfmpegServiceEngine implements FFmpegService {
       }
     }
 
+    // 成功收尾:清理除输出外的临时文件(palette.png 等;取消路径由
+    // CancellationManager 清理,TaskManager 侧另有幂等兜底)
+    for (final f in tempFiles.where((f) => f != outputPath)) {
+      final file = File(f);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    }
     // 输出大小读取失败不掩盖转换成功(文件被外部清理等场景)
     int? size;
     try {
