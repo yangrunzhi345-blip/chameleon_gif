@@ -9,6 +9,7 @@ import '../application/estimate_size.dart';
 import '../application/export_providers.dart';
 import '../application/export_state.dart';
 import 'export_action_area.dart';
+import 'param_dropdown_field.dart';
 
 /// 参数面板(P4-WP2,docs/10 §10.3.1):输出/时间/目录分组表单。
 ///
@@ -56,6 +57,11 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
     1280,
     1920,
   ];
+
+  /// 面板输入控件统一边框(与 ParamDropdownField 收起态一致)。
+  static const _kPanelInputBorder = OutlineInputBorder(
+    borderRadius: BorderRadius.all(Radius.circular(8)),
+  );
 
   @override
   void dispose() {
@@ -125,35 +131,26 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
           _SectionLabel('输出'),
           _ParamRow(
             label: '帧率',
-            child: DropdownButton<double>(
+            child: ParamDropdownField<double>(
               value: state.fps,
+              enabled: enabled,
               items: [
                 for (final fps in _fpsOptions)
-                  DropdownMenuItem(value: fps, child: Text('$fps fps')),
+                  ParamDropdownItem(fps, '${fps.toInt()} fps'),
               ],
-              onChanged: enabled
-                  ? (v) {
-                      if (v != null) controller.updateFps(v);
-                    }
-                  : null,
+              onChanged: controller.updateFps,
             ),
           ),
           _ParamRow(
             label: '宽度',
-            child: DropdownButton<int>(
+            child: ParamDropdownField<int>(
               value: state.width,
+              enabled: enabled,
               items: [
                 for (final w in _widthOptions)
-                  DropdownMenuItem(
-                    value: w,
-                    child: Text(w == 0 ? '原图等比' : '$w px'),
-                  ),
+                  ParamDropdownItem(w, w == 0 ? '原图等比' : '$w px'),
               ],
-              onChanged: enabled
-                  ? (v) {
-                      if (v != null) controller.updateWidth(v);
-                    }
-                  : null,
+              onChanged: controller.updateWidth,
             ),
           ),
           _ParamRow(
@@ -162,7 +159,10 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
               controller: _loopCtrl,
               enabled: enabled,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(hintText: '0 = 无限循环'),
+              decoration: const InputDecoration(
+                hintText: '0 = 无限循环',
+                border: _kPanelInputBorder,
+              ),
               onChanged: (_) => _loopFocused = true,
               onTap: () => _loopFocused = true,
               onSubmitted: (text) {
@@ -183,7 +183,10 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
             child: TextField(
               controller: _startCtrl,
               enabled: enabled,
-              decoration: const InputDecoration(hintText: '00:00.000'),
+              decoration: const InputDecoration(
+                hintText: '00:00.000',
+                border: _kPanelInputBorder,
+              ),
               onChanged: (_) => _startFocused = true,
               onTap: () => _startFocused = true,
               onSubmitted: (text) {
@@ -197,7 +200,10 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
             child: TextField(
               controller: _endCtrl,
               enabled: enabled,
-              decoration: const InputDecoration(hintText: '留空 = 到结尾'),
+              decoration: const InputDecoration(
+                hintText: '留空 = 到结尾',
+                border: _kPanelInputBorder,
+              ),
               onChanged: (_) => _endFocused = true,
               onTap: () => _endFocused = true,
               onSubmitted: (text) {

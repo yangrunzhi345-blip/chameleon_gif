@@ -89,13 +89,14 @@ void main() {
     final container = await gotoWorkspace(tester);
 
     // ① 表单:帧率 24、宽度 640、起止 3s/9s(经时间输入框)
-    await tester.tap(find.text('15.0 fps'));
+    // MenuAnchor 菜单在测试中处于 offstage,菜单项 finder 需 skipOffstage: false
+    await tester.tap(find.text('15 fps'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('24.0 fps').last);
+    await tester.tap(find.text('24 fps', skipOffstage: false).last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('480 px'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('640 px').last);
+    await tester.tap(find.text('640 px', skipOffstage: false).last);
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).at(1), '00:03.000');

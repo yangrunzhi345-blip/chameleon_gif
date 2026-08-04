@@ -85,9 +85,10 @@ void main() {
     await pumpPanel(tester);
     final container = containerOf(tester);
 
-    await tester.tap(find.text('15.0 fps'));
+    await tester.tap(find.text('15 fps'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('24.0 fps').last);
+    // MenuAnchor 菜单在测试中处于 offstage,菜单项 finder 需 skipOffstage: false
+    await tester.tap(find.text('24 fps', skipOffstage: false).last);
     await tester.pumpAndSettle();
 
     expect(container.read(exportControllerProvider).fps, 24.0);
@@ -129,9 +130,9 @@ void main() {
     await pumpPanel(tester);
     final before = containerOf(tester).read(exportControllerProvider).fps;
 
-    await tester.tap(find.text('${before.toStringAsFixed(1)} fps'));
+    await tester.tap(find.text('${before.toInt()} fps'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('60.0 fps').last);
+    await tester.tap(find.text('60 fps', skipOffstage: false).last);
     await tester.pumpAndSettle();
 
     // 60fps 预估应显著大于 15fps(约 4 倍)
