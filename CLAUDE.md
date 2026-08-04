@@ -90,22 +90,31 @@ git push
 
 ```
 lib/
-├── main.dart                  # 入口:初始化(Isar、Logger、ProviderScope)
-├── app/
-│   ├── app.dart               # MaterialApp + GoRouter
-│   └── router.dart            # 路由表定义
+├── main.dart                  # 入口:初始化(Isar、Logger、ProviderScope 注入组合装配)
+├── app/                       # 组合根
+│   ├── app.dart               # MaterialApp + GoRouter(主题枚举 → ThemeMode 映射)
+│   ├── router.dart            # 路由表定义
+│   ├── application/           # providers.dart(纯应用态)、theme_controller.dart
+│   ├── presentation/          # home_page.dart、preview_screen.dart(跨模块 UI 组合壳)
+│   └── theme/                 # app_theme.dart
 ├── core/
-│   ├── constants/             # 常量、枚举、默认转换参数
-│   ├── exceptions/            # 自定义异常层级
-│   ├── logger/                # Logger 初始化与封装
-│   └── utils/                 # 通用工具(时间格式化、文件大小等)
-├── features/
-│   ├── converter/             # 核心:FFmpegEngine 接口 + 各平台实现(命令构造/进度解析/取消)
-│   ├── picker/                # 文件选择(MP4 输入 / GIF 保存)
-│   ├── player/                # 视频预览
-│   ├── history/               # 转换记录(Isar 模型 + 列表页)
-│   └── settings/              # 默认参数设置
-└── shared/
+│   ├── logger/                # AppLogger 初始化与封装
+│   └── utils/                 # 通用工具(formatFfmpegTime/formatHumanDuration/formatFileSize/throttleStream)
+├── domain/                    # 零 Flutter 依赖(纯 Dart)
+│   ├── entities/              # video_info、export_task、export_history、export_preset
+│   ├── value_objects/         # gif_setting、task_state、task_progress、app_theme_mode
+│   ├── exceptions/            # 领域异常层级(FilePick/Conversion 两族)
+│   └── repository_interfaces/ # 端口(parse_video/player/task/history/settings/ffmpeg_engine/ffmpeg_service)
+├── features/                  # 模块内部:application(纯 Dart)→ infrastructure → presentation
+│   ├── converter/             # 命令构造/进度解析/错误映射(application)+ ffprobe 端口(infrastructure)
+│   ├── import/                # 文件选择 + 导入用例
+│   ├── preview/               # 视频预览(播放器端口/控制器/面板/控制条)
+│   ├── task_queue/            # 任务调度状态机(application)
+│   └── export/                # 导出会话控制器 + 进度面板/完成弹窗
+└── shared/                    # 被所有层依赖,禁止反向依赖 features
+    ├── platform/              # PlatformAdapter + ffprobe/ffmpeg 执行器 + 引擎 + 取消管理器
+    ├── providers/             # core_providers.dart(共享 provider 注册表,实现由 main 注入)
+    ├── repositories/          # 内存过渡仓储 + Isar schema + settings 实现
     └── widgets/               # 跨功能复用组件(进度条、按钮等)
 ```
 
@@ -183,6 +192,9 @@ flutter analyze                                   # 静态分析(须在 ASCII �
 flutter test                                      # 测试(原目录可直接跑,已验证)
 dart format .                                     # 格式化
 flutter run -d linux                              # 桌面运行(按平台替换 -d)
+dart run tool/convert_check.dart                  # P3 阶段门:真实转码 SHA-256 一致性(依赖系统 ffmpeg)
+bash tool/gen_fixtures.sh                         # 重新生成集成测试夹具视频(test/fixtures/videos)
+bash tool/ascii_sync.sh                           # 同步 ASCII 副本供 analyze 使用
 ```
 
 ### 7.x 中文路径避坑(已实证)

@@ -80,10 +80,10 @@ ffmpeg -ss <start> -to <end> -i <in.mp4>
 ffmpeg -ss <start> -to <end> -i <in.mp4>
   -vf "fps=15,scale=480:-1:flags=lanczos,palettegen=max_colors=256"
   -y <work>/palette.png
-# 第二遍:应用调色板
+# 第二遍:应用调色板(loop 按参数映射规则两遍均携带)
 ffmpeg -ss <start> -to <end> -i <in.mp4> -i <work>/palette.png
   -lavfi "fps=15,scale=480:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5"
-  -progress pipe:1 -y <out.gif>
+  -progress pipe:1 -y -loop <n> <out.gif>
 ```
 
 - 参数映射规则(设计契约,单测断言):
@@ -132,7 +132,7 @@ ffmpeg -ss <start> -to <end> -i <in.mp4> -i <work>/palette.png
 
 ### 8.3.7 TaskManager(调度)
 
-- 队列结构:FIFO + 并发槽(2);提供 `cancel/retry/priority`
+- 队列结构:FIFO + 并发槽(1,P3 单任务;P6 提至 2);提供 `cancel/retry/priority`
 - 重试:仅 `SourceBrokenException`、`PaletteException` 之外的可重试错误;指数退避 2s/4s;retryCount 入库
 - 恢复:启动时 `TaskRepository.pending()` 扫描 `queued/running` → 重置 queued 重新入队(见 [07-数据库设计](07-数据库设计.md) §7.3.1)
 - 完成流程:更新任务 → 生成 ExportHistory 快照 → 通知(桌面:系统通知/应用内;Android:NotificationChannel)
