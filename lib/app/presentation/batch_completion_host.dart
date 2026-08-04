@@ -81,6 +81,15 @@ class _BatchCompletionHostState extends ConsumerState<BatchCompletionHost> {
         _showDialog(
           (dialogCtx) => BatchCompleteDialog(
             stats: snapshot.stats,
+            // 打开文件夹不关闭弹窗(与单文件完成弹窗一致,可继续选去向)
+            onOpenFolder: () {
+              final paths = snapshot.stats.completedGifPaths;
+              if (paths.isNotEmpty) {
+                ref
+                    .read(batchSessionProvider.notifier)
+                    .openOutputFolder(paths.first);
+              }
+            },
             onBackToBatch: () => _finish(dialogCtx, () {
               _navigate(
                 (ctx) => ctx.go('/batch-import', extra: const <String>[]),

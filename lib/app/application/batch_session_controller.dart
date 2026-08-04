@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/export_task.dart';
 import '../../domain/value_objects/task_state.dart';
 import '../../features/task_queue/application/task_queue_providers.dart';
+import '../../shared/providers/core_providers.dart';
 
 /// 批量会话阶段(由 [derive] 计算,UI 仅消费 phase 驱动弹窗)。
 enum BatchSessionPhase {
@@ -184,6 +187,16 @@ class BatchSessionController extends Notifier<BatchSessionState> {
     _taskIds = const [];
     _declined = false;
     _rebuild();
+  }
+
+  /// 在系统文件管理器中打开本批次第一个成功输出的所在目录
+  /// (done 态动作,UI 层仅转发;目录提取在功能层,与单文件
+  /// [ExportController.openOutputFolder] 同模式)。
+  Future<void> openOutputFolder(String outputPath) async {
+    if (outputPath.isEmpty) return;
+    await ref
+        .read(platformAdapterProvider)
+        .openFolder(File(outputPath).parent.path);
   }
 
   void _rebuild() {

@@ -39,6 +39,7 @@ void main() {
   late SharedPreferences prefs;
   late Directory tempRoot;
   late _FakeParseVideoPort parsePort;
+  late _TestAdapter adapter;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -60,7 +61,7 @@ void main() {
       navigatorKey: rootNavigatorKey,
       routes: buildRoutes(),
     );
-    final adapter = _TestAdapter(tempRoot.path);
+    adapter = _TestAdapter(tempRoot.path);
     final app = ProviderScope(
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
@@ -143,6 +144,17 @@ void main() {
     expect(find.text('所有的任务已经完成'), findsOneWidget);
     expect(find.textContaining('成功 3 个'), findsOneWidget);
     expect(find.textContaining('失败'), findsNothing, reason: '全成功无失败段');
+
+    // 打开文件夹:打开第一个输出所在目录,弹窗保持打开
+    await tester.tap(find.text('打开文件夹'));
+    await tester.pumpAndSettle();
+    expect(adapter.openFolderCalls, hasLength(1));
+    expect(
+      adapter.openFolderCalls.single,
+      startsWith(tempRoot.path),
+      reason: '第一个成功输出所在目录',
+    );
+    expect(find.text('所有的任务已经完成'), findsOneWidget, reason: '弹窗不关闭');
 
     await tester.tap(find.text('返回首页'));
     await tester.pumpAndSettle();
@@ -267,6 +279,10 @@ void main() {
       find.widgetWithText(FilledButton, '预览'),
     );
     expect(previewBtn.onPressed, isNull, reason: '无成功输出,预览禁用');
+    final openFolderBtn = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, '打开文件夹'),
+    );
+    expect(openFolderBtn.onPressed, isNull, reason: '无成功输出,打开文件夹禁用');
   });
 }
 
@@ -301,7 +317,13 @@ class _TestAdapter extends PlatformAdapter {
   _TestAdapter(this.tempRoot);
 
   final String tempRoot;
+  final openFolderCalls = <String>[];
 
   @override
   String get systemTempDir => tempRoot;
+
+  @override
+  Future<void> openFolder(String path) async {
+    openFolderCalls.add(path);
+  }
 }

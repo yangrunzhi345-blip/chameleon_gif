@@ -147,6 +147,7 @@ void main() {
     late FakeFfmpegService service;
     late Directory tempRoot;
     late SharedPreferences prefs;
+    late _TestAdapter adapter;
 
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
@@ -162,13 +163,12 @@ void main() {
 
     void buildContainer(FakeFfmpegService svc) {
       service = svc;
+      adapter = _TestAdapter(tempRoot.path);
       container = ProviderContainer(
         overrides: [
           sharedPrefsProvider.overrideWithValue(prefs),
           appLoggerProvider.overrideWithValue(AppLogger()),
-          platformAdapterProvider.overrideWithValue(
-            _TestAdapter(tempRoot.path),
-          ),
+          platformAdapterProvider.overrideWithValue(adapter),
           taskRepositoryProvider.overrideWithValue(repo),
           historyRepositoryProvider.overrideWithValue(
             InMemoryHistoryRepository(),
@@ -179,7 +179,7 @@ void main() {
               taskRepository: ref.read(taskRepositoryProvider),
               historyRepository: ref.read(historyRepositoryProvider),
               ffmpegService: service,
-              platformAdapter: _TestAdapter(tempRoot.path),
+              platformAdapter: adapter,
               logger: AppLogger(),
               retryDelay: (_) async {},
               concurrency: 1, // 单槽:convert 调用序号与 taskId 顺序稳定
@@ -280,6 +280,22 @@ void main() {
       sessionCtl().begin([id2]);
       expect(state().taskIds, [id2]);
     });
+
+    test('openOutputFolder → 提取输出所在目录并转发打开', () async {
+      buildContainer(FakeFfmpegService(writeOutput: false));
+      await sessionCtl().openOutputFolder(
+        '${tempRoot.path}/gifforge_1/out.gif',
+      );
+      expect(adapter.openFolderCalls, [
+        '${tempRoot.path}/gifforge_1',
+      ], reason: '目录提取在功能层(dart:io 纯路径处理)');
+    });
+
+    test('openOutputFolder → 空路径静默跳过', () async {
+      buildContainer(FakeFfmpegService(writeOutput: false));
+      await sessionCtl().openOutputFolder('');
+      expect(adapter.openFolderCalls, isEmpty);
+    });
   });
 }
 
@@ -287,7 +303,13 @@ class _TestAdapter extends PlatformAdapter {
   _TestAdapter(this.tempRoot);
 
   final String tempRoot;
+  final openFolderCalls = <String>[];
 
   @override
   String get systemTempDir => tempRoot;
+
+  @override
+  Future<void> openFolder(String path) async {
+    openFolderCalls.add(path);
+  }
 }
