@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chameleon_gif/app/app.dart';
+import 'package:chameleon_gif/app/presentation/batch_import_screen.dart';
+import 'package:chameleon_gif/app/presentation/home_page.dart';
 import 'package:chameleon_gif/app/router.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/file_pick_port.dart';
@@ -51,12 +53,13 @@ import '../test/fixtures/isar_test_helper.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  // 顺序即提交顺序:前两个(clip_long/chameleon)转码慢占双槽,
-  // 第三个(clip_a)排队;若首任务转码过快,任务 3 提交时槽位已空,
-  // "2 running + 1 queued"瞬态窗口极短,轮询无法捕捉(曾实测失败)
+  // 顺序即提交顺序:前两个(重素材 720p 10s 原图等比)转码慢占双槽,
+  // 第三个(clip_a)排队;参数页批量会话强制原图等比(init width=0),
+  // 轻量素材转码过快会错过"2 running + 1 queued"瞬态窗口(曾实测
+  // 失败),故前两项用重素材(720p 10s 两遍调色板编码 ≥5s)
   const kFixtures = [
-    'test/fixtures/videos/clip_long.mp4',
     'test/fixtures/videos/chameleon.mp4',
+    'test/fixtures/videos/chameleon2.mp4',
     'test/fixtures/videos/clip_a.mp4',
   ];
 
@@ -150,13 +153,27 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: ChameleonGifApp(router: GoRouter(routes: buildRoutes())),
+          // 带 rootNavigatorKey:批量完成弹窗宿主经此弹窗(无 key 静默)
+          child: ChameleonGifApp(
+            router: GoRouter(
+              routes: buildRoutes(),
+              navigatorKey: rootNavigatorKey,
+            ),
+          ),
         ),
       );
       await tester.pump(const Duration(milliseconds: 100));
 
-      // 2. 批量导入 → 跳转队列页
+      // 2. 批量导入 → 参数页(默认参数摘要)→ 开始批量转换 → 跳转队列页
       await tester.tap(find.text('批量导入'));
+      await waitFor(
+        tester,
+        () async => find.byType(BatchImportScreen).evaluate().isNotEmpty,
+        reason: '批量导入应进入参数页',
+        timeoutSeconds: 30,
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.text('开始批量转换'));
       await waitFor(
         tester,
         () async => find.byType(QueuePage).evaluate().isNotEmpty,
@@ -176,10 +193,10 @@ void main() {
         timeoutSeconds: 60,
       );
 
-      // 4. 取消运行中的 chameleon(UI 层点行内取消按钮)
+      // 4. 取消运行中的 chameleon2(UI 层点行内取消按钮)
       await tester.pump(const Duration(milliseconds: 100));
-      final longTile = find.widgetWithText(ListTile, 'chameleon.mp4');
-      expect(longTile, findsOneWidget, reason: 'chameleon 行应可见');
+      final longTile = find.widgetWithText(ListTile, 'chameleon2.mp4');
+      expect(longTile, findsOneWidget, reason: 'chameleon2 行应可见');
       final cancelBtn = find.descendant(
         of: longTile,
         matching: find.byTooltip('取消'),
@@ -188,13 +205,14 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       // 5. 终态:2 completed + 1 cancelled(取消不阻塞排队任务顶上)
+      // 注意:completed 计数用 tasks 列表而非 states Set(Set 去重后恒 ≤1)
       await waitFor(
         tester,
         () async {
           final tasks = await taskRepo.all();
           final states = {for (final t in tasks) t.state};
           return states.contains(TaskState.cancelled) &&
-              states.where((s) => s == TaskState.completed).length == 2 &&
+              tasks.where((t) => t.state == TaskState.completed).length == 2 &&
               tasks.every((t) => t.state.isFinal);
         },
         reason: '全部终态:2 completed + 1 cancelled',
@@ -209,18 +227,34 @@ void main() {
         timeoutSeconds: 30,
       );
 
+      // 6.5 全部终态 → 批量完成弹窗(2 成功 1 取消);点"返回首页"关闭
+      await waitFor(
+        tester,
+        () async => find.text('所有的任务已经完成').evaluate().isNotEmpty,
+        reason: '全部任务结束后应弹完成弹窗',
+        timeoutSeconds: 30,
+      );
+      await tester.tap(find.text('返回首页'));
+      await tester.pump(const Duration(milliseconds: 100));
+      await waitFor(
+        tester,
+        () async => find.byType(HomePage).evaluate().isNotEmpty,
+        reason: '关闭弹窗回首页',
+        timeoutSeconds: 30,
+      );
+
       // 7. 历史页渲染 2 行(真实 Isar + 真实缩略图抽帧)
-      GoRouter.of(tester.element(find.byType(QueuePage))).push('/history');
+      GoRouter.of(tester.element(find.byType(HomePage))).push('/history');
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byType(HistoryPage), findsOneWidget);
       await waitFor(
         tester,
         () async => find
-            .widgetWithText(ListTile, 'clip_long.mp4')
+            .widgetWithText(ListTile, 'chameleon.mp4')
             .evaluate()
             .isNotEmpty,
-        reason: '历史页应显示 clip_long 行',
+        reason: '历史页应显示 chameleon 行',
         timeoutSeconds: 30,
       );
       expect(find.widgetWithText(ListTile, 'clip_a.mp4'), findsOneWidget);
