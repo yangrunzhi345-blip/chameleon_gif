@@ -31,9 +31,15 @@ class TaskQueueController extends Notifier<TaskQueueState> {
     return const TaskQueueState();
   }
 
-  /// 提交转换任务,返回 taskId。
-  Future<int> submit(GifSetting setting, VideoInfo video) async {
-    final id = await ref.read(taskManagerProvider).submit(setting, video);
+  /// 提交转换任务,返回 taskId([outputDir] 非空时输出到用户目录)。
+  Future<int> submit(
+    GifSetting setting,
+    VideoInfo video, {
+    String? outputDir,
+  }) async {
+    final id = await ref
+        .read(taskManagerProvider)
+        .submit(setting, video, outputDir: outputDir);
     await _refresh();
     return id;
   }

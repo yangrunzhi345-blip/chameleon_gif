@@ -216,11 +216,20 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
             ),
           const SizedBox(height: 12),
           _SectionLabel('目录'),
-          // 目录选择区在 P4-WP4 落地(选择按钮 + 路径显示)
-          Text(
-            state.outputDir ?? '系统临时目录(默认)',
-            style: Theme.of(context).textTheme.bodySmall,
-            overflow: TextOverflow.ellipsis,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  state.outputDir ?? '系统临时目录(默认)',
+                  style: Theme.of(context).textTheme.bodySmall,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              TextButton(
+                onPressed: enabled ? controller.pickOutputDir : null,
+                child: const Text('选择目录'),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           Text(

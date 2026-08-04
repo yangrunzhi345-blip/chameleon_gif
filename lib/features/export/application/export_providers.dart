@@ -2,10 +2,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/throttle_stream.dart';
 import '../../../domain/entities/export_task.dart';
+import '../../../domain/repository_interfaces/directory_pick_port.dart';
 import '../../../domain/value_objects/task_progress.dart';
 import '../../task_queue/application/task_queue_providers.dart';
+import '../infrastructure/file_selector_directory_pick_port.dart';
 import 'export_controller.dart';
 import 'export_state.dart';
+
+/// 目录选择端口(测试经 override 注入 Fake)。
+final directoryPickPortProvider = Provider<DirectoryPickPort>(
+  (ref) => const FileSelectorDirectoryPickPort(),
+);
 
 /// 导出会话控制器(层次二,autoDispose)。
 final exportControllerProvider =

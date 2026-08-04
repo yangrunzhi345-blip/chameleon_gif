@@ -6,11 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/duration_math.dart';
 import '../../../domain/entities/export_task.dart';
 import '../../../domain/entities/video_info.dart';
+import '../../../domain/exceptions/file_pick_exception.dart';
 import '../../../domain/value_objects/gif_setting.dart';
 import '../../../domain/value_objects/task_state.dart';
 import '../../../shared/providers/core_providers.dart';
 import '../../task_queue/application/task_queue_providers.dart';
 import '../../timeline/application/timeline_providers.dart';
+import 'export_providers.dart';
 import 'export_state.dart';
 
 /// 导出会话控制器(docs/06 M04,docs/09 §9.2 层次二,autoDispose)。
@@ -127,6 +129,36 @@ class ExportController extends Notifier<ExportFormState> {
     end: state.end,
   );
 
+  /// 设置导出目录(空串 → null = 系统临时目录)。
+  void updateOutputDir(String? dir) {
+    if (state.locked) return;
+    state = state.copyWith(
+      outputDir: (dir == null || dir.isEmpty) ? null : dir,
+      formError: null,
+    );
+  }
+
+  /// 打开系统目录选择器;成功后回填表单并持久化为默认导出目录。
+  ///
+  /// 取消(null)静默;选择失败 → formError 中文提示。
+  Future<void> pickOutputDir() async {
+    if (state.locked) return;
+    final initial =
+        state.outputDir ??
+        ref.read(settingsRepositoryProvider).defaultExportDir;
+    try {
+      final dir = await ref
+          .read(directoryPickPortProvider)
+          .pickDirectory(initialDirectory: initial.isEmpty ? null : initial);
+      if (dir == null) return; // 用户取消
+      updateOutputDir(dir);
+      await ref.read(settingsRepositoryProvider).setDefaultExportDir(dir);
+    } on FilePickException catch (e) {
+      if (state.locked) return;
+      state = state.copyWith(formError: e.userMessage);
+    }
+  }
+
   /// 设置表单级错误(时间格式非法等;非空时禁用导出)。
   void updateFormError(String message) {
     if (state.locked) return;
@@ -158,7 +190,7 @@ class ExportController extends Notifier<ExportFormState> {
       }
       final id = await ref
           .read(taskQueueControllerProvider.notifier)
-          .submit(effective, video);
+          .submit(effective, video, outputDir: state.outputDir);
       _activeTaskId = id;
       state = state.copyWith(
         lifecycle: ExportLifecycle.exporting,

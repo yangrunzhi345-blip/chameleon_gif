@@ -354,6 +354,51 @@ void main() {
     await waitForState(2, TaskState.completed);
   });
 
+  test('submit(outputDir):输出到用户目录,意图路径入库', () async {
+    // 目录选择器保证所选目录存在,测试模拟之
+    final outDir = Directory('${tempRoot.path}/user_gif')
+      ..createSync(recursive: true);
+    final id = await manager.submit(
+      const GifSetting(),
+      video,
+      outputDir: outDir.path,
+    );
+
+    final task = await waitForState(id, TaskState.completed);
+    expect(task.outputPath, '${outDir.path}/demo_$id.gif');
+    expect(File(task.outputPath!).existsSync(), isTrue, reason: '输出落用户目录');
+  });
+
+  test('取消:用户目录半成品保留,临时目录文件清理', () async {
+    final blocked = FakeFfmpegService(blockFirstConvert: true);
+    final m = TaskManager(
+      taskRepository: repo,
+      historyRepository: historyRepo,
+      ffmpegService: blocked,
+      platformAdapter: _TestAdapter(tempRoot.path),
+      logger: logger,
+      retryDelay: (_) async {},
+    );
+    final outDir = Directory('${tempRoot.path}/user_gif');
+    final id = await m.submit(
+      const GifSetting(),
+      video,
+      outputDir: outDir.path,
+    );
+    await waitForState(id, TaskState.running);
+
+    await m.cancel(id);
+    blocked.unblock();
+    await waitForState(id, TaskState.cancelled);
+
+    final task = await repo.byId(id);
+    expect(task!.outputPath, '${outDir.path}/demo_$id.gif');
+    // 用户目录不删除(文件名含 taskId,不覆盖旧文件)
+    expect(outDir.existsSync(), isFalse, reason: '未创建时不强制建目录');
+    // 临时工作目录被清理(空目录移除)
+    expect(Directory('${tempRoot.path}/gifforge_$id').existsSync(), isFalse);
+  });
+
   test('taskEvents:每个状态转移发事件,完成事件含输出路径', () async {
     final events = <ExportTask>[];
     final sub = manager.taskEvents.listen(events.add);
@@ -430,6 +475,8 @@ class FakeFfmpegService implements FFmpegService {
       throw e;
     }
     if (error != null) throw error!;
+    // 真实写出输出文件(用户目录输出测试断言存在性)
+    await File(outputPath).writeAsBytes(List.filled(123, 1));
     return const ConvertResult(
       exitCode: 0,
       elapsed: Duration(seconds: 1),

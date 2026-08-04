@@ -7,6 +7,7 @@ import 'package:gif_forge/shared/providers/core_providers.dart';
 import 'package:gif_forge/core/logger/app_logger.dart';
 import 'package:gif_forge/domain/entities/video_info.dart';
 import 'package:gif_forge/domain/exceptions/encode_exception.dart';
+import 'package:gif_forge/domain/repository_interfaces/directory_pick_port.dart';
 import 'package:gif_forge/domain/repository_interfaces/ffmpeg_engine.dart';
 import 'package:gif_forge/domain/repository_interfaces/ffmpeg_service.dart';
 import 'package:gif_forge/domain/value_objects/gif_setting.dart';
@@ -20,6 +21,7 @@ import 'package:gif_forge/features/task_queue/application/task_queue_providers.d
 import 'package:gif_forge/shared/platform/platform_adapter.dart';
 import 'package:gif_forge/shared/repositories/in_memory_history_repository.dart';
 import 'package:gif_forge/shared/repositories/in_memory_task_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// [ExportController] 测试(纯 Dart ProviderContainer,注入 Fake 服务)。
 void main() {
@@ -38,6 +40,12 @@ void main() {
   late Directory tempRoot;
   late ProviderContainer container;
   late _RecordingAdapter adapter;
+  late SharedPreferences prefs;
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
+  });
 
   ProviderContainer build({Object? serviceError, FakeExportService? custom}) {
     service = custom ?? FakeExportService(error: serviceError);
@@ -45,6 +53,8 @@ void main() {
     adapter = _RecordingAdapter(tempRoot.path);
     return ProviderContainer(
       overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        directoryPickPortProvider.overrideWithValue(_FakeDirPick(adapter)),
         taskRepositoryProvider.overrideWithValue(taskRepo),
         historyRepositoryProvider.overrideWithValue(
           InMemoryHistoryRepository(),
@@ -204,6 +214,27 @@ void main() {
 
     expect(adapter.openFolderCalls, isEmpty);
   });
+
+  test('pickOutputDir:成功 → 表单回填 + 默认目录持久化', () async {
+    container = build();
+    final ctl = container.read(exportControllerProvider.notifier);
+    adapter.pickResult = '${tempRoot.path}/my_gif';
+
+    await ctl.pickOutputDir();
+
+    final state = container.read(exportControllerProvider);
+    expect(state.outputDir, '${tempRoot.path}/my_gif');
+    expect(prefs.getString('default_export_dir'), '${tempRoot.path}/my_gif');
+  });
+
+  test('pickOutputDir:取消(null)静默,表单不变', () async {
+    container = build();
+    final ctl = container.read(exportControllerProvider.notifier);
+
+    await ctl.pickOutputDir(); // pickResult 默认 null
+
+    expect(container.read(exportControllerProvider).outputDir, isNull);
+  });
 }
 
 /// 记录 openFolder 调用的平台适配器。
@@ -213,6 +244,9 @@ class _RecordingAdapter extends PlatformAdapter {
   final String tempRoot;
   final List<String> openFolderCalls = [];
 
+  /// 目录选择结果(null = 取消)。
+  String? pickResult;
+
   @override
   String get systemTempDir => tempRoot;
 
@@ -220,6 +254,17 @@ class _RecordingAdapter extends PlatformAdapter {
   Future<void> openFolder(String path) async {
     openFolderCalls.add(path);
   }
+}
+
+/// 目录选择端口替身(结果委托给 [_RecordingAdapter.pickResult])。
+class _FakeDirPick implements DirectoryPickPort {
+  _FakeDirPick(this.adapter);
+
+  final _RecordingAdapter adapter;
+
+  @override
+  Future<String?> pickDirectory({String? initialDirectory}) async =>
+      adapter.pickResult;
 }
 
 class FakeExportService implements FFmpegService {

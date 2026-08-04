@@ -17,6 +17,7 @@ import '../../../domain/value_objects/task_progress.dart';
 import '../../../domain/value_objects/task_state.dart';
 import '../../../shared/platform/platform_adapter.dart';
 import '../../../shared/platform/cancellation_manager.dart';
+import 'output_path.dart';
 
 /// 任务调度器(单并发槽 FIFO,docs/06 §6.3、docs/08 §8.3.7)。
 ///
@@ -76,7 +77,13 @@ class TaskManager {
   ///
   /// [setting.end] 缺省时装配为 [video.duration](公共 API 自洽,直连不产生
   /// `-to 00:00:00.000` 空窗口)。
-  Future<int> submit(GifSetting setting, VideoInfo video) async {
+  /// [outputDir] 非空时输出到用户目录(意图路径写回任务,重试/恢复沿用);
+  /// 缺省保持系统临时目录行为。
+  Future<int> submit(
+    GifSetting setting,
+    VideoInfo video, {
+    String? outputDir,
+  }) async {
     final effective = setting.end == null
         ? setting.copyWith(end: video.duration)
         : setting;
@@ -88,6 +95,23 @@ class TaskManager {
       createdAt: DateTime.now(),
     );
     final id = await _taskRepository.add(task);
+    if (outputDir != null && outputDir.isNotEmpty) {
+      final outputPath = resolveOutputPath(
+        outputDir: outputDir,
+        sourcePath: video.path,
+        taskId: id,
+      );
+      await _update(
+        ExportTask(
+          id: id,
+          videoPath: task.videoPath,
+          outputPath: outputPath,
+          settings: effective,
+          state: TaskState.queued,
+          createdAt: task.createdAt,
+        ),
+      );
+    }
     _videos[id] = video;
     _queue.add(id);
     _logger.i('任务入队: id=$id path=${video.path}');
@@ -165,12 +189,19 @@ class TaskManager {
           codec: '',
         );
     final workDir = '${_platformAdapter.systemTempDir}/gifforge_$id';
-    final outputPath = '$workDir/out.gif';
+    // 用户目录输出(提交时意图路径)或临时目录缺省
+    final outputPath = task.outputPath ?? '$workDir/out.gif';
     final token = CancelToken();
     _tokens[id] = token;
+    // 取消清理条件化:仅清理工作目录内临时文件,用户目录输出不删
+    // (半成品保留且文件名含 taskId 不覆盖)
+    final cancelFiles = ['$workDir/palette.png'];
+    if (outputPath.startsWith(workDir)) {
+      cancelFiles.add(outputPath);
+    }
     _cancelManagers[id] = CancellationManager(
       token: token,
-      tempFiles: ['$workDir/palette.png', outputPath],
+      tempFiles: cancelFiles,
       workDir: workDir,
     );
     await Directory(workDir).create(recursive: true);
