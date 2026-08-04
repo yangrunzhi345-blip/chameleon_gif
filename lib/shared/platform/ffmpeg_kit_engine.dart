@@ -1,17 +1,47 @@
 import 'dart:async';
 
 import 'package:ffmpeg_kit_flutter_minimal/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_minimal/ffmpeg_session.dart';
+import 'package:ffmpeg_kit_flutter_minimal/ffmpeg_session_complete_callback.dart';
+import 'package:ffmpeg_kit_flutter_minimal/log_callback.dart';
+import 'package:ffmpeg_kit_flutter_minimal/statistics_callback.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../domain/repository_interfaces/ffmpeg_engine.dart';
 
-/// Android FFmpeg 引擎(ffmpeg_kit_flutter_minimal 内嵌库,docs/08 §8.3.8)。
+/// [FFmpegKit.executeAsync] 签名镜像(位置可选参数;静态 tear-off 为常量,
+/// 可作默认值;单测注入 fake 替代不可 mock 的静态 API)。
+typedef KitExecuteAsync =
+    Future<FFmpegSession> Function(
+      String command, [
+      FFmpegSessionCompleteCallback? completeCallback,
+      LogCallback? logCallback,
+      StatisticsCallback? statisticsCallback,
+    ]);
+
+/// [FFmpegKit.cancel] 签名镜像。
+typedef KitCancel = Future<void> Function([int? sessionId]);
+
+/// Android FFmpeg 引擎(ffmpeg_kit_flutter 内嵌库,docs/08 §8.3.8)。
 ///
-/// ⚠️ 接口对齐实现:R-07 已实证该 fork 无 Linux/Windows 平台实现,Android
-/// 路径本轮不验证(P8 三平台清单确认)。命令以空格拼接字符串执行
-/// (Kit 契约),进度经 statistics 回调(与桌面 -progress pipe:1 行不同,
-/// 接入进度留 P8);取消经 `FFmpegKit.cancel(sessionId)`。
+/// ⚠️ 原生载体:R-07 已实证 fork(ffmpeg_kit_flutter_minimal)为纯 Dart 包,
+/// 无原生侧;Android 桥与 ffmpeg-kit AAR 由原版 ffmpeg_kit_flutter 6.0.3
+/// 提供(同 channel 桥接,见 pubspec 注释)。桌面走系统二进制,本引擎仅
+/// Android 实例化。
+///
+/// 命令以空格拼接字符串执行(Kit 契约);进度经 statistics 回调合成
+/// `-progress` 风格文本行喂上层 [ProgressParser](与桌面解析 100% 复用,
+/// time 单位微秒与桌面 out_time_us 一致);取消经 `FFmpegKit.cancel(sessionId)`
+/// (CancelToken 已取消时 onCancel 立即执行,幂等)。
 class FfmpegKitEngine implements FFmpegEngine {
+  FfmpegKitEngine({
+    this.executeAsync = FFmpegKit.executeAsync,
+    this.cancel = FFmpegKit.cancel,
+  });
+
+  final KitExecuteAsync executeAsync;
+  final KitCancel cancel;
+
   @override
   Future<ConvertResult> convert(
     ConvertRequest request, {
@@ -23,7 +53,7 @@ class FfmpegKitEngine implements FFmpegEngine {
     final sw = Stopwatch()..start();
     final command = assembleCommand(request.command);
 
-    final session = await FFmpegKit.executeAsync(
+    final session = await executeAsync(
       command,
       (s) async {
         final returnCode = await s.getReturnCode();
@@ -36,12 +66,19 @@ class FfmpegKitEngine implements FFmpegEngine {
         );
       },
       (log) => onLog?.call(log.getMessage()),
-      // statistics 回调:Android 进度源(留 P8 接入 ProgressParser 等价物)
-      (stat) {},
+      (stat) {
+        // statistics 合成 -progress 风格行:ProgressParser 按行解析,
+        // out_time_us 驱动百分比,total_size/speed 行不产出(对齐桌面)
+        onProgress?.call('out_time_us=${stat.getTime().toInt()}');
+        onProgress?.call('total_size=${stat.getSize()}');
+        onProgress?.call('speed=${stat.getSpeed()}x');
+        onProgress?.call('progress=continue');
+      },
     );
     final sessionId = session.getSessionId();
     cancelToken?.onCancel(() {
-      if (sessionId != null) FFmpegKit.cancel(sessionId);
+      // CancelToken 已取消时 onCancel 立即执行(覆盖执行中取消窗口)
+      if (sessionId != null) cancel(sessionId);
     });
     return completer.future;
   }

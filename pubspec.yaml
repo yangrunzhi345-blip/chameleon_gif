@@ -51,6 +51,11 @@ dependencies:
   # 注意:该 fork 无 Linux/Windows 桌面平台实现(已实证),桌面端经 PlatformAdapter
   # 改调系统 ffmpeg/ffprobe 二进制,详见 docs/03-技术选型.md 与 docs/08-FFmpeg设计.md
   ffmpeg_kit_flutter_minimal: ^6.0.8
+  # 原生载体(Android):fork 纯 Dart(无 flutter plugin 声明、无 android 目录,
+  # 已实证),Dart 侧经 platform_interface 的 'flutter.arthenica.com/ffmpeg_kit'
+  # MethodChannel 通信;原版 6.0.3 提供 Android Java 桥 + ffmpeg-kit AAR 同通道
+  # 桥接,仅作原生载体,Dart 代码不 import 它(import 名不同无冲突)。
+  ffmpeg_kit_flutter: 6.0.3
 
   # 平台路径(应用数据目录,PlatformAdapter 使用,见 docs/08-FFmpeg设计.md §8.3.8)
   path_provider: ^2.1.6
