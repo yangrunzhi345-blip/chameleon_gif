@@ -1,6 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gif_forge/domain/exceptions/conversion_exception.dart';
+import 'package:gif_forge/domain/exceptions/disk_full_exception.dart';
 import 'package:gif_forge/domain/exceptions/domain_exception.dart';
+import 'package:gif_forge/domain/exceptions/encode_exception.dart';
+import 'package:gif_forge/domain/exceptions/ffmpeg_missing_exception.dart';
 import 'package:gif_forge/domain/exceptions/file_pick_exception.dart';
+import 'package:gif_forge/domain/exceptions/output_conflict_exception.dart';
+import 'package:gif_forge/domain/exceptions/palette_exception.dart';
+import 'package:gif_forge/domain/exceptions/permission_exception.dart';
 import 'package:gif_forge/domain/exceptions/source_broken_exception.dart';
 import 'package:gif_forge/domain/exceptions/source_missing_exception.dart';
 
@@ -47,6 +54,45 @@ void main() {
       const e = SourceBrokenException(errorCode: 'GIF_1_SOURCE_BROKEN');
       expect(e.toString(), contains('GIF_1_SOURCE_BROKEN'));
       expect(e.toString(), contains('视频文件损坏或格式异常'));
+    });
+
+    test('FFmpegMissing 默认 PROBE 错误码(P1 兼容)', () {
+      const e = FFmpegMissingException();
+      expect(e.errorCode, 'GIF_127_PROBE_MISSING');
+    });
+
+    test('FFmpegMissing kind=ENCODE 错误码(P3 转码)', () {
+      const e = FFmpegMissingException(kind: 'ENCODE');
+      expect(e.errorCode, 'GIF_127_ENCODE_MISSING');
+    });
+
+    test('转换异常族继承链:Encode → Conversion → Domain → Exception', () {
+      const e = EncodeException(errorCode: 'GIF_1_ENCODE');
+      expect(e, isA<ConversionException>());
+      expect(e, isA<DomainException>());
+      expect(e, isA<Exception>());
+    });
+
+    test('五个转换异常携带固定中文文案与错误码', () {
+      const diskFull = DiskFullException(errorCode: 'GIF_1_DISK_FULL');
+      expect(diskFull.userMessage, '磁盘空间不足,请清理后重试');
+      expect(diskFull.errorCode, 'GIF_1_DISK_FULL');
+
+      const permission = PermissionException(errorCode: 'GIF_1_PERMISSION');
+      expect(permission.userMessage, '没有文件写入权限');
+
+      const conflict = OutputConflictException(
+        errorCode: 'GIF_1_OUTPUT_CONFLICT',
+      );
+      expect(conflict.userMessage, '输出文件已存在');
+
+      const palette = PaletteException(errorCode: 'GIF_1_PALETTE');
+      expect(palette.userMessage, contains('调色板'));
+      expect(palette.errorCode, 'GIF_1_PALETTE');
+
+      const encode = EncodeException(errorCode: 'GIF_1_ENCODE');
+      expect(encode.userMessage, isNotEmpty);
+      expect(encode.errorCode, 'GIF_1_ENCODE');
     });
   });
 }

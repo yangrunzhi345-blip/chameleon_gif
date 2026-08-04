@@ -34,27 +34,35 @@ void main() {
       final cmd = commands.single;
       expect(cmd.label, GifCommand.encodeLabel);
       expect(cmd.args, [
-        '-ss', '00:00:00.000',
-        '-to', '00:00:30.000',
-        '-i', '/tmp/videos/demo.mp4',
-        '-vf', 'fps=15,scale=480:-1:flags=lanczos',
-        '-progress', 'pipe:1',
+        '-ss',
+        '00:00:00.000',
+        '-to',
+        '00:00:30.000',
+        '-i',
+        '/tmp/videos/demo.mp4',
+        '-vf',
+        'fps=15,scale=480:-1:flags=lanczos',
+        '-progress',
+        'pipe:1',
         '-y',
-        '-loop', '0',
+        '-loop',
+        '0',
         '/tmp/work/out.gif',
       ]);
     });
 
     test('width=0 省略 scale 滤镜项', () {
       const setting = GifSetting(width: 0);
-      final cmd = builder.build(
-        setting: setting,
-        video: video,
-        inputPath: video.path,
-        workDir: '/tmp/work',
-        outputPath: '/tmp/work/out.gif',
-        usePalette: false,
-      ).single;
+      final cmd = builder
+          .build(
+            setting: setting,
+            video: video,
+            inputPath: video.path,
+            workDir: '/tmp/work',
+            outputPath: '/tmp/work/out.gif',
+            usePalette: false,
+          )
+          .single;
       expect(cmd.args, contains('-vf'));
       final vf = cmd.args[cmd.args.indexOf('-vf') + 1];
       expect(vf, 'fps=15', reason: 'width=0 时滤镜链只有 fps');
@@ -62,28 +70,32 @@ void main() {
 
     test('非整数 fps 原样透传', () {
       const setting = GifSetting(fps: 29.97);
-      final cmd = builder.build(
-        setting: setting,
-        video: video,
-        inputPath: video.path,
-        workDir: '/tmp/work',
-        outputPath: '/tmp/work/out.gif',
-        usePalette: false,
-      ).single;
+      final cmd = builder
+          .build(
+            setting: setting,
+            video: video,
+            inputPath: video.path,
+            workDir: '/tmp/work',
+            outputPath: '/tmp/work/out.gif',
+            usePalette: false,
+          )
+          .single;
       final vf = cmd.args[cmd.args.indexOf('-vf') + 1];
       expect(vf, 'fps=29.97,scale=480:-1:flags=lanczos');
     });
 
     test('loop 映射为 -loop <n>', () {
       const setting = GifSetting(loop: 2);
-      final cmd = builder.build(
-        setting: setting,
-        video: video,
-        inputPath: video.path,
-        workDir: '/tmp/work',
-        outputPath: '/tmp/work/out.gif',
-        usePalette: false,
-      ).single;
+      final cmd = builder
+          .build(
+            setting: setting,
+            video: video,
+            inputPath: video.path,
+            workDir: '/tmp/work',
+            outputPath: '/tmp/work/out.gif',
+            usePalette: false,
+          )
+          .single;
       final loopIdx = cmd.args.indexOf('-loop');
       expect(loopIdx, greaterThanOrEqualTo(0));
       expect(cmd.args[loopIdx + 1], '2');
@@ -94,17 +106,21 @@ void main() {
         start: Duration(minutes: 1, seconds: 30, milliseconds: 500),
         end: Duration(minutes: 2),
       );
-      final cmd = builder.build(
-        setting: setting,
-        video: video,
-        inputPath: video.path,
-        workDir: '/tmp/work',
-        outputPath: '/tmp/work/out.gif',
-        usePalette: false,
-      ).single;
+      final cmd = builder
+          .build(
+            setting: setting,
+            video: video,
+            inputPath: video.path,
+            workDir: '/tmp/work',
+            outputPath: '/tmp/work/out.gif',
+            usePalette: false,
+          )
+          .single;
       expect(cmd.args.take(6), [
-        '-ss', '00:01:30.500',
-        '-to', '00:02:00.000',
+        '-ss',
+        '00:01:30.500',
+        '-to',
+        '00:02:00.000',
         '-i',
         video.path,
       ]);
@@ -112,17 +128,21 @@ void main() {
 
     test('end=null 时取 video.duration', () {
       const setting = GifSetting();
-      final cmd = builder.build(
-        setting: setting,
-        video: video,
-        inputPath: video.path,
-        workDir: '/tmp/work',
-        outputPath: '/tmp/work/out.gif',
-        usePalette: false,
-      ).single;
+      final cmd = builder
+          .build(
+            setting: setting,
+            video: video,
+            inputPath: video.path,
+            workDir: '/tmp/work',
+            outputPath: '/tmp/work/out.gif',
+            usePalette: false,
+          )
+          .single;
       expect(cmd.args.take(5), [
-        '-ss', '00:00:00.000',
-        '-to', '00:00:30.000',
+        '-ss',
+        '00:00:00.000',
+        '-to',
+        '00:00:30.000',
         '-i',
       ]);
     });
@@ -148,7 +168,10 @@ void main() {
       expect(first, isNot(contains('-progress')));
       expect(first, isNot(contains('pipe:1')));
       final vf1 = first[first.indexOf('-vf') + 1];
-      expect(vf1, 'fps=15,scale=480:-1:flags=lanczos,palettegen=max_colors=256');
+      expect(
+        vf1,
+        'fps=15,scale=480:-1:flags=lanczos,palettegen=max_colors=256',
+      );
       expect(first.last, '/tmp/work/palette.png');
 
       // 第二遍:应用调色板输出 GIF(第二个 -i 为调色板输入)
@@ -175,8 +198,10 @@ void main() {
       );
       for (final cmd in commands) {
         expect(cmd.args.take(5), [
-          '-ss', '00:00:05.000',
-          '-to', '00:00:30.000',
+          '-ss',
+          '00:00:05.000',
+          '-to',
+          '00:00:30.000',
           '-i',
         ]);
       }
@@ -197,8 +222,10 @@ void main() {
         start: Duration(seconds: 10),
         end: Duration(seconds: 25),
       );
-      expect(builder.progressDenominator(setting, video),
-          const Duration(seconds: 15));
+      expect(
+        builder.progressDenominator(setting, video),
+        const Duration(seconds: 15),
+      );
     });
 
     test('start >= end 时钳制为 0(除零防护)', () {
