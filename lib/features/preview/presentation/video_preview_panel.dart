@@ -12,8 +12,12 @@ import '../application/preview_state.dart';
 /// 纯渲染:按 [PreviewState] 生命周期展示 加载态 / 错误视图 / 播放画面;
 /// 播放器句柄经 [previewPlayerPortProvider] 的 renderHandle 桥接,
 /// `is Player` 单点强转(widget 测试注入 Fake 时降级为占位,不触 FFI)。
+/// [hideErrorBack] 为 true 时错误视图不渲染"返回"按钮(完成 GIF 预览页
+/// 由列表切换兜底,避免 maybePop 把整页退掉)。
 class VideoPreviewPanel extends ConsumerStatefulWidget {
-  const VideoPreviewPanel({super.key});
+  const VideoPreviewPanel({super.key, this.hideErrorBack = false});
+
+  final bool hideErrorBack;
 
   @override
   ConsumerState<VideoPreviewPanel> createState() => _VideoPreviewPanelState();
@@ -56,7 +60,10 @@ class _VideoPreviewPanelState extends ConsumerState<VideoPreviewPanel> {
       case PreviewLifecycle.loading:
         return const Center(child: CircularProgressIndicator());
       case PreviewLifecycle.error:
-        return _ErrorView(message: state.errorMessage);
+        return _ErrorView(
+          message: state.errorMessage,
+          hideBack: widget.hideErrorBack,
+        );
       case PreviewLifecycle.ready:
         final controller = _videoController;
         if (controller == null) {
@@ -72,9 +79,10 @@ class _VideoPreviewPanelState extends ConsumerState<VideoPreviewPanel> {
 }
 
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({this.message});
+  const _ErrorView({this.message, this.hideBack = false});
 
   final String? message;
+  final bool hideBack;
 
   @override
   Widget build(BuildContext context) {
@@ -89,11 +97,13 @@ class _ErrorView extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(message ?? '视频播放失败'),
-          const SizedBox(height: 12),
-          FilledButton.tonal(
-            onPressed: () => Navigator.of(context).maybePop(),
-            child: const Text('返回'),
-          ),
+          if (!hideBack) ...[
+            const SizedBox(height: 12),
+            FilledButton.tonal(
+              onPressed: () => Navigator.of(context).maybePop(),
+              child: const Text('返回'),
+            ),
+          ],
         ],
       ),
     );
