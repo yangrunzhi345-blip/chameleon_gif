@@ -64,6 +64,12 @@ class TaskManager {
   final Map<int, VideoInfo> _videos = {};
   final Map<int, CancelToken> _tokens = {};
   final Map<int, CancellationManager> _cancelManagers = {};
+
+  /// 取消请求集合(P7 修复):cancel() 进入即**同步**登记,消除 byId await
+  /// 窗口——"cancel 与 _run 启动交错时,取消被吞、任务最终完成"的竞态
+  /// (集成测试 full_chain 偶发暴露);_run 在 byId 后与 token 登记后各
+  /// 检查一次,未启动即取消。
+  final Set<int> _cancelRequests = {};
   bool _started = false;
   final Map<int, DateTime> _lastProgressWrite = {};
   bool _pumping = false;
@@ -135,27 +141,39 @@ class TaskManager {
   /// 已登记但 state 仍是 queued;此处不再要求 state==running,manager 存在
   /// 即取消,未 running 时补落 cancelled 终态,防"取消被吞、任务最终完成"。
   Future<void> cancel(int id) async {
-    final task = await _taskRepository.byId(id);
-    if (task == null || task.state.isFinal) return; // 终态幂等
-    final manager = _cancelManagers[id];
-    if (manager != null) {
-      await manager.cancel(); // 幂等:标记令牌 + 清理临时文件
-      if (task.state != TaskState.running) {
-        // 启动窗口/退避期:转换尚未开始,本方法直接落终态
-        _queue.remove(id);
-        await _update(
-          task.copyWith(state: TaskState.cancelled, finishedAt: DateTime.now()),
-        );
-        _emitTask(task);
+    // 同步登记取消意图:与 _run 的检查点(byId 后/token 登记后)配对,
+    // 消除"取消被吞、任务最终完成"的启动窗口竞态(P7 集成测试暴露)
+    _cancelRequests.add(id);
+    try {
+      final task = await _taskRepository.byId(id);
+      if (task == null || task.state.isFinal) return; // 终态幂等
+      final manager = _cancelManagers[id];
+      if (manager != null) {
+        await manager.cancel(); // 幂等:标记令牌 + 清理临时文件
+        if (task.state != TaskState.running) {
+          // 启动窗口/退避期:转换尚未开始,本方法直接落终态
+          _queue.remove(id);
+          await _update(
+            task.copyWith(
+              state: TaskState.cancelled,
+              finishedAt: DateTime.now(),
+            ),
+          );
+          _emitTask(task);
+        }
+        return; // running 由转换侧检测令牌后走 cancelled 收尾
       }
-      return; // running 由转换侧检测令牌后走 cancelled 收尾
+      // 排队/启动窗口:若转换已登记令牌(恰在启动),标记之,转换侧检测取消
+      _tokens[id]?.cancel();
+      _queue.remove(id);
+      _videos.remove(id); // 未执行的排队任务,释放提交时缓存的元数据
+      await _update(
+        task.copyWith(state: TaskState.cancelled, finishedAt: DateTime.now()),
+      );
+      _emitTask(task);
+    } finally {
+      _cancelRequests.remove(id);
     }
-    _queue.remove(id);
-    _videos.remove(id); // 未执行的排队任务,释放提交时缓存的元数据
-    await _update(
-      task.copyWith(state: TaskState.cancelled, finishedAt: DateTime.now()),
-    );
-    _emitTask(task);
   }
 
   /// 取消全部非终态任务(运行中令牌 + 排队直接终态;P6-WP2)。
@@ -243,6 +261,11 @@ class TaskManager {
       // finally 释放槽位并补位
       final task = await _taskRepository.byId(id);
       if (task == null || task.state != TaskState.queued) return;
+      // 取消请求同步检查(cancel() 先于本次 byId 完成)→ 未启动即取消
+      if (_cancelRequests.contains(id)) {
+        await _finish(id, TaskState.cancelled);
+        return; // finally 释放槽位
+      }
       // 提交时携带的完整 video;重试/恢复路径 _videos 已消费,以 settings 兜底
       // (width 取设置宽度而非 0:保证 scale 滤镜不因兜底缺失而输出原始分辨率;
       // 完整元数据持久化留 P5 Isar 仓储)
@@ -261,6 +284,11 @@ class TaskManager {
       final outputPath = task.outputPath ?? '$workDir/out.gif';
       final token = CancelToken();
       _tokens[id] = token;
+      // token 登记后同步复查取消请求(cancel 恰在 byId 快照后到达时,
+      // 标记令牌让下方守卫/转换循环检测取消)
+      if (_cancelRequests.contains(id)) {
+        token.cancel();
+      }
       // 取消清理条件化:仅清理工作目录内临时文件,用户目录输出不删
       // (半成品保留且文件名含 taskId 不覆盖)
       final cancelFiles = ['$workDir/palette.png'];
