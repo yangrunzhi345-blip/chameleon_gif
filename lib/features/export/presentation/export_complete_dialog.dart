@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/duration_format.dart';
+import '../../../core/utils/file_size.dart';
 import '../../../domain/entities/export_task.dart';
-import '../../../shared/platform/platform_adapter.dart';
 import '../application/export_providers.dart';
 
 /// 导出完成弹窗(docs/10 §10.3.2):路径/大小/耗时 + [打开文件夹][再转一次][关闭]。
@@ -41,14 +42,14 @@ class ExportCompleteDialog extends ConsumerWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '大小:${_formatSize(outputSizeBytes)}',
+            '大小:${formatFileSize(outputSizeBytes)}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (elapsed != null)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                '耗时:${_formatDuration(elapsed)}',
+                '耗时:${formatHumanDuration(elapsed)}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
@@ -56,14 +57,9 @@ class ExportCompleteDialog extends ConsumerWidget {
       ),
       actions: [
         TextButton(
-          onPressed: () {
-            final path = task.outputPath;
-            if (path != null) {
-              PlatformAdapter().openFolder(
-                path.substring(0, path.lastIndexOf('/')),
-              );
-            }
-          },
+          // 动作转发到应用层用例(打开目录/路径提取均在功能层)
+          onPressed: () =>
+              ref.read(exportControllerProvider.notifier).openOutputFolder(),
           child: const Text('打开文件夹'),
         ),
         TextButton(
@@ -82,16 +78,5 @@ class ExportCompleteDialog extends ConsumerWidget {
         ),
       ],
     );
-  }
-
-  String _formatSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
-  }
-
-  String _formatDuration(Duration d) {
-    final s = d.inSeconds;
-    return s < 60 ? '$s 秒' : '${s ~/ 60} 分 ${s % 60} 秒';
   }
 }

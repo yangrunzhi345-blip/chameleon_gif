@@ -7,6 +7,7 @@ import '../../../domain/entities/export_task.dart';
 import '../../../domain/entities/video_info.dart';
 import '../../../domain/value_objects/gif_setting.dart';
 import '../../../domain/value_objects/task_state.dart';
+import '../../../shared/providers/core_providers.dart';
 import '../../task_queue/application/task_queue_providers.dart';
 import 'export_state.dart';
 
@@ -65,6 +66,17 @@ class ExportController extends Notifier<ExportUiState> {
   void reset() {
     _activeTaskId = null;
     state = const ExportUiState.idle();
+  }
+
+  /// 在系统文件管理器中打开输出目录(done 态动作,UI 层仅转发)。
+  Future<void> openOutputFolder() async {
+    final task = state.task;
+    final outputPath = task?.outputPath;
+    if (outputPath == null) return;
+    // 目录提取在功能层(dart:io 纯路径处理,不触文件系统)
+    await ref
+        .read(platformAdapterProvider)
+        .openFolder(File(outputPath).parent.path);
   }
 
   Future<void> _onTaskEvent(ExportTask task) async {

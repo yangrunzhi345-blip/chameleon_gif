@@ -9,3 +9,10 @@ String formatFfmpegTime(Duration d) {
   final ms = (d.inMilliseconds % 1000).toString().padLeft(3, '0');
   return '$h:$m:$s.$ms';
 }
+
+/// 人读时长格式化(「N 分 M 秒」,<1 分钟显示秒;导出完成弹窗/进度面板复用)。
+String formatHumanDuration(Duration d) {
+  final s = d.inSeconds;
+  if (s < 60) return '$s 秒';
+  return '${s ~/ 60} 分 ${s % 60} 秒';
+}

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/duration_format.dart';
 import '../application/export_providers.dart';
 
 /// 导出进度面板(docs/10 §10.3.1:转换中替换导出按钮)。
@@ -40,7 +41,7 @@ class ExportProgressPanel extends ConsumerWidget {
                 child: Text(
                   remaining == null
                       ? '正在生成调色板…'
-                      : '预计剩余 ${_formatDuration(remaining)}',
+                      : '预计剩余 ${formatHumanDuration(remaining)}',
                   style: Theme.of(context).textTheme.bodySmall,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -55,13 +56,5 @@ class ExportProgressPanel extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  String _formatDuration(Duration d) {
-    final s = d.inSeconds;
-    if (s < 60) return '$s 秒';
-    final m = s ~/ 60;
-    final r = s % 60;
-    return '$m 分 $r 秒';
   }
 }
