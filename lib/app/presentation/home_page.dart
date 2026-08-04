@@ -90,6 +90,13 @@ class HomePage extends ConsumerWidget {
               icon: const Icon(Icons.playlist_add),
               label: const Text('批量导入'),
             ),
+            const SizedBox(height: 8),
+            // 批量导入默认参数设置(直接进设置界面,返回回首页)
+            TextButton.icon(
+              onPressed: () => context.push('/settings'),
+              icon: const Icon(Icons.settings_outlined),
+              label: const Text('批量导入设置'),
+            ),
           ],
         ),
       ),

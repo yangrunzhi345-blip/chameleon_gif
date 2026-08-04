@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/utils/duration_format.dart';
 import '../application/batch_import_controller.dart';
+import '../application/batch_import_state.dart';
 import 'batch_parameter_form.dart';
 
-/// 批量导入设置页(app 层跨模块组合壳;与预览页的区别:无视频预览、
+/// 批量导入页(app 层跨模块组合壳;与预览页的区别:无视频预览、
 /// 无时间轴)。
 ///
-/// 左栏文件列表(可移除单个,页面本地状态),右栏完整参数表单
-/// (公共组件 [BatchParameterForm]);点"开始批量转换"后经
-/// [BatchImportController.start] 逐文件解析入队,成功跳队列页。
+/// 左栏文件列表(可移除单个,页面本地状态),右栏**当前默认参数摘要**
+/// (只读,来源持久化默认)+"批量导入设置"入口(进设置界面改默认,
+/// 返回时回到本页);点"开始批量转换"后经 [BatchImportController.start]
+/// 以默认参数逐文件解析入队,成功跳队列页。
 /// extra 非 List\<String\>(恢复/深链)或为空时立即回退返回。
 class BatchImportScreen extends ConsumerStatefulWidget {
   const BatchImportScreen({super.key, required this.paths});
@@ -75,7 +78,6 @@ class _BatchImportScreenState extends ConsumerState<BatchImportScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(batchImportControllerProvider);
-    final controller = ref.read(batchImportControllerProvider.notifier);
 
     final fileList = _FileListPanel(paths: _paths, onRemove: _removePath);
     final form = SingleChildScrollView(
@@ -83,7 +85,15 @@ class _BatchImportScreenState extends ConsumerState<BatchImportScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          BatchParameterForm(state: state, actions: controller),
+          const SectionLabel('批量导入默认参数'),
+          _DefaultSummary(state: state),
+          const SizedBox(height: 8),
+          // 进设置界面改默认参数;返回时回到本页(栈式导航)
+          OutlinedButton.icon(
+            onPressed: () => context.push('/settings'),
+            icon: const Icon(Icons.settings_outlined),
+            label: const Text('批量导入设置'),
+          ),
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: (_paths.isEmpty || state.formError != null)
@@ -106,7 +116,7 @@ class _BatchImportScreenState extends ConsumerState<BatchImportScreen> {
 
     // 双栏:宽屏左文件列表右表单;窄屏上下排
     return Scaffold(
-      appBar: AppBar(title: const Text('批量导入设置')),
+      appBar: AppBar(title: const Text('批量导入')),
       body: LayoutBuilder(
         builder: (context, constraints) {
           if (constraints.maxWidth >= 1024) {
@@ -133,6 +143,40 @@ class _BatchImportScreenState extends ConsumerState<BatchImportScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// 当前默认参数只读摘要(数据来自 init 后的表单状态,纯展示)。
+class _DefaultSummary extends StatelessWidget {
+  const _DefaultSummary({required this.state});
+
+  final BatchImportFormState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.bodySmall;
+    final size = (state.width == 0 && state.height == 0)
+        ? '原图等比'
+        : '${state.width}×${state.height}';
+    final loop = state.loop == 0 ? '无限循环' : '循环 ${state.loop}';
+    final range = state.end == null
+        ? '全长'
+        : '到 ${formatFfmpegTime(state.end!)}';
+    final dir = state.outputDir ?? '系统临时目录(默认)';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${state.fps.toInt()} fps · $size · $loop · $range',
+            style: style,
+          ),
+          const SizedBox(height: 4),
+          Text('导出目录:$dir', style: style),
+        ],
       ),
     );
   }

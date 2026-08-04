@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chameleon_gif/app/app.dart';
 import 'package:chameleon_gif/app/presentation/batch_import_screen.dart';
+import 'package:chameleon_gif/app/presentation/settings_screen.dart';
 import 'package:chameleon_gif/app/router.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
 import 'package:chameleon_gif/domain/entities/video_info.dart';
@@ -106,6 +107,21 @@ void main() {
     expect(find.text('a.mp4'), findsOneWidget);
     expect(find.text('b.mp4'), findsOneWidget);
     expect(find.text('c.mp4'), findsOneWidget);
+  });
+
+  testWidgets('首页批量导入设置按钮 → 直接进入设置界面', (tester) async {
+    await pumpApp(tester, buildApp());
+
+    await tester.tap(find.text('批量导入设置'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SettingsScreen), findsOneWidget);
+    expect(find.text('批量导入默认参数'), findsOneWidget);
+
+    // 返回 → 回首页(栈式导航,来源页即返回目标)
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('导入 MP4'), findsOneWidget);
   });
 
   testWidgets('设置页移除 1 文件后开始 → 2 任务入队', (tester) async {

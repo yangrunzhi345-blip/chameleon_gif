@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:chameleon_gif/app/app.dart';
 import 'package:chameleon_gif/app/presentation/batch_import_screen.dart';
 import 'package:chameleon_gif/app/presentation/home_page.dart';
+import 'package:chameleon_gif/app/presentation/settings_screen.dart';
 import 'package:chameleon_gif/app/router.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
 import 'package:chameleon_gif/domain/entities/video_info.dart';
@@ -98,21 +99,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// 输入时间文本并触发 onSubmitted。
-  Future<void> submitTime(
-    WidgetTester tester,
-    Finder field,
-    String text,
-  ) async {
-    await tester.enterText(field, text);
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pumpAndSettle();
-  }
-
-  testWidgets('进入设置页:3 个文件 + 参数表单 + 开始按钮可用', (tester) async {
+  testWidgets('进入批量导入页:3 个文件 + 默认参数摘要 + 设置入口 + 开始按钮', (tester) async {
     final (app, router, _) = buildApp();
     await pumpApp(tester, app);
-
     await enterBatch(tester, router);
 
     expect(find.byType(BatchImportScreen), findsOneWidget);
@@ -120,15 +109,32 @@ void main() {
     expect(find.text('b.mp4'), findsOneWidget);
     expect(find.text('c.mp4'), findsOneWidget);
     expect(find.text('已选 3 个文件'), findsOneWidget);
-    // 参数表单控件
-    expect(find.text('帧率'), findsOneWidget);
-    expect(find.text('宽度'), findsOneWidget);
-    expect(find.text('循环'), findsOneWidget);
+    // 默认参数摘要(只读)+ 设置入口(参数编辑控件已移除)
+    expect(find.text('批量导入默认参数'), findsOneWidget);
+    expect(find.textContaining('15 fps'), findsOneWidget, reason: '内置默认摘要');
+    expect(find.widgetWithText(OutlinedButton, '批量导入设置'), findsOneWidget);
+    expect(find.text('帧率'), findsNothing, reason: '参数编辑已移除,仅摘要');
     expect(find.text('开始批量转换'), findsOneWidget);
     final button = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, '开始批量转换'),
     );
     expect(button.onPressed, isNotNull);
+  });
+
+  testWidgets('批量导入设置按钮 → 设置界面;返回 → 回到批量导入页', (tester) async {
+    final (app, router, _) = buildApp();
+    await pumpApp(tester, app);
+    await enterBatch(tester, router);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '批量导入设置'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsScreen), findsOneWidget);
+
+    // 返回:回到批量导入页(栈式导航,来源页即返回目标)
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.byType(BatchImportScreen), findsOneWidget);
+    expect(find.text('已选 3 个文件'), findsOneWidget);
   });
 
   testWidgets('移除单个文件 → 列表与计数更新', (tester) async {
@@ -175,42 +181,8 @@ void main() {
     expect(find.text('a.mp4'), findsOneWidget);
     final tasks = await taskRepo.all();
     expect(tasks, hasLength(3), reason: '3 文件全部入队');
-  });
-
-  testWidgets('修改宽度为 480 px → 入队任务携带 width=480', (tester) async {
-    final (app, router, taskRepo) = buildApp();
-    await pumpApp(tester, app);
-    await enterBatch(tester, router);
-
-    await tester.tap(find.text('原图等比').first); // 宽度下拉(收起态 label)
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('480 px').last);
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('开始批量转换'));
-    await tester.pumpAndSettle();
-
-    final tasks = await taskRepo.all();
-    expect(tasks, hasLength(3), reason: '3 文件全部入队');
-    expect(tasks.first.settings.width, 480, reason: '下拉选择透传入队参数');
-  });
-
-  testWidgets('非法时间文本 → formError 红字 + 开始按钮禁用', (tester) async {
-    final (app, router, _) = buildApp();
-    await pumpApp(tester, app);
-    await enterBatch(tester, router);
-
-    await submitTime(
-      tester,
-      find.widgetWithText(TextField, '00:00.000'),
-      'abc',
-    );
-
-    expect(find.text('开始时间格式非法(示例 00:03.200)'), findsOneWidget);
-    final button = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, '开始批量转换'),
-    );
-    expect(button.onPressed, isNull, reason: 'formError 禁用开始');
+    expect(tasks.first.settings.fps, 15.0, reason: '以默认参数入队');
+    expect(tasks.first.settings.width, 0, reason: '默认原图等比');
   });
 
   testWidgets('extra 为 null → 回退返回,不显示设置页', (tester) async {
