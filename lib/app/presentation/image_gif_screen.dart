@@ -392,11 +392,37 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
     // 输出控制面板封装(内容不变,仅由壳按右栏高度自适应布局排列)
     final panel = _OutputControlPanel(child: formPanel);
 
+    // 全屏/大窗口判定:与 body 右栏同一阈值(窗口高 ≈ 右栏高 + AppBar 高,
+    // 桌面端无系统栏裁剪;AppBar 悬浮态高度 = 工具栏 + 顶部间距)
+    final largeWindow =
+        MediaQuery.sizeOf(context).height >=
+        _outputPanelTopThreshold + kToolbarHeight;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('图片制作 GIF'),
-        leading: BackButton(onPressed: () => context.pop()),
-      ),
+      // 全屏/大窗口:顶部 AppBar(返回首页按钮区)同样加主题色 1px
+      // 边框 + 圆角,悬浮卡片式与下方两栏统一;窄屏保持默认贴顶
+      appBar: largeWindow
+          ? PreferredSize(
+              preferredSize: Size.fromHeight(kToolbarHeight + 12),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                child: AppBar(
+                  title: const Text('图片制作 GIF'),
+                  leading: BackButton(onPressed: () => context.pop()),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                      width: 1,
+                    ),
+                  ),
+                ),
+              ),
+            )
+          : AppBar(
+              title: const Text('图片制作 GIF'),
+              leading: BackButton(onPressed: () => context.pop()),
+            ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           if (constraints.maxWidth >= 1024) {
