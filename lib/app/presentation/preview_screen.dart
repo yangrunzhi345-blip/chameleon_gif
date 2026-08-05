@@ -101,11 +101,27 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
     final exporting =
         ref.watch(exportControllerProvider).lifecycle ==
         ExportLifecycle.exporting;
+    // 全屏/大窗口判定:与 body 右栏同一阈值(窗口高 ≈ 右栏高 + AppBar 高,
+    // 桌面端无系统栏裁剪;AppBar 贴顶不悬浮,两栏满铺无空隙)
+    final largeWindow =
+        MediaQuery.sizeOf(context).height >=
+        _outputPanelTopThreshold + kToolbarHeight;
     return Scaffold(
+      // 全屏/大窗口:顶部 AppBar(返回按钮区)同样加主题色 1px 边框 + 圆角,
+      // 贴顶满铺不悬浮(无白色空隙);窄屏保持默认无边框
       appBar: AppBar(
         // Windows 反斜杠路径兼容(纯字符串处理,不触 IO)
         title: Text(video.path.split(RegExp(r'[\\/]')).last),
         leading: BackButton(onPressed: () => context.pop()),
+        shape: largeWindow
+            ? RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  width: 1,
+                ),
+              )
+            : null,
       ),
       // 工作台双栏:中栏预览+控制条+时间轴;右栏参数面板(窄屏单列滚动)
       body: LayoutBuilder(
@@ -138,24 +154,70 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
           if (constraints.maxWidth >= 1024) {
             return Row(
               children: [
-                Expanded(child: previewColumn),
+                // 左栏预览区卡片:全屏/大窗口加主题色 1px 边框 + 圆角,
+                // 满铺无空隙;半屏/小窗口保持原布局
+                Expanded(
+                  child: SafeArea(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxHeight >= _outputPanelTopThreshold) {
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: previewColumn,
+                          );
+                        }
+                        return previewColumn;
+                      },
+                    ),
+                  ),
+                ),
+                // 右栏参数面板卡片(同左栏;Material 背景同步圆角防溢出,
+                // 边框已承担分隔,不再加 divider)
                 SizedBox(
                   width: 360,
                   child: SafeArea(
-                    child: ColoredBox(
-                      color: Theme.of(context).colorScheme.surfaceContainerLow,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          // 全屏/大窗口(右栏高 >= 阈值):面板靠上对齐,
-                          // Spacer 占据下方剩余空间
-                          if (constraints.maxHeight >=
-                              _outputPanelTopThreshold) {
-                            return Column(children: [panel, const Spacer()]);
-                          }
-                          // 半屏/小窗口:保持原有布局(仅面板,不加 Spacer)
-                          return Column(children: [panel]);
-                        },
-                      ),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        // 全屏/大窗口(右栏高 >= 阈值):面板靠上对齐,
+                        // Spacer 占据下方剩余空间
+                        if (constraints.maxHeight >= _outputPanelTopThreshold) {
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Material(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Column(children: [panel, const Spacer()]),
+                            ),
+                          );
+                        }
+                        // 半屏/小窗口:保持原有布局(仅面板,不加 Spacer)
+                        return ColoredBox(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerLow,
+                          child: Column(children: [panel]),
+                        );
+                      },
                     ),
                   ),
                 ),
