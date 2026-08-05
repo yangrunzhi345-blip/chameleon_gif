@@ -66,6 +66,9 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(TimelineBar)),
     );
+    // 保持 autoDispose 的 previewController 活跃(生产由 VideoPreviewPanel
+    // watch;本测试无预览面板,listener 模拟真实 UI 的 watch)
+    container.listen(previewControllerProvider, (_, _) {});
     container
         .read(timelineControllerProvider.notifier)
         .init(

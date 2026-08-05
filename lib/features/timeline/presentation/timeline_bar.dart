@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/utils/duration_format.dart';
-import '../../preview/application/preview_providers.dart';
-import '../../preview/application/preview_state.dart';
 import '../application/timeline_controller.dart';
 import '../application/timeline_providers.dart';
 
@@ -66,12 +64,8 @@ class _TimelineBarState extends ConsumerState<TimelineBar> {
         );
         return KeyEventResult.handled;
       case LogicalKeyboardKey.space:
-        final preview = ref.read(previewControllerProvider.notifier);
-        if (ref.read(previewControllerProvider).isPlaying) {
-          preview.pause();
-        } else {
-          preview.play();
-        }
+        // 播放/暂停经 TimelineController 转发(UI 不直依赖 preview 模块)
+        controller.togglePlayPause();
         return KeyEventResult.handled;
       default:
         return KeyEventResult.ignored;
@@ -81,21 +75,20 @@ class _TimelineBarState extends ConsumerState<TimelineBar> {
   @override
   Widget build(BuildContext context) {
     final timeline = ref.watch(timelineControllerProvider);
-    final previewController = ref.read(previewControllerProvider.notifier);
-    final previewState = ref.watch(previewControllerProvider);
-    final ready = previewState.lifecycle == PreviewLifecycle.ready;
+    final timelineController = ref.read(timelineControllerProvider.notifier);
+    final ready = timelineController.previewReady;
 
     return Focus(
       focusNode: _focusNode,
       onKeyEvent: _onKeyEvent,
       child: StreamBuilder<Duration>(
-        stream: previewController.positionStream,
+        stream: timelineController.positionStream,
         builder: (context, positionSnap) {
           if (positionSnap.hasData) {
             _positionMs = positionSnap.data!.inMilliseconds.toDouble();
           }
           return StreamBuilder<Duration>(
-            stream: previewController.durationStream,
+            stream: timelineController.durationStream,
             builder: (context, durationSnap) {
               if (durationSnap.hasData) {
                 _durationMs = durationSnap.data!.inMilliseconds.toDouble();

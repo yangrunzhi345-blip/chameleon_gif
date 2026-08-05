@@ -9,6 +9,7 @@ import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
 import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
 import 'package:chameleon_gif/features/export/application/export_providers.dart';
 import 'package:chameleon_gif/features/preview/application/preview_controller.dart';
+import 'package:chameleon_gif/features/preview/application/preview_providers.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_queue_providers.dart';
 import 'package:chameleon_gif/features/timeline/application/range_selection.dart';
@@ -206,6 +207,87 @@ void main() {
     final form = container.read(exportControllerProvider);
     expect(form.start, const Duration(seconds: 3));
     expect(form.end, const Duration(seconds: 8));
+  });
+
+  // ---- 跨模块转发(B-3 批准:UI 只经本模块 provider 消费预览) ----
+
+  test('previewReady:预览未加载 false,加载后 true', () async {
+    container = buildContainer();
+    // 保持 autoDispose 的 previewController 活跃(无 UI watch)
+    container.listen(previewControllerProvider, (_, _) {});
+    expect(ctl().previewReady, isFalse);
+
+    await container
+        .read(previewControllerProvider.notifier)
+        .load(
+          const VideoInfo(
+            path: '/tmp/a.mp4',
+            formatName: 'mp4',
+            duration: Duration(seconds: 10),
+            width: 640,
+            height: 360,
+            fps: 30,
+            codec: 'h264',
+          ),
+        );
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(ctl().previewReady, isTrue);
+  });
+
+  test('togglePlayPause:播放中 → 暂停;停止 → 播放(经 preview 转发)', () async {
+    container = buildContainer();
+    // 保持 autoDispose 的 previewController 活跃(无 UI watch)
+    container.listen(previewControllerProvider, (_, _) {});
+    await container
+        .read(previewControllerProvider.notifier)
+        .load(
+          const VideoInfo(
+            path: '/tmp/a.mp4',
+            formatName: 'mp4',
+            duration: Duration(seconds: 10),
+            width: 640,
+            height: 360,
+            fps: 30,
+            codec: 'h264',
+          ),
+        );
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(port.pauseCount, 0);
+
+    ctl().togglePlayPause(); // 播放中 → 暂停
+    expect(port.pauseCount, 1);
+
+    // 等 playingStream(false) 事件到达,状态归一下再切回
+    await Future<void>.delayed(Duration.zero);
+    expect(container.read(previewControllerProvider).isPlaying, isFalse);
+    ctl().togglePlayPause(); // 已暂停 → 恢复播放
+    expect(port.playCount, 1);
+  });
+
+  test('positionStream/durationStream 经转发可达(播放头数据)', () async {
+    container = buildContainer();
+    container.listen(previewControllerProvider, (_, _) {});
+    await container
+        .read(previewControllerProvider.notifier)
+        .load(
+          const VideoInfo(
+            path: '/tmp/a.mp4',
+            formatName: 'mp4',
+            duration: Duration(seconds: 10),
+            width: 640,
+            height: 360,
+            fps: 30,
+            codec: 'h264',
+          ),
+        );
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    final positions = <Duration>[];
+    final sub = ctl().positionStream.listen(positions.add);
+    port.emitPosition(const Duration(seconds: 4));
+    await Future<void>.delayed(const Duration(milliseconds: 300)); // 节流窗口
+    expect(positions, contains(const Duration(seconds: 4)));
+    await sub.cancel();
   });
 }
 

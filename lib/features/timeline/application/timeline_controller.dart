@@ -6,6 +6,7 @@ import '../../../core/utils/duration_math.dart';
 import '../../export/application/export_providers.dart';
 import '../../preview/application/preview_controller.dart';
 import '../../preview/application/preview_providers.dart';
+import '../../preview/application/preview_state.dart';
 import 'range_selection.dart';
 
 /// 时间轴控制器(docs/06 §6.2 M03,§9.2 层次二,autoDispose)。
@@ -74,6 +75,30 @@ class TimelineController extends Notifier<RangeSelection> {
   void cancelPendingSeek() {
     _seekTimer?.cancel();
     _seekTimer = null;
+  }
+
+  // ---- 跨模块转发(UI 只经本模块 provider 消费预览能力,见 docs/05) ----
+
+  /// 预览是否就绪(时间轴拖动/播放头可用前提)。
+  bool get previewReady =>
+      ref.read(previewControllerProvider).lifecycle == PreviewLifecycle.ready;
+
+  /// 播放位置流(200ms 节流,播放头渲染)。
+  Stream<Duration> get positionStream =>
+      ref.read(previewControllerProvider.notifier).positionStream;
+
+  /// 播放总时长流。
+  Stream<Duration> get durationStream =>
+      ref.read(previewControllerProvider.notifier).durationStream;
+
+  /// 空格键播放/暂停切换。
+  void togglePlayPause() {
+    final notifier = ref.read(previewControllerProvider.notifier);
+    if (ref.read(previewControllerProvider).isPlaying) {
+      notifier.pause();
+    } else {
+      notifier.play();
+    }
   }
 
   (Duration, Duration) _normalized(Duration start, Duration end) {
