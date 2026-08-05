@@ -28,6 +28,10 @@ class BatchImportScreen extends ConsumerStatefulWidget {
 }
 
 class _BatchImportScreenState extends ConsumerState<BatchImportScreen> {
+  /// 右侧控制面板靠上对齐的高度阈值:右栏 maxHeight >= 此值视为
+  /// 全屏/大窗口(面板加 Spacer 顶到顶部);否则保持原布局。
+  static const double _outputPanelTopThreshold = 800;
+
   /// 页面本地文件列表(路由 extra 复制为可变副本,移除仅 UI 交互)。
   late List<String> _paths;
 
@@ -128,6 +132,9 @@ class _BatchImportScreenState extends ConsumerState<BatchImportScreen> {
       ),
     );
 
+    // 输出控制面板封装(内容不变,仅由壳按右栏高度自适应布局排列)
+    final panel = _OutputControlPanel(child: form);
+
     // 双栏:宽屏左文件列表右表单;窄屏上下排
     return Scaffold(
       appBar: AppBar(title: const Text('批量导入')),
@@ -142,7 +149,18 @@ class _BatchImportScreenState extends ConsumerState<BatchImportScreen> {
                   child: SafeArea(
                     child: ColoredBox(
                       color: Theme.of(context).colorScheme.surfaceContainerLow,
-                      child: form,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          // 全屏/大窗口(右栏高 >= 阈值):面板靠上对齐,
+                          // Spacer 占据下方剩余空间
+                          if (constraints.maxHeight >=
+                              _outputPanelTopThreshold) {
+                            return Column(children: [panel, const Spacer()]);
+                          }
+                          // 半屏/小窗口:保持原有布局(仅面板,不加 Spacer)
+                          return Column(children: [panel]);
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -160,6 +178,18 @@ class _BatchImportScreenState extends ConsumerState<BatchImportScreen> {
       ),
     );
   }
+}
+
+/// 输出控制面板封装:仅承载现有参数表单内容(保持不变,不做任何修改),
+/// 布局排列(大窗口 Column+Spacer 靠上 / 小窗口仅面板)由壳在
+/// LayoutBuilder 中按右栏高度决定。
+class _OutputControlPanel extends StatelessWidget {
+  const _OutputControlPanel({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => child;
 }
 
 /// 当前默认参数只读摘要(数据来自 init 后的表单状态,纯展示)。

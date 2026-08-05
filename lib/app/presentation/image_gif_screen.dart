@@ -29,6 +29,10 @@ class ImageGifScreen extends ConsumerStatefulWidget {
 }
 
 class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
+  /// 右侧控制面板靠上对齐的高度阈值:右栏 maxHeight >= 此值视为
+  /// 全屏/大窗口(面板加 Spacer 顶到顶部);否则保持原布局。
+  static const double _outputPanelTopThreshold = 800;
+
   late List<String> _paths = [];
   final _frameDurationCtrl = TextEditingController();
   final _loopCtrl = TextEditingController();
@@ -233,10 +237,9 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
                           IconButton(
                             tooltip: '下移',
                             icon: const Icon(Icons.arrow_downward),
-                            onPressed:
-                                i < _paths.length - 1
-                                    ? () => _moveDown(i)
-                                    : null,
+                            onPressed: i < _paths.length - 1
+                                ? () => _moveDown(i)
+                                : null,
                           ),
                           IconButton(
                             tooltip: '上移',
@@ -386,6 +389,9 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
       ),
     );
 
+    // 输出控制面板封装(内容不变,仅由壳按右栏高度自适应布局排列)
+    final panel = _OutputControlPanel(child: formPanel);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('图片制作 GIF'),
@@ -404,7 +410,18 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
                     // Material 祖先,ColoredBox 会隐藏波纹并触发框架断言
                     child: Material(
                       color: Theme.of(context).colorScheme.surfaceContainerLow,
-                      child: formPanel,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          // 全屏/大窗口(右栏高 >= 阈值):面板靠上对齐,
+                          // Spacer 占据下方剩余空间
+                          if (constraints.maxHeight >=
+                              _outputPanelTopThreshold) {
+                            return Column(children: [panel, const Spacer()]);
+                          }
+                          // 半屏/小窗口:保持原有布局(仅面板,不加 Spacer)
+                          return Column(children: [panel]);
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -422,4 +439,16 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
       ),
     );
   }
+}
+
+/// 输出控制面板封装:仅承载现有参数表单内容(保持不变,不做任何修改),
+/// 布局排列(大窗口 Column+Spacer 靠上 / 小窗口仅面板)由壳在
+/// LayoutBuilder 中按右栏高度决定。
+class _OutputControlPanel extends StatelessWidget {
+  const _OutputControlPanel({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => child;
 }
