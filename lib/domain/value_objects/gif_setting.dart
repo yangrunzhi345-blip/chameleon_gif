@@ -3,8 +3,9 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'gif_setting.freezed.dart';
 part 'gif_setting.g.dart';
 
-/// GIF 输出参数(MVP 子集;V2 追加 palette/dithering/色彩数/镜像/旋转等字段,
-/// 新增字段一律带默认值,保证老历史 JSON 可读,见 docs/07-数据库设计.md §7.5)。
+/// GIF 输出参数(视频 + 图片合成共用;palette/图片时长已落地,V2 追加
+/// dithering/色彩数/镜像/旋转等字段;新增字段一律带默认值,保证老历史
+/// JSON 可读,见 docs/07-数据库设计.md §7.5)。
 @freezed
 abstract class GifSetting with _$GifSetting {
   /// freezed 自定义 getter 要求私有构造(见 effectiveFrameDuration)。

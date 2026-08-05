@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/preview_providers.dart';
 import '../application/preview_state.dart';
+import '../../../core/utils/duration_format.dart';
 
 /// 预览控制条(P2-WP3,docs/10-UI设计.md 控制条 [播放]/[暂停]/进度)。
 ///
@@ -26,13 +27,6 @@ class _PreviewControlsBarState extends ConsumerState<PreviewControlsBar> {
   void dispose() {
     _dragValue.dispose();
     super.dispose();
-  }
-
-  String _formatMs(double ms) {
-    final total = ms.round();
-    final m = (total ~/ 60000).toString().padLeft(2, '0');
-    final s = ((total % 60000) / 1000).toStringAsFixed(1).padLeft(4, '0');
-    return '$m:$s';
   }
 
   @override
@@ -66,7 +60,7 @@ class _PreviewControlsBarState extends ConsumerState<PreviewControlsBar> {
                             : controller.play()
                       : null,
                 ),
-                Text(_formatMs(_dragValue.value)),
+                Text(formatMmSs(_dragValue.value.round(), fractionDigits: 1)),
                 Expanded(
                   child: Slider(
                     min: 0,
@@ -87,7 +81,7 @@ class _PreviewControlsBarState extends ConsumerState<PreviewControlsBar> {
                     },
                   ),
                 ),
-                Text(_formatMs(_durationMs)),
+                Text(formatMmSs(_durationMs.round(), fractionDigits: 1)),
                 const SizedBox(width: 8),
               ],
             );

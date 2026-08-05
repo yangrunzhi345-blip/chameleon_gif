@@ -45,7 +45,7 @@ class PreviewController extends Notifier<PreviewState> {
     _errorSub = port.errorStream.listen((_) {
       state = PreviewState.error(
         errorCode: 'GIF_PLAY_FAILED',
-        errorMessage: '视频播放失败,请尝试其他文件',
+        userMessage: '视频播放失败,请尝试其他文件',
         video: state.video,
       );
     });
@@ -81,7 +81,7 @@ class PreviewController extends Notifier<PreviewState> {
           .e('预览加载失败: ${video.path}', error: e, stackTrace: st);
       state = PreviewState.error(
         errorCode: 'GIF_PLAY_OPEN_FAILED',
-        errorMessage: '视频加载失败,请尝试其他文件',
+        userMessage: '视频加载失败,请尝试其他文件',
         video: video,
       );
       return;

@@ -13,7 +13,7 @@ class PreviewState {
     required this.lifecycle,
     this.video,
     this.errorCode,
-    this.errorMessage,
+    this.userMessage,
     this.isPlaying = false,
     this.isCompleted = false,
   });
@@ -36,19 +36,19 @@ class PreviewState {
 
   const PreviewState.error({
     required String errorCode,
-    String? errorMessage,
+    String? userMessage,
     VideoInfo? video,
   }) : this._(
          lifecycle: PreviewLifecycle.error,
          video: video,
          errorCode: errorCode,
-         errorMessage: errorMessage,
+         userMessage: userMessage,
        );
 
   final PreviewLifecycle lifecycle;
   final VideoInfo? video;
   final String? errorCode;
-  final String? errorMessage;
+  final String? userMessage;
   final bool isPlaying;
   final bool isCompleted;
 
@@ -56,7 +56,7 @@ class PreviewState {
     lifecycle: lifecycle,
     video: video,
     errorCode: errorCode,
-    errorMessage: errorMessage,
+    userMessage: userMessage,
     isPlaying: isPlaying ?? this.isPlaying,
     isCompleted: isCompleted ?? this.isCompleted,
   );

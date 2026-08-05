@@ -17,6 +17,24 @@ String formatHumanDuration(Duration d) {
   return '${s ~/ 60} 分 ${s % 60} 秒';
 }
 
+/// `MM:SS` 显示格式化(时间轴/参数表单的选区标签,4 处 UI 复用去重)。
+///
+/// [fractionDigits] 秒的小数位:0 → `05`、1 → `03.5`、3 → `03.200`
+/// (补零按位数,`padLeft(fractionDigits + 3, '0')`)。
+String formatMmSs(int totalMs, {int fractionDigits = 0}) {
+  final m = (totalMs ~/ 60000).toString().padLeft(2, '0');
+  final sec = totalMs % 60000;
+  if (fractionDigits == 0) {
+    return '$m:${(sec ~/ 1000).toString().padLeft(2, '0')}';
+  }
+  final whole = (sec ~/ 1000).toString().padLeft(2, '0');
+  final frac = (sec % 1000)
+      .toString()
+      .padLeft(3, '0')
+      .substring(0, fractionDigits);
+  return '$m:$whole.$frac';
+}
+
 /// 时间输入解析(P4 表单,与 [formatFfmpegTime] 对称)。
 ///
 /// 支持 `HH:MM:SS[.mmm]` / `MM:SS[.mmm]` / 裸秒 `S[.mmm]`;分/秒必须 <60;

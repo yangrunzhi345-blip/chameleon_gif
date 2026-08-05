@@ -5,9 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../features/import/application/import_providers.dart';
 import 'import_actions.dart';
 
-/// 主页(P0 占位 + P2 导入入口):验证 初始化→路由→主题→导入 链路。
-///
-/// 转换工作台(时间轴/参数)由 P4 阶段组装,见 docs/10-UI设计.md §10.3.1。
+/// 主页:品牌区 + 功能入口(图片制作 GIF / 导入 MP4 / 批量导入 /
+/// 批量导入设置),右上快捷入口(队列/历史/设置)。
+/// 转换工作台(时间轴/参数)在预览页,见 docs/10-UI设计.md §10.3.1。
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 

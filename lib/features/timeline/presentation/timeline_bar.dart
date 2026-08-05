@@ -39,13 +39,6 @@ class _TimelineBarState extends ConsumerState<TimelineBar> {
     super.dispose();
   }
 
-  String _formatMs(double ms) {
-    final total = ms.round();
-    final m = (total ~/ 60000).toString().padLeft(2, '0');
-    final s = ((total % 60000) / 1000).toStringAsFixed(1).padLeft(4, '0');
-    return '$m:$s';
-  }
-
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final controller = ref.read(timelineControllerProvider.notifier);
@@ -114,7 +107,7 @@ class _TimelineBarState extends ConsumerState<TimelineBar> {
                   children: [
                     Row(
                       children: [
-                        Text(_formatMs(values.start)),
+                        Text(formatMmSs(values.start.round(), fractionDigits: 1)),
                         Expanded(
                           child: SizedBox(
                             height: 32,
@@ -128,8 +121,8 @@ class _TimelineBarState extends ConsumerState<TimelineBar> {
                                       max: maxMs,
                                       values: values,
                                       labels: RangeLabels(
-                                        _formatMs(values.start),
-                                        _formatMs(values.end),
+                                        formatMmSs(values.start.round(), fractionDigits: 1),
+                                        formatMmSs(values.end.round(), fractionDigits: 1),
                                       ),
                                       onChanged: canDrag
                                           ? (v) {
@@ -213,7 +206,7 @@ class _TimelineBarState extends ConsumerState<TimelineBar> {
                             ),
                           ),
                         ),
-                        Text(_formatMs(values.end)),
+                        Text(formatMmSs(values.end.round(), fractionDigits: 1)),
                       ],
                     ),
                     Row(

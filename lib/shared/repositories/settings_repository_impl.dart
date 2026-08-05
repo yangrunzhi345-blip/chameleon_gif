@@ -14,17 +14,19 @@ class SharedPrefsSettingsRepository implements SettingsRepository {
 
   final SharedPreferences _prefs;
 
-  static const _kThemeMode = 'theme_mode';
-  static const _kLanguage = 'language';
-  static const _kLastImportDir = 'last_import_dir';
-  static const _kDefaultExportDir = 'default_export_dir';
-  static const _kDefaultGifSetting = 'default_gif_setting';
+  // ---- SharedPreferences 存储键 ----
+  static const _themeModeKey = 'theme_mode';
+  static const _languageKey = 'language';
+  static const _lastImportDirKey = 'last_import_dir';
+  static const _defaultExportDirKey = 'default_export_dir';
+  static const _defaultGifSettingKey = 'default_gif_setting';
 
-  static const _kThemeSystem = 'system';
+  // ---- 键值/默认值 ----
+  static const _themeSystemValue = 'system';
 
   @override
   AppThemeMode get themeMode {
-    switch (_prefs.getString(_kThemeMode) ?? _kThemeSystem) {
+    switch (_prefs.getString(_themeModeKey) ?? _themeSystemValue) {
       case 'light':
         return AppThemeMode.light;
       case 'dark':
@@ -36,33 +38,33 @@ class SharedPrefsSettingsRepository implements SettingsRepository {
 
   @override
   Future<void> setThemeMode(AppThemeMode mode) =>
-      _prefs.setString(_kThemeMode, mode.name);
+      _prefs.setString(_themeModeKey, mode.name);
 
   @override
-  String get language => _prefs.getString(_kLanguage) ?? 'system';
+  String get language => _prefs.getString(_languageKey) ?? 'system';
 
   @override
   Future<void> setLanguage(String language) =>
-      _prefs.setString(_kLanguage, language);
+      _prefs.setString(_languageKey, language);
 
   @override
-  String? get lastImportDir => _prefs.getString(_kLastImportDir);
+  String? get lastImportDir => _prefs.getString(_lastImportDirKey);
 
   @override
   Future<void> setLastImportDir(String path) =>
-      _prefs.setString(_kLastImportDir, path);
+      _prefs.setString(_lastImportDirKey, path);
 
   @override
   String get defaultExportDir =>
-      _prefs.getString(_kDefaultExportDir) ?? _kDefaultExportDirFallback;
+      _prefs.getString(_defaultExportDirKey) ?? _defaultExportDirKeyFallback;
 
   @override
   Future<void> setDefaultExportDir(String path) =>
-      _prefs.setString(_kDefaultExportDir, path);
+      _prefs.setString(_defaultExportDirKey, path);
 
   @override
   GifSetting? get defaultGifSetting {
-    final raw = _prefs.getString(_kDefaultGifSetting);
+    final raw = _prefs.getString(_defaultGifSettingKey);
     if (raw == null) return null;
     try {
       return GifSetting.fromJson(
@@ -75,8 +77,8 @@ class SharedPrefsSettingsRepository implements SettingsRepository {
 
   @override
   Future<void> setDefaultGifSetting(GifSetting setting) =>
-      _prefs.setString(_kDefaultGifSetting, jsonEncode(setting.toJson()));
+      _prefs.setString(_defaultGifSettingKey, jsonEncode(setting.toJson()));
 
   /// 默认导出目录:用户 Downloads 目录(桌面)/空串由调用方按平台处理
-  static const _kDefaultExportDirFallback = '';
+  static const _defaultExportDirKeyFallback = '';
 }

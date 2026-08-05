@@ -12,7 +12,8 @@ import '../../../domain/exceptions/source_missing_exception.dart';
 ///
 /// 匹配顺序即映射表顺序(先特征后退出码):127 → 缺二进制;特征行 → 对应
 /// 异常;exit 1 + palette 关键词 → 调色板失败;其余非 0 → [EncodeException]。
-/// 错误码统一 `GIF_<EXITCODE>_<KIND>`。
+/// 本映射产出三段式 `GIF_<EXITCODE>_<KIND>`(converter 系;二段式
+/// `GIF_<KIND>` 见 FilePick/播放系,规则见 domain_exception.dart)。
 class ErrorHandler {
   const ErrorHandler();
 
@@ -46,7 +47,8 @@ class ErrorHandler {
         (s.contains('palette') ||
             s.contains('palettegen') ||
             s.contains('paletteuse'))) {
-      return PaletteException(errorCode: 'GIF_1_PALETTE');
+      // 与其余转换异常一致的三段式(该分支已保证 exitCode==1,输出不变)
+      return PaletteException(errorCode: 'GIF_${exitCode}_PALETTE');
     }
     return EncodeException(errorCode: 'GIF_${exitCode}_ENCODE');
   }

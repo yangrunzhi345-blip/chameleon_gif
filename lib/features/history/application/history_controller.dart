@@ -15,7 +15,7 @@ import '../../task_queue/application/task_queue_providers.dart';
 ///
 /// 初始异步加载;订阅任务事件流,completed 时自动刷新(§9.5:
 /// TaskQueue → completed → HistoryController → 列表刷新)。
-/// delete/clear/retry 在 P5-WP3 落地,本阶段仅 list/reload。
+/// list/reload/delete/clear/retry(重转,含图片模式)均已落地。
 class HistoryController extends Notifier<AsyncValue<List<ExportHistory>>> {
   StreamSubscription<ExportTask>? _taskSub;
   final Set<int> _retrying = {};
@@ -94,11 +94,7 @@ class HistoryController extends Notifier<AsyncValue<List<ExportHistory>>> {
         rethrow;
       } catch (e, st) {
         ref.read(appLoggerProvider).e('重转解析失败', error: e, stackTrace: st);
-        throw FilePickException(
-          errorCode: 'GIF_PARSE_UNKNOWN',
-          userMessage: '视频解析失败,请稍后重试',
-          cause: e,
-        );
+        throw FilePickException.parseUnknown(cause: e);
       }
       // 直接入队(不进预览页/不依赖 export 会话);省略 outputDir → 临时目录
       return ref

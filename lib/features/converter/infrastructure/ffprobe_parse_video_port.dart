@@ -40,11 +40,7 @@ class FfprobeParseVideoPort implements ParseVideoPort {
       rethrow; // FFmpegMissing(GIF_127_PROBE_MISSING)与 UNREACHABLE 原样上抛
     } catch (e, st) {
       logger.e('ffprobe 执行器未预期异常: $path', error: e, stackTrace: st);
-      throw FilePickException(
-        errorCode: 'GIF_PROBE_UNREACHABLE',
-        userMessage: '视频解析服务不可用,请稍后重试',
-        cause: e,
-      );
+      throw FilePickException.probeUnreachable(cause: e);
     }
     return assemble(
       isSuccess: result.exitCode == 0,

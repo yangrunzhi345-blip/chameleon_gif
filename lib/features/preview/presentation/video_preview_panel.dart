@@ -61,7 +61,7 @@ class _VideoPreviewPanelState extends ConsumerState<VideoPreviewPanel> {
         return const Center(child: CircularProgressIndicator());
       case PreviewLifecycle.error:
         return _ErrorView(
-          message: state.errorMessage,
+          message: state.userMessage,
           hideBack: widget.hideErrorBack,
         );
       case PreviewLifecycle.ready:

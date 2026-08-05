@@ -330,7 +330,7 @@ class TaskManager {
       }
       // 提交时携带的完整 video;重试/恢复路径 _videos 已消费,以 settings 兜底
       // (width 取设置宽度而非 0:保证 scale 滤镜不因兜底缺失而输出原始分辨率;
-      // 完整元数据持久化留 P5 Isar 仓储)
+      // 恢复路径以 settings 兜底,完整元数据提交时已持久化于 Isar)
       final video =
           _videos.remove(id) ??
           VideoInfo(

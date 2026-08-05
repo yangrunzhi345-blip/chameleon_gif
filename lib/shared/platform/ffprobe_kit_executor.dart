@@ -26,11 +26,7 @@ class FfprobeKitFfprobeExecutor implements FfprobeExecutor {
     try {
       session = await getMediaInformation(path);
     } catch (e) {
-      throw FilePickException(
-        errorCode: 'GIF_PROBE_UNREACHABLE',
-        userMessage: '视频解析服务不可用,请稍后重试',
-        cause: e,
-      );
+      throw FilePickException.probeUnreachable(cause: e);
     }
     final code = await session.getReturnCode();
     final mediaInformation = session.getMediaInformation();

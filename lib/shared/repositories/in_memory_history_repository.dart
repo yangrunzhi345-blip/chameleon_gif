@@ -1,8 +1,8 @@
 import '../../domain/entities/export_history.dart';
 import '../../domain/repository_interfaces/history_repository.dart';
 
-/// [HistoryRepository] 内存实现(P3 过渡;P5-WP1 替换为 Isar 仓储,
-/// 见 docs/12-开发计划.md)。按完成时间倒序返回。
+/// [HistoryRepository] 内存实现(测试注入用;生产走 Isar 仓储,
+/// 见 isar_history_repository.dart)。按完成时间倒序返回。
 class InMemoryHistoryRepository implements HistoryRepository {
   final Map<int, ExportHistory> _histories = {};
   int _nextId = 1;

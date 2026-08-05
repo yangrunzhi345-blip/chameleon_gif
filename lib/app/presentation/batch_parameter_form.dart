@@ -62,7 +62,7 @@ class _BatchParameterFormState extends State<BatchParameterForm> {
   ];
 
   /// 面板输入控件统一边框(与 ParamDropdownField 收起态一致)。
-  static const _kInputBorder = OutlineInputBorder(
+  static const _inputBorder = OutlineInputBorder(
     borderRadius: BorderRadius.all(Radius.circular(8)),
   );
 
@@ -77,17 +77,10 @@ class _BatchParameterFormState extends State<BatchParameterForm> {
   /// 未聚焦时从 state 回填文本(参数变更后文本随之刷新)。
   void _syncTextFields(BatchImportFormState state) {
     if (!_loopFocused) _loopCtrl.text = '${state.loop}';
-    if (!_startFocused) _startCtrl.text = _formatTimeInput(state.start);
+    if (!_startFocused) _startCtrl.text = formatMmSs(state.start.inMilliseconds, fractionDigits: 3);
     if (!_endFocused) {
-      _endCtrl.text = state.end == null ? '' : _formatTimeInput(state.end!);
+      _endCtrl.text = state.end == null ? '' : formatMmSs(state.end!.inMilliseconds, fractionDigits: 3);
     }
-  }
-
-  String _formatTimeInput(Duration d) {
-    final total = d.inMilliseconds;
-    final m = (total ~/ 60000).toString().padLeft(2, '0');
-    final s = ((total % 60000) / 1000).toStringAsFixed(3).padLeft(6, '0');
-    return '$m:$s';
   }
 
   void _submitStart(String text) {
@@ -162,7 +155,7 @@ class _BatchParameterFormState extends State<BatchParameterForm> {
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
               hintText: '0 = 无限循环',
-              border: _kInputBorder,
+              border: _inputBorder,
             ),
             onChanged: (_) => _loopFocused = true,
             onTap: () => _loopFocused = true,
@@ -185,7 +178,7 @@ class _BatchParameterFormState extends State<BatchParameterForm> {
             controller: _startCtrl,
             decoration: const InputDecoration(
               hintText: '00:00.000',
-              border: _kInputBorder,
+              border: _inputBorder,
             ),
             onChanged: (_) => _startFocused = true,
             onTap: () => _startFocused = true,
@@ -201,7 +194,7 @@ class _BatchParameterFormState extends State<BatchParameterForm> {
             controller: _endCtrl,
             decoration: const InputDecoration(
               hintText: '留空 = 到结尾',
-              border: _kInputBorder,
+              border: _inputBorder,
             ),
             onChanged: (_) => _endFocused = true,
             onTap: () => _endFocused = true,

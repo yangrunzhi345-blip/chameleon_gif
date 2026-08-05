@@ -59,7 +59,7 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
     1920,
   ];
 
-  static const _kInputBorder = OutlineInputBorder(
+  static const _inputBorder = OutlineInputBorder(
     borderRadius: BorderRadius.all(Radius.circular(8)),
   );
 
@@ -278,7 +278,7 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 hintText: '毫秒',
-                border: _kInputBorder,
+                border: _inputBorder,
               ),
               onChanged: (_) => _frameDurationFocused = true,
               onTap: () => _frameDurationFocused = true,
@@ -316,7 +316,7 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 hintText: '0 = 无限循环',
-                border: _kInputBorder,
+                border: _inputBorder,
               ),
               onChanged: (_) => _loopFocused = true,
               onTap: () => _loopFocused = true,

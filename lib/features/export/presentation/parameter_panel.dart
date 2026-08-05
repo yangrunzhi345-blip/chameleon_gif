@@ -60,7 +60,7 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
   ];
 
   /// 面板输入控件统一边框(与 ParamDropdownField 收起态一致)。
-  static const _kPanelInputBorder = OutlineInputBorder(
+  static const _panelInputBorder = OutlineInputBorder(
     borderRadius: BorderRadius.all(Radius.circular(8)),
   );
 
@@ -76,18 +76,11 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
   void _syncTextFields(ExportFormState state) {
     if (!_loopFocused) _loopCtrl.text = '${state.loop}';
     if (!_startFocused) {
-      _startCtrl.text = _formatTimeInput(state.start);
+      _startCtrl.text = formatMmSs(state.start.inMilliseconds, fractionDigits: 3);
     }
     if (!_endFocused) {
-      _endCtrl.text = state.end == null ? '' : _formatTimeInput(state.end!);
+      _endCtrl.text = state.end == null ? '' : formatMmSs(state.end!.inMilliseconds, fractionDigits: 3);
     }
-  }
-
-  String _formatTimeInput(Duration d) {
-    final total = d.inMilliseconds;
-    final m = (total ~/ 60000).toString().padLeft(2, '0');
-    final s = ((total % 60000) / 1000).toStringAsFixed(3).padLeft(6, '0');
-    return '$m:$s';
   }
 
   void _submitStart(String text) {
@@ -174,7 +167,7 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 hintText: '0 = 无限循环',
-                border: _kPanelInputBorder,
+                border: _panelInputBorder,
               ),
               onChanged: (_) => _loopFocused = true,
               onTap: () => _loopFocused = true,
@@ -198,7 +191,7 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
               enabled: enabled,
               decoration: const InputDecoration(
                 hintText: '00:00.000',
-                border: _kPanelInputBorder,
+                border: _panelInputBorder,
               ),
               onChanged: (_) => _startFocused = true,
               onTap: () => _startFocused = true,
@@ -215,7 +208,7 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
               enabled: enabled,
               decoration: const InputDecoration(
                 hintText: '留空 = 到结尾',
-                border: _kPanelInputBorder,
+                border: _panelInputBorder,
               ),
               onChanged: (_) => _endFocused = true,
               onTap: () => _endFocused = true,

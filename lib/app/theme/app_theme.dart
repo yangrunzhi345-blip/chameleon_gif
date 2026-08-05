@@ -5,7 +5,7 @@ class AppTheme {
   const AppTheme._();
 
   /// 品牌色种子(深浅两套由同一 seed 派生,保证一致性)
-  static const seedColor = Color(0xFF6750A4);
+  static const kSeedColor = Color(0xFF6750A4);
 
   static ThemeData light() => _build(Brightness.light);
 
@@ -13,7 +13,7 @@ class AppTheme {
 
   static ThemeData _build(Brightness brightness) {
     final scheme = ColorScheme.fromSeed(
-      seedColor: seedColor,
+      seedColor: kSeedColor,
       brightness: brightness,
     );
     return ThemeData(

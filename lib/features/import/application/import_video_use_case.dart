@@ -27,11 +27,7 @@ class ImportVideoUseCase {
       rethrow;
     } catch (e, st) {
       _logger.e('视频解析发生未预期异常', error: e, stackTrace: st);
-      throw FilePickException(
-        errorCode: 'GIF_PARSE_UNKNOWN',
-        userMessage: '视频解析失败,请稍后重试',
-        cause: e,
-      );
+      throw FilePickException.parseUnknown(cause: e);
     }
   }
 }
