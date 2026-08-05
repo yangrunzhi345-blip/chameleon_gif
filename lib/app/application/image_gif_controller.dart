@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -34,6 +35,31 @@ class ImageGifController extends Notifier<ImageGifFormState>
     with TaskSessionLifecycle<ImageGifFormState> {
   /// 首图尺寸缓存(探测成功后填充;倍数联动与提交展开的依据)。
   ({int width, int height})? _sourceSize;
+
+  /// 当前输出画布尺寸(精细控制页预览框比例用;null = 未知)。
+  ///
+  /// 规则与命令构造 `_canvasSize` 一致:表单宽高双边指定 → 指定尺寸;
+  /// 单边 → 另一侧按首图比例推算;均 0 → 首图尺寸;首图未知 → null。
+  ({int width, int height})? get canvasSize {
+    final w = state.width;
+    final h = state.height;
+    final src = _sourceSize;
+    if (w > 0 && h > 0) return (width: w, height: h);
+    if (src == null || src.width <= 0 || src.height <= 0) return null;
+    if (w > 0) {
+      return (
+        width: w,
+        height: math.max(1, (w * src.height / src.width).round()),
+      );
+    }
+    if (h > 0) {
+      return (
+        width: math.max(1, (h * src.width / src.height).round()),
+        height: h,
+      );
+    }
+    return src;
+  }
 
   /// 已探测的首图路径(去重:同一首图不重复探测)。
   String? _probedPath;
