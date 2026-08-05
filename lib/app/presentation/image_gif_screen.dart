@@ -393,36 +393,27 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
     final panel = _OutputControlPanel(child: formPanel);
 
     // 全屏/大窗口判定:与 body 右栏同一阈值(窗口高 ≈ 右栏高 + AppBar 高,
-    // 桌面端无系统栏裁剪;AppBar 悬浮态高度 = 工具栏 + 顶部间距)
+    // 桌面端无系统栏裁剪;AppBar 贴顶不悬浮,两栏满铺无空隙)
     final largeWindow =
         MediaQuery.sizeOf(context).height >=
         _outputPanelTopThreshold + kToolbarHeight;
 
     return Scaffold(
       // 全屏/大窗口:顶部 AppBar(返回首页按钮区)同样加主题色 1px
-      // 边框 + 圆角,悬浮卡片式与下方两栏统一;窄屏保持默认贴顶
-      appBar: largeWindow
-          ? PreferredSize(
-              preferredSize: Size.fromHeight(kToolbarHeight + 12),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                child: AppBar(
-                  title: const Text('图片制作 GIF'),
-                  leading: BackButton(onPressed: () => context.pop()),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: Theme.of(context).colorScheme.outlineVariant,
-                      width: 1,
-                    ),
-                  ),
+      // 边框 + 圆角,贴顶满铺不悬浮(无白色空隙);窄屏保持默认无边框
+      appBar: AppBar(
+        title: const Text('图片制作 GIF'),
+        leading: BackButton(onPressed: () => context.pop()),
+        shape: largeWindow
+            ? RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  width: 1,
                 ),
-              ),
-            )
-          : AppBar(
-              title: const Text('图片制作 GIF'),
-              leading: BackButton(onPressed: () => context.pop()),
-            ),
+              )
+            : null,
+      ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           if (constraints.maxWidth >= 1024) {
@@ -456,7 +447,7 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
                     ),
                   ),
                 ),
-                const VerticalDivider(width: 1),
+                // 卡片自身边框已承担分隔,不再加 divider(避免叠成 3px 粗线)
                 Expanded(
                   child: SafeArea(
                     // Material 而非 ColoredBox:SwitchListTile 的 ink 需
