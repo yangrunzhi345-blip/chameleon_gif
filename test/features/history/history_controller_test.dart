@@ -11,6 +11,7 @@ import 'package:chameleon_gif/domain/exceptions/file_pick_exception.dart';
 import 'package:chameleon_gif/domain/exceptions/source_missing_exception.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_service.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/history_repository.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/parse_video_port.dart';
 import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
 import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
@@ -154,6 +155,45 @@ void main() {
     await ctl().clear();
 
     expect(await stateList(), isEmpty);
+  });
+
+  test('reload 仓储异常 → 状态置 error,不产生未处理异步错误', () async {
+    final broken = _ThrowingHistoryRepository();
+    final tempRoot = await Directory.systemTemp.createTemp('gifforge_hc2_');
+    final container2 = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(
+          await SharedPreferences.getInstance(),
+        ),
+        appLoggerProvider.overrideWithValue(AppLogger()),
+        platformAdapterProvider.overrideWithValue(_TestAdapter(tempRoot.path)),
+        taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
+        historyRepositoryProvider.overrideWithValue(broken),
+        parseVideoPortProvider.overrideWithValue(FakeParseVideoPort()),
+        ffmpegServiceProvider.overrideWithValue(_FakeService()),
+        taskManagerProvider.overrideWith(
+          (ref) => TaskManager(
+            taskRepository: ref.read(taskRepositoryProvider),
+            historyRepository: broken,
+            ffmpegService: ref.read(ffmpegServiceProvider),
+            platformAdapter: ref.read(platformAdapterProvider),
+            logger: AppLogger(),
+            retryDelay: (_) async {},
+          ),
+        ),
+      ],
+    )..listen(historyControllerProvider, (_, _) {});
+
+    // build 触发首次 reload,等待 error 状态(而非未处理异步错误)
+    for (var i = 0; i < 100; i++) {
+      final v = container2.read(historyControllerProvider);
+      if (v.hasError) break;
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(container2.read(historyControllerProvider).hasError, isTrue,
+        reason: '仓储异常应落到 AsyncValue.error');
+    container2.dispose();
+    await tempRoot.delete(recursive: true);
   });
 
   test('retry 成功:submit 被调用,settings 与历史快照全等', () async {
@@ -371,4 +411,23 @@ class _TestAdapter extends PlatformAdapter {
 
   @override
   String get systemTempDir => tempRoot;
+}
+
+/// 列表恒抛错的仓储(reload 容错测试)。
+class _ThrowingHistoryRepository implements HistoryRepository {
+  @override
+  Future<int> add(ExportHistory history) async => 1;
+
+  @override
+  Future<void> delete(int id) async {}
+
+  @override
+  Future<void> clear() async {}
+
+  @override
+  Future<List<ExportHistory>> list() async =>
+      throw StateError('storage unavailable');
+
+  @override
+  Future<ExportHistory?> byId(int id) async => null;
 }

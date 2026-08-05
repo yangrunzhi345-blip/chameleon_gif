@@ -7,6 +7,7 @@ import '../../../domain/entities/image_gif_source.dart';
 import '../../../domain/entities/video_info.dart';
 import '../../../domain/value_objects/gif_setting.dart';
 import '../../../domain/value_objects/task_state.dart';
+import '../../../shared/providers/core_providers.dart';
 import 'task_queue_providers.dart';
 import 'task_queue_state.dart';
 
@@ -27,11 +28,19 @@ class TaskQueueController extends Notifier<TaskQueueState> {
     if (!_restored) {
       _restored = true;
       // 启动恢复:扫描仓储 pending 重新排队(§8.3.7);
-      // 异步恢复期间可能被销毁(测试容器/应用退出),守卫 ref.mounted
+      // 异步恢复期间可能被销毁(测试容器/应用退出),守卫 ref.mounted;
+      // onError 记日志,避免未处理异步错误
       unawaited(
-        manager.start().then((_) {
-          if (ref.mounted) _refresh();
-        }),
+        manager.start().then(
+          (_) {
+            if (ref.mounted) _refresh();
+          },
+          onError: (Object e, StackTrace st) {
+            ref
+                .read(appLoggerProvider)
+                .e('任务恢复启动失败', error: e, stackTrace: st);
+          },
+        ),
       );
     }
     return const TaskQueueState();

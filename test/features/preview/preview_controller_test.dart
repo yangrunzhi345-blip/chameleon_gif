@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
 import 'package:chameleon_gif/domain/entities/video_info.dart';
 import 'package:chameleon_gif/features/preview/application/preview_controller.dart';
 import 'package:chameleon_gif/features/preview/application/preview_providers.dart';
 import 'package:chameleon_gif/features/preview/application/preview_state.dart';
+import 'package:chameleon_gif/shared/providers/core_providers.dart';
 
 import '../../fixtures/fake_player_port.dart';
 
@@ -26,7 +28,11 @@ void main() {
     final container = ProviderContainer(
       // 端口释放经控制器 onDispose 路径(双路径中先行者);overrideWithValue
       // 不执行 create 闭包,不会注册端口自身的 onDispose,不影响本测试组。
-      overrides: [previewPlayerPortProvider.overrideWithValue(p)],
+      overrides: [
+        previewPlayerPortProvider.overrideWithValue(p),
+        // load 失败路径记日志(appLoggerProvider 为 UnimplementedError 占位)
+        appLoggerProvider.overrideWithValue(AppLogger()),
+      ],
     );
     // 保持 autoDispose provider 存活:纯 read 不建立 watcher,空闲期会被
     // Riverpod GC 重建(异步 load 期间销毁导致断言读到新 idle 实例)。

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
 import 'package:chameleon_gif/domain/entities/video_info.dart';
 import 'package:chameleon_gif/features/preview/application/preview_controller.dart';
 import 'package:chameleon_gif/features/preview/application/preview_providers.dart';
 import 'package:chameleon_gif/features/preview/presentation/video_preview_panel.dart';
+import 'package:chameleon_gif/shared/providers/core_providers.dart';
 
 import '../../fixtures/fake_player_port.dart';
 
@@ -25,7 +27,11 @@ void main() {
 
   Widget wrap() {
     return ProviderScope(
-      overrides: [previewPlayerPortProvider.overrideWithValue(port)],
+      overrides: [
+        previewPlayerPortProvider.overrideWithValue(port),
+        // load 失败路径记日志(appLoggerProvider 为 UnimplementedError 占位)
+        appLoggerProvider.overrideWithValue(AppLogger()),
+      ],
       child: const MaterialApp(home: Scaffold(body: VideoPreviewPanel())),
     );
   }

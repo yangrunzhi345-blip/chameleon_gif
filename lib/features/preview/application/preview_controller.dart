@@ -2,11 +2,12 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/throttle_stream.dart';
 import '../../../domain/entities/video_info.dart';
 import '../../../domain/repository_interfaces/player_port.dart';
+import '../../../shared/providers/core_providers.dart';
 import '../infrastructure/media_kit_player_port.dart';
 import 'preview_state.dart';
-import '../../../core/utils/throttle_stream.dart';
 
 /// 播放器端口(会话生命周期,autoDispose:随预览会话创建与销毁,谁创建谁销毁)。
 /// 与控制器同文件定义,避免 providers 与 controller 循环 import。
@@ -72,8 +73,12 @@ class PreviewController extends Notifier<PreviewState> {
     state = PreviewState.loading(video);
     try {
       await _port!.open(video.path);
-    } catch (e) {
+    } catch (e, st) {
       if (_disposed) return;
+      // 与其他控制器一致:失败记日志(§5.4 异常分层)
+      ref
+          .read(appLoggerProvider)
+          .e('预览加载失败: ${video.path}', error: e, stackTrace: st);
       state = PreviewState.error(
         errorCode: 'GIF_PLAY_OPEN_FAILED',
         errorMessage: '视频加载失败,请尝试其他文件',

@@ -26,7 +26,13 @@ final activeTaskProvider = Provider<ExportTask?>(
 );
 
 /// 导出进度流(200ms 尾缘节流,§9.3;只透传当前导出任务的进度)。
-final exportProgressProvider = StreamProvider<TaskProgress>((ref) {
+///
+/// autoDispose:进度面板卸载即销毁;非 autoDispose 会连带顶住 autoDispose
+/// 的 [exportControllerProvider] 永不销毁,会话(订阅/表单/activeTaskId)
+/// 跨页面常驻,语义漂移(P7 修复)。
+final exportProgressProvider = StreamProvider.autoDispose<TaskProgress>((
+  ref,
+) {
   final taskId = ref.watch(exportControllerProvider).taskId;
   final manager = ref.watch(taskManagerProvider);
   return throttleStream(

@@ -35,8 +35,14 @@ class HistoryController extends Notifier<AsyncValue<List<ExportHistory>>> {
 
   /// 重新加载历史列表(时间倒序,仓储保证)。
   Future<void> reload() async {
-    final list = await ref.read(historyRepositoryProvider).list();
-    state = AsyncValue.data(list);
+    try {
+      final list = await ref.read(historyRepositoryProvider).list();
+      state = AsyncValue.data(list);
+    } catch (e, st) {
+      // 仓储异常兜底:记日志 + 状态置 error,避免未处理异步错误
+      ref.read(appLoggerProvider).e('历史列表加载失败', error: e, stackTrace: st);
+      state = AsyncValue.error(e, st);
+    }
   }
 
   /// 清空全部历史(UI 层已二次确认;仅记录级,不删输出文件)。
