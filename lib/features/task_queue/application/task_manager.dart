@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:meta/meta.dart' show visibleForTesting;
+
 import '../../../core/logger/app_logger.dart';
 import '../../../domain/entities/export_history.dart';
 import '../../../domain/entities/export_task.dart';
@@ -15,6 +17,7 @@ import '../../../domain/repository_interfaces/task_repository.dart';
 import '../../../domain/value_objects/gif_setting.dart';
 import '../../../domain/value_objects/task_progress.dart';
 import '../../../domain/value_objects/task_state.dart';
+import '../../../shared/platform/gallery_save_result.dart';
 import '../../../shared/platform/platform_adapter.dart';
 import '../../../shared/platform/cancellation_manager.dart';
 import 'output_path.dart';
@@ -200,6 +203,8 @@ class TaskManager {
         progress: task.progress,
         retryCount: task.retryCount,
         createdAt: task.createdAt,
+        // 重排队清理陈旧相册状态(与 errorCode 置空同批)
+        galleryStatus: GallerySaveStatus.unsupported,
       ),
     );
     _queue.add(id);
@@ -356,6 +361,16 @@ class TaskManager {
         }
         // 成功:清理调色板临时文件(输出 out.gif 保留)
         await _cleanupPalette(workDir);
+        // Android 相册自动保存:仅私有目录产物(用户自选输出目录不动),
+        // 桌面 unsupported 无操作;保存失败不阻塞任务完成(转换本身成功),
+        // 状态随任务事件流转,弹窗展示 saved/failed/unsupported 三态
+        var gallery = const GallerySaveResult.unsupported();
+        if (outputPath.startsWith('${_platformAdapter.systemTempDir}/')) {
+          gallery = await _platformAdapter.saveToGallery(
+            outputPath,
+            displayName: galleryDisplayName(task.videoPath),
+          );
+        }
         final size = result.outputSizeBytes ?? 0;
         final history = ExportHistory(
           id: 0,
@@ -375,7 +390,15 @@ class TaskManager {
           _logger.e('历史快照入库失败: id=$id', error: e, stackTrace: st);
         }
         _logger.i('任务完成: id=$id size=$size');
-        await _finish(id, TaskState.completed, outputPath: outputPath);
+        await _finish(
+          id,
+          TaskState.completed,
+          outputPath: outputPath,
+          galleryStatus: gallery.status,
+          galleryPath: gallery.displayPath,
+          galleryUri: gallery.uri,
+          galleryMessage: gallery.message,
+        );
       } catch (e, st) {
         _logger.e('任务执行失败: id=$id', error: e, stackTrace: st);
         if (token.isCancelled) {
@@ -432,6 +455,10 @@ class TaskManager {
     String? outputPath,
     String? errorCode,
     String? errorDetail,
+    GallerySaveStatus? galleryStatus,
+    String? galleryPath,
+    String? galleryUri,
+    String? galleryMessage,
   }) async {
     final task = await _taskRepository.byId(id);
     if (task == null) return;
@@ -442,9 +469,24 @@ class TaskManager {
         errorCode: errorCode,
         errorDetail: errorDetail,
         finishedAt: DateTime.now(),
+        galleryStatus: galleryStatus,
+        galleryPath: galleryPath,
+        galleryUri: galleryUri,
+        galleryMessage: galleryMessage,
       ),
     );
     _emitTask(task);
+  }
+
+  /// 相册文件名:源视频名去扩展名 + `.gif`,截断 76 字符(MediaStore
+  /// DISPLAY_NAME 长度保护,留 `.gif` 4 字符余量)。
+  @visibleForTesting
+  static String galleryDisplayName(String videoPath) {
+    final name = videoPath.split('/').last;
+    final dot = name.lastIndexOf('.');
+    final base = dot > 0 ? name.substring(0, dot) : name;
+    final truncated = base.length > 76 ? base.substring(0, 76) : base;
+    return '$truncated.gif';
   }
 
   Future<void> _update(ExportTask task) => _taskRepository.update(task);

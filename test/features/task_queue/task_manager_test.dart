@@ -12,6 +12,7 @@ import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
 import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
 import 'package:chameleon_gif/domain/value_objects/task_state.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
+import 'package:chameleon_gif/shared/platform/gallery_save_result.dart';
 import 'package:chameleon_gif/shared/platform/platform_adapter.dart';
 import 'package:chameleon_gif/shared/repositories/in_memory_history_repository.dart';
 import 'package:chameleon_gif/shared/repositories/in_memory_task_repository.dart';
@@ -122,6 +123,63 @@ void main() {
     final task = await repo.byId(id);
     expect(task!.progress, 0.5);
     await sub.cancel();
+  });
+
+  group('相册自动保存', () {
+    test('saved:任务携带 gallery 字段,displayName 源名去扩展名,私有产物保留', () async {
+      final adapter = _GalleryAdapter(
+        tempRoot.path,
+        result: const GallerySaveResult.saved(
+          displayPath: 'Pictures/GIFForge/demo.gif',
+          uri: 'content://media/external/images/media/1',
+        ),
+      );
+      final m = TaskManager(
+        taskRepository: repo,
+        historyRepository: historyRepo,
+        ffmpegService: service,
+        platformAdapter: adapter,
+        logger: logger,
+        retryDelay: (_) async {},
+      );
+      final id = await m.submit(const GifSetting(), video);
+
+      final task = await waitForState(id, TaskState.completed);
+      expect(adapter.lastDisplayName, 'demo.gif');
+      expect(task.galleryStatus, GallerySaveStatus.saved);
+      expect(task.galleryPath, 'Pictures/GIFForge/demo.gif');
+      expect(task.galleryUri, 'content://media/external/images/media/1');
+      expect(File(task.outputPath!).existsSync(), isTrue, reason: '删除在弹窗关闭后');
+    });
+
+    test('failed:任务仍 completed,携带中文提示', () async {
+      final m = TaskManager(
+        taskRepository: repo,
+        historyRepository: historyRepo,
+        ffmpegService: service,
+        platformAdapter: _GalleryAdapter(
+          tempRoot.path,
+          result: const GallerySaveResult.failed('系统版本过低,请使用系统分享保存'),
+        ),
+        logger: logger,
+        retryDelay: (_) async {},
+      );
+      final id = await m.submit(const GifSetting(), video);
+
+      final task = await waitForState(id, TaskState.completed);
+      expect(task.galleryStatus, GallerySaveStatus.failed);
+      expect(task.galleryMessage, '系统版本过低,请使用系统分享保存');
+    });
+
+    test('galleryDisplayName:去扩展名 + .gif,超长截断', () {
+      expect(TaskManager.galleryDisplayName('/a/b/demo.mp4'), 'demo.gif');
+      expect(TaskManager.galleryDisplayName('/a/b/no_ext'), 'no_ext.gif');
+      final long = 'x' * 100;
+      expect(
+        TaskManager.galleryDisplayName('/a/b/$long.mp4'),
+        '${'x' * 76}.gif',
+      );
+    });
   });
 
   group('cancel', () {
@@ -446,6 +504,23 @@ class _TestAdapter extends PlatformAdapter {
 
   @override
   String get systemTempDir => tempRoot;
+}
+
+/// 相册保存可配置的适配器(记录 displayName 供断言)。
+class _GalleryAdapter extends _TestAdapter {
+  _GalleryAdapter(super.tempRoot, {required this.result});
+
+  final GallerySaveResult result;
+  String? lastDisplayName;
+
+  @override
+  Future<GallerySaveResult> saveToGallery(
+    String sourcePath, {
+    String? displayName,
+  }) async {
+    lastDisplayName = displayName;
+    return result;
+  }
 }
 
 /// 阻塞 running 落库的仓储:把任务钉在启动窗口(取消-启动竞态回归,P6-WP3)。

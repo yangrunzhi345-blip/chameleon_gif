@@ -18,6 +18,7 @@ import 'package:chameleon_gif/features/export/application/export_providers.dart'
 import 'package:chameleon_gif/features/export/application/export_state.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_queue_providers.dart';
+import 'package:chameleon_gif/shared/platform/gallery_save_result.dart';
 import 'package:chameleon_gif/shared/platform/platform_adapter.dart';
 import 'package:chameleon_gif/shared/repositories/in_memory_history_repository.dart';
 import 'package:chameleon_gif/shared/repositories/in_memory_task_repository.dart';
@@ -47,7 +48,11 @@ void main() {
     prefs = await SharedPreferences.getInstance();
   });
 
-  ProviderContainer build({Object? serviceError, FakeExportService? custom}) {
+  ProviderContainer build({
+    Object? serviceError,
+    FakeExportService? custom,
+    GallerySaveResult Function()? galleryResult,
+  }) {
     service = custom ?? FakeExportService(error: serviceError);
     taskRepo = InMemoryTaskRepository();
     adapter = _RecordingAdapter(tempRoot.path);
@@ -65,7 +70,10 @@ void main() {
             taskRepository: taskRepo,
             historyRepository: ref.read(historyRepositoryProvider),
             ffmpegService: service,
-            platformAdapter: _TestAdapter(tempRoot.path),
+            platformAdapter: _TestAdapter(
+              tempRoot.path,
+              galleryResult: galleryResult,
+            ),
             logger: AppLogger(),
             retryDelay: (_) async {},
           ),
@@ -229,6 +237,66 @@ void main() {
     expect(adapter.openFolderCalls, isEmpty);
   });
 
+  test('openOutputFolder:已保存到相册 → 打开相册定位(而非文件夹)', () async {
+    container = build(
+      galleryResult: () => const GallerySaveResult.saved(
+        displayPath: 'Pictures/GIFForge/demo.gif',
+        uri: 'content://media/external/images/media/9',
+      ),
+    );
+    final ctl = container.read(exportControllerProvider.notifier);
+    await ctl.submit(setting: const GifSetting(), video: video);
+    await waitForLifecycle(ExportLifecycle.done);
+
+    await ctl.openOutputFolder();
+
+    expect(adapter.openGalleryUris, [
+      'content://media/external/images/media/9',
+    ]);
+    expect(adapter.openFolderCalls, isEmpty);
+  });
+
+  test('shareGif:转发输出文件到分享面板', () async {
+    container = build(
+      galleryResult: () => const GallerySaveResult.failed('系统版本过低'),
+    );
+    final ctl = container.read(exportControllerProvider.notifier);
+    await ctl.submit(setting: const GifSetting(), video: video);
+    await waitForLifecycle(ExportLifecycle.done);
+
+    await ctl.shareGif();
+
+    expect(adapter.shareFileCalls, hasLength(1));
+    expect(adapter.shareFileCalls.single, endsWith('out.gif'));
+  });
+
+  test('reset:已保存到相册 → 删除私有副本;未保存 → 保留', () async {
+    // 真实流完成(saved)后再重置 → 私有副本删除
+    container = build(
+      galleryResult: () => const GallerySaveResult.saved(
+        displayPath: 'Pictures/GIFForge/demo.gif',
+        uri: 'content://media/1',
+      ),
+    );
+    final ctl2 = container.read(exportControllerProvider.notifier);
+    await ctl2.submit(setting: const GifSetting(), video: video);
+    final done = await waitForLifecycle(ExportLifecycle.done);
+    final outputPath = done.task!.outputPath!;
+    expect(File(outputPath).existsSync(), isTrue, reason: '弹窗期间保留');
+
+    await ctl2.reset();
+    expect(File(outputPath).existsSync(), isFalse, reason: 'reset 后私有副本删除');
+
+    // 未保存(unsupported)→ 保留
+    container = build();
+    final ctl3 = container.read(exportControllerProvider.notifier);
+    await ctl3.submit(setting: const GifSetting(), video: video);
+    final done2 = await waitForLifecycle(ExportLifecycle.done);
+    final kept = done2.task!.outputPath!;
+    await ctl3.reset();
+    expect(File(kept).existsSync(), isTrue, reason: '桌面/unsupported 不删');
+  });
+
   test('pickOutputDir:成功 → 表单回填 + 默认目录持久化', () async {
     container = build();
     final ctl = container.read(exportControllerProvider.notifier);
@@ -257,6 +325,8 @@ class _RecordingAdapter extends PlatformAdapter {
 
   final String tempRoot;
   final List<String> openFolderCalls = [];
+  final List<String> openGalleryUris = [];
+  final List<String> shareFileCalls = [];
 
   /// 目录选择结果(null = 取消)。
   String? pickResult;
@@ -267,6 +337,16 @@ class _RecordingAdapter extends PlatformAdapter {
   @override
   Future<void> openFolder(String path) async {
     openFolderCalls.add(path);
+  }
+
+  @override
+  Future<void> openGallery({String? uri}) async {
+    openGalleryUris.add(uri ?? '');
+  }
+
+  @override
+  Future<void> shareFile(String path) async {
+    shareFileCalls.add(path);
   }
 }
 
@@ -332,10 +412,19 @@ class FakeExportService implements FFmpegService {
 }
 
 class _TestAdapter extends PlatformAdapter {
-  _TestAdapter(this.tempRoot);
+  _TestAdapter(this.tempRoot, {this.galleryResult});
 
   final String tempRoot;
 
+  /// 可配置相册保存结果(null = unsupported)。
+  final GallerySaveResult Function()? galleryResult;
+
   @override
   String get systemTempDir => tempRoot;
+
+  @override
+  Future<GallerySaveResult> saveToGallery(
+    String sourcePath, {
+    String? displayName,
+  }) async => galleryResult?.call() ?? const GallerySaveResult.unsupported();
 }

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider 共享路径:仅转换产物(code_cache/gifforge_*),不暴露
+     cache/ 下的视频源副本(file_picker 缓存)等其余应用文件 -->
+<paths>
+    <code-cache-path name="gif" path="." />
+</paths>

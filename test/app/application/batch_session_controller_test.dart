@@ -12,6 +12,7 @@ import 'package:chameleon_gif/domain/value_objects/task_state.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_queue_controller.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_queue_providers.dart';
+import 'package:chameleon_gif/shared/platform/gallery_save_result.dart';
 import 'package:chameleon_gif/shared/platform/platform_adapter.dart';
 import 'package:chameleon_gif/shared/providers/core_providers.dart';
 import 'package:chameleon_gif/shared/repositories/in_memory_history_repository.dart';
@@ -37,6 +38,8 @@ void main() {
     TaskState state, {
     String? outputPath,
     String? errorDetail,
+    GallerySaveStatus galleryStatus = GallerySaveStatus.unsupported,
+    String? galleryUri,
   }) => ExportTask(
     id: id,
     videoPath: '/tmp/videos/v$id.mp4',
@@ -45,6 +48,8 @@ void main() {
     createdAt: DateTime(2026, 1, 1),
     outputPath: outputPath,
     errorDetail: errorDetail,
+    galleryStatus: galleryStatus,
+    galleryUri: galleryUri,
   );
 
   group('derive 纯函数', () {
@@ -88,6 +93,38 @@ void main() {
       expect(s.failedItems.first.errorDetail, '编码失败');
       expect(s.stats.completed, 1);
       expect(s.stats.failed, 2);
+    });
+
+    test('相册统计:saved 计数 + firstGalleryUri;failed 计数', () {
+      final s = derive(
+        taskIds: const [1, 2, 3],
+        tasks: [
+          task(
+            1,
+            TaskState.completed,
+            outputPath: '/tmp/a.gif',
+            galleryStatus: GallerySaveStatus.saved,
+            galleryUri: 'content://media/1',
+          ),
+          task(
+            2,
+            TaskState.completed,
+            outputPath: '/tmp/b.gif',
+            galleryStatus: GallerySaveStatus.failed,
+          ),
+          task(
+            3,
+            TaskState.completed,
+            outputPath: '/tmp/c.gif',
+            galleryStatus: GallerySaveStatus.saved,
+            galleryUri: 'content://media/3',
+          ),
+        ],
+        declined: false,
+      );
+      expect(s.stats.gallerySaved, 2);
+      expect(s.stats.galleryFailed, 1);
+      expect(s.stats.firstGalleryUri, 'content://media/1', reason: '按入队序第一个');
     });
 
     test('含 cancelled → finished(不询问),cancelled 仅入统计', () {
@@ -161,9 +198,12 @@ void main() {
       tempRoot.deleteSync(recursive: true);
     });
 
-    void buildContainer(FakeFfmpegService svc) {
+    void buildContainer(
+      FakeFfmpegService svc, {
+      GallerySaveResult Function()? galleryResult,
+    }) {
       service = svc;
-      adapter = _TestAdapter(tempRoot.path);
+      adapter = _TestAdapter(tempRoot.path, galleryResult: galleryResult);
       container = ProviderContainer(
         overrides: [
           sharedPrefsProvider.overrideWithValue(prefs),
@@ -296,14 +336,52 @@ void main() {
       await sessionCtl().openOutputFolder('');
       expect(adapter.openFolderCalls, isEmpty);
     });
+
+    test('openOutputFolder → 带 galleryUri 时打开相册(而非文件夹)', () async {
+      buildContainer(FakeFfmpegService(writeOutput: false));
+      await sessionCtl().openOutputFolder(
+        '${tempRoot.path}/gifforge_1/out.gif',
+        galleryUri: 'content://media/1',
+      );
+      expect(adapter.openFolderCalls, isEmpty);
+      expect(adapter.openGalleryUris, ['content://media/1']);
+    });
+
+    test('begin:上一批次已入相册的私有副本被异步清理', () async {
+      buildContainer(
+        FakeFfmpegService(),
+        galleryResult: () => const GallerySaveResult.saved(
+          displayPath: 'Pictures/GIFForge/v1.gif',
+          uri: 'content://media/1',
+        ),
+      );
+      final id1 = await queueCtl().submit(const GifSetting(), video);
+      sessionCtl().begin([id1]);
+      await waitPhase(BatchSessionPhase.finished);
+      final t1 = await repo.byId(id1);
+      final savedCopy = t1!.outputPath!;
+      expect(File(savedCopy).existsSync(), isTrue, reason: '弹窗期间保留');
+
+      // 新批次替换旧会话 → 异步清理上一批次副本
+      final id2 = await queueCtl().submit(const GifSetting(), video);
+      sessionCtl().begin([id2]);
+      for (var i = 0; i < 100 && File(savedCopy).existsSync(); i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(File(savedCopy).existsSync(), isFalse, reason: 'begin 后副本被清理');
+    });
   });
 }
 
 class _TestAdapter extends PlatformAdapter {
-  _TestAdapter(this.tempRoot);
+  _TestAdapter(this.tempRoot, {this.galleryResult});
 
   final String tempRoot;
   final openFolderCalls = <String>[];
+  final openGalleryUris = <String>[];
+
+  /// 可配置相册保存结果(null = unsupported)。
+  final GallerySaveResult Function()? galleryResult;
 
   @override
   String get systemTempDir => tempRoot;
@@ -312,4 +390,15 @@ class _TestAdapter extends PlatformAdapter {
   Future<void> openFolder(String path) async {
     openFolderCalls.add(path);
   }
+
+  @override
+  Future<void> openGallery({String? uri}) async {
+    openGalleryUris.add(uri ?? '');
+  }
+
+  @override
+  Future<GallerySaveResult> saveToGallery(
+    String sourcePath, {
+    String? displayName,
+  }) async => galleryResult?.call() ?? const GallerySaveResult.unsupported();
 }

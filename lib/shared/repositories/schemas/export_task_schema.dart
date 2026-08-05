@@ -5,6 +5,7 @@ import 'package:isar_community/isar.dart';
 import '../../../domain/entities/export_task.dart';
 import '../../../domain/value_objects/gif_setting.dart';
 import '../../../domain/value_objects/task_state.dart';
+import '../../platform/gallery_save_result.dart';
 
 part 'export_task_schema.g.dart';
 
@@ -42,6 +43,15 @@ class ExportTaskSchema {
 
   DateTime? finishedAt;
 
+  /// GallerySaveStatus.index(默认 0 = unsupported)
+  int galleryStatus = 0;
+
+  String? galleryPath;
+
+  String? galleryUri;
+
+  String? galleryMessage;
+
   /// 领域实体 → 集合
   static ExportTaskSchema fromEntity(ExportTask task) {
     final schema = ExportTaskSchema()
@@ -56,7 +66,11 @@ class ExportTaskSchema {
       ..retryCount = task.retryCount
       ..createdAt = task.createdAt
       ..startedAt = task.startedAt
-      ..finishedAt = task.finishedAt;
+      ..finishedAt = task.finishedAt
+      ..galleryStatus = task.galleryStatus.index
+      ..galleryPath = task.galleryPath
+      ..galleryUri = task.galleryUri
+      ..galleryMessage = task.galleryMessage;
     return schema;
   }
 
@@ -79,6 +93,10 @@ class ExportTaskSchema {
       createdAt: createdAt,
       startedAt: startedAt,
       finishedAt: finishedAt,
+      galleryStatus: GallerySaveStatus.values[galleryStatus],
+      galleryPath: galleryPath,
+      galleryUri: galleryUri,
+      galleryMessage: galleryMessage,
     );
   }
 }

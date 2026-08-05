@@ -27,10 +27,18 @@ class BatchCompleteDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 统计文案:有失败/取消才追加对应段(取消任务不询问,此处体现)
+    // 统计文案:有失败/取消才追加对应段(取消任务不询问,此处体现);
+    // 相册保存状态仅在有失败项时提示(全成功时"成功 N 个"已含语义)
     final summary = StringBuffer('成功 ${stats.completed} 个');
     if (stats.failed > 0) summary.write(' · 失败 ${stats.failed} 个');
     if (stats.cancelled > 0) summary.write(' · 取消 ${stats.cancelled} 个');
+    if (stats.gallerySaved > 0 && stats.completed == stats.gallerySaved) {
+      summary.write('\n已保存到系统相册 ${stats.gallerySaved} 个');
+    } else if (stats.galleryFailed > 0) {
+      summary.write(
+        '\n${stats.gallerySaved} 个已入相册,${stats.galleryFailed} 个保存失败请用分享',
+      );
+    }
     return AlertDialog(
       title: const Row(
         children: [
@@ -48,7 +56,7 @@ class BatchCompleteDialog extends StatelessWidget {
           children: [
             TextButton(
               onPressed: stats.completedGifPaths.isEmpty ? null : onOpenFolder,
-              child: const Text('打开文件夹'),
+              child: Text(stats.firstGalleryUri != null ? '打开相册' : '打开文件夹'),
             ),
             TextButton(onPressed: onBackToBatch, child: const Text('返回批量导入')),
             TextButton(

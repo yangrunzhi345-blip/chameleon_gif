@@ -1,5 +1,6 @@
 import '../value_objects/gif_setting.dart';
 import '../value_objects/task_state.dart';
+import '../../shared/platform/gallery_save_result.dart';
 
 /// 转换任务领域实体(字段契约见 docs/07-数据库设计.md §7.3.1)。
 ///
@@ -19,6 +20,10 @@ class ExportTask {
     this.retryCount = 0,
     this.startedAt,
     this.finishedAt,
+    this.galleryStatus = GallerySaveStatus.unsupported,
+    this.galleryPath,
+    this.galleryUri,
+    this.galleryMessage,
   });
 
   /// 自增主键(未持久化时可为 0)
@@ -39,6 +44,18 @@ class ExportTask {
   final DateTime? startedAt;
   final DateTime? finishedAt;
 
+  /// 完成时保存到系统相册的结果状态(默认 unsupported = 桌面等无相册能力)。
+  final GallerySaveStatus galleryStatus;
+
+  /// 相册内展示路径(如 `Pictures/GIFForge/demo.gif`,仅 saved 时非空)。
+  final String? galleryPath;
+
+  /// 相册条目 content URI(仅 saved 时非空,"打开相册"定位用)。
+  final String? galleryUri;
+
+  /// 保存失败的用户可读中文提示(仅 failed 时非空)。
+  final String? galleryMessage;
+
   /// 派生副本(供状态机推进时使用,字段级复制)。
   ///
   /// 注意:`null` 参数为"保持原值"语义,**无法置空可空字段**(errorCode/
@@ -53,6 +70,10 @@ class ExportTask {
     int? retryCount,
     DateTime? startedAt,
     DateTime? finishedAt,
+    GallerySaveStatus? galleryStatus,
+    String? galleryPath,
+    String? galleryUri,
+    String? galleryMessage,
   }) {
     return ExportTask(
       id: id,
@@ -67,6 +88,10 @@ class ExportTask {
       createdAt: createdAt,
       startedAt: startedAt ?? this.startedAt,
       finishedAt: finishedAt ?? this.finishedAt,
+      galleryStatus: galleryStatus ?? this.galleryStatus,
+      galleryPath: galleryPath ?? this.galleryPath,
+      galleryUri: galleryUri ?? this.galleryUri,
+      galleryMessage: galleryMessage ?? this.galleryMessage,
     );
   }
 }

@@ -127,9 +127,9 @@ class _SpyExportController extends ExportController {
   }
 
   @override
-  void reset() {
+  Future<void> reset() async {
     resetCount++;
-    super.reset();
+    await super.reset();
   }
 }
 

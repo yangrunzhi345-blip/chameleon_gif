@@ -87,7 +87,10 @@ class _BatchCompletionHostState extends ConsumerState<BatchCompletionHost> {
               if (paths.isNotEmpty) {
                 ref
                     .read(batchSessionProvider.notifier)
-                    .openOutputFolder(paths.first);
+                    .openOutputFolder(
+                      paths.first,
+                      galleryUri: snapshot.stats.firstGalleryUri,
+                    );
               }
             },
             onBackToBatch: () => _finish(dialogCtx, () {

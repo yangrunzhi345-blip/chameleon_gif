@@ -1,7 +1,9 @@
 import 'dart:io' show Directory, Platform, Process, ProcessException;
 
 import '../../domain/repository_interfaces/ffmpeg_engine.dart';
+import 'android_media_store.dart';
 import 'ffmpeg_kit_engine.dart';
+import 'gallery_save_result.dart';
 import 'process_engine.dart';
 import 'ffprobe_executor.dart';
 import 'ffprobe_kit_executor.dart';
@@ -50,6 +52,39 @@ class PlatformAdapter {
         // 忽略
       }
     }
-    // Android 系统分享/相册入口留 P8
+    // Android 无"文件夹"语义:完成弹窗已路由到 openGallery(定位相册条目)
+  }
+
+  /// 保存文件到系统相册(Android 10+ MediaStore 免权限;桌面返回 unsupported)。
+  ///
+  /// [displayName] 为相册内文件名(含 .gif 扩展名);saved 时携带展示路径
+  /// 与 content URI(打开相册定位用),failed 时携带用户可读中文提示。
+  Future<GallerySaveResult> saveToGallery(
+    String sourcePath, {
+    String? displayName,
+  }) {
+    if (Platform.isAndroid) {
+      return const AndroidMediaStoreSaver().saveToGallery(
+        sourcePath,
+        displayName: displayName,
+      );
+    }
+    return Future.value(const GallerySaveResult.unsupported());
+  }
+
+  /// 打开系统相册([uri] 非空时定位到具体条目;桌面 no-op)。
+  Future<void> openGallery({String? uri}) {
+    if (Platform.isAndroid) {
+      return const AndroidMediaStoreSaver().openGallery(uri: uri);
+    }
+    return Future.value();
+  }
+
+  /// 系统分享面板发送文件(Android FileProvider;桌面 no-op)。
+  Future<void> shareFile(String path) {
+    if (Platform.isAndroid) {
+      return const AndroidMediaStoreSaver().shareFile(path);
+    }
+    return Future.value();
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/export_task.dart';
 import '../../domain/value_objects/task_state.dart';
 import '../../features/task_queue/application/task_queue_providers.dart';
+import '../../shared/platform/gallery_save_result.dart';
 import '../../shared/providers/core_providers.dart';
 
 /// 批量会话阶段(由 [derive] 计算,UI 仅消费 phase 驱动弹窗)。
@@ -37,6 +39,9 @@ class BatchStats {
     required this.failed,
     required this.cancelled,
     this.completedGifPaths = const [],
+    this.gallerySaved = 0,
+    this.galleryFailed = 0,
+    this.firstGalleryUri,
   });
 
   final int completed;
@@ -45,6 +50,15 @@ class BatchStats {
 
   /// 成功且 outputPath 非空的任务输出路径(按入队顺序,预览列表用)。
   final List<String> completedGifPaths;
+
+  /// 已保存到系统相册的任务数。
+  final int gallerySaved;
+
+  /// 保存到相册失败的任务数(弹窗提示改用分享)。
+  final int galleryFailed;
+
+  /// 第一个相册条目的 content URI(打开相册定位用)。
+  final String? firstGalleryUri;
 }
 
 /// 批量会话状态(不可变;**只存声明字段**,派生数据由 [derive] 计算)。
@@ -107,6 +121,9 @@ BatchSessionSnapshot derive({
   final completedList = mine
       .where((t) => t.state == TaskState.completed)
       .toList();
+  final savedList = completedList
+      .where((t) => t.galleryStatus == GallerySaveStatus.saved)
+      .toList();
   return BatchSessionSnapshot(
     phase: phase,
     failedItems: failedList
@@ -122,6 +139,11 @@ BatchSessionSnapshot derive({
           .map((t) => t.outputPath)
           .whereType<String>()
           .toList(),
+      gallerySaved: savedList.length,
+      galleryFailed: completedList
+          .where((t) => t.galleryStatus == GallerySaveStatus.failed)
+          .length,
+      firstGalleryUri: savedList.firstOrNull?.galleryUri,
     ),
   );
 }
@@ -158,10 +180,34 @@ class BatchSessionController extends Notifier<BatchSessionState> {
   BatchSessionState build() => const BatchSessionState.idle();
 
   /// 登记新批次(替换旧会话;declined 复位)。
+  ///
+  /// 上一批次已保存到相册的私有副本在此异步清理(不阻塞新批次;
+  /// [clear] 不删:批量预览页按输出路径实时读文件,弹窗关闭后仍可播放)。
   void begin(List<int> taskIds) {
+    final previous = _taskIds;
     _taskIds = List.unmodifiable(taskIds);
     _declined = false;
     _rebuild();
+    if (previous.isNotEmpty) {
+      unawaited(_cleanupSavedCopies(previous));
+    }
+  }
+
+  Future<void> _cleanupSavedCopies(List<int> taskIds) async {
+    final tasks = ref.read(taskQueueControllerProvider).tasks;
+    for (final task in tasks) {
+      final outputPath = task.outputPath;
+      if (taskIds.contains(task.id) &&
+          task.galleryStatus == GallerySaveStatus.saved &&
+          outputPath != null) {
+        try {
+          final f = File(outputPath);
+          if (await f.exists()) await f.delete();
+        } on FileSystemException {
+          // 忽略:缓存目录系统会兜底清理
+        }
+      }
+    }
   }
 
   /// 失败询问弹窗点"否":跳过 askRetry,进入 finished(仅弹一次)。
@@ -189,11 +235,16 @@ class BatchSessionController extends Notifier<BatchSessionState> {
     _rebuild();
   }
 
-  /// 在系统文件管理器中打开本批次第一个成功输出的所在目录
-  /// (done 态动作,UI 层仅转发;目录提取在功能层,与单文件
-  /// [ExportController.openOutputFolder] 同模式)。
-  Future<void> openOutputFolder(String outputPath) async {
+  /// 打开本批次第一个成功输出的所在位置(done 态动作,UI 层仅转发)。
+  ///
+  /// [galleryUri] 非空(已保存到相册)→ 打开相册定位条目;否则打开文件
+  /// 管理器目录(桌面);平台路由藏在 PlatformAdapter,UI 无平台分支。
+  Future<void> openOutputFolder(String outputPath, {String? galleryUri}) async {
     if (outputPath.isEmpty) return;
+    if (galleryUri != null) {
+      await ref.read(platformAdapterProvider).openGallery(uri: galleryUri);
+      return;
+    }
     await ref
         .read(platformAdapterProvider)
         .openFolder(File(outputPath).parent.path);

@@ -9,6 +9,7 @@ import '../../../domain/entities/video_info.dart';
 import '../../../domain/exceptions/file_pick_exception.dart';
 import '../../../domain/value_objects/gif_setting.dart';
 import '../../../domain/value_objects/task_state.dart';
+import '../../../shared/platform/gallery_save_result.dart';
 import '../../../shared/providers/core_providers.dart';
 import '../../task_queue/application/task_queue_providers.dart';
 import '../../timeline/application/timeline_providers.dart';
@@ -218,7 +219,20 @@ class ExportController extends Notifier<ExportFormState> {
   }
 
   /// 弹窗/失败提示关闭后回 idle,表单值保留。
-  void reset() {
+  ///
+  /// 已保存到相册的私有副本在此延迟删除(弹窗期间路径仍有效,供预览/
+  /// 分享);best-effort:删除失败仅日志,系统缓存清理兜底。
+  Future<void> reset() async {
+    final task = state.task;
+    final outputPath = task?.outputPath;
+    if (task?.galleryStatus == GallerySaveStatus.saved && outputPath != null) {
+      try {
+        final f = File(outputPath);
+        if (await f.exists()) await f.delete();
+      } on FileSystemException {
+        // 忽略:缓存目录系统会兜底清理
+      }
+    }
     _activeTaskId = null;
     state = state.copyWith(
       lifecycle: ExportLifecycle.idle,
@@ -228,15 +242,29 @@ class ExportController extends Notifier<ExportFormState> {
     );
   }
 
-  /// 在系统文件管理器中打开输出目录(done 态动作,UI 层仅转发)。
+  /// 打开输出位置(done 态动作,UI 层仅转发)。
+  ///
+  /// 已保存到相册(saved)→ 打开相册定位条目;否则打开文件管理器目录
+  /// (桌面);平台路由藏在 PlatformAdapter,UI 无平台分支。
   Future<void> openOutputFolder() async {
     final task = state.task;
     final outputPath = task?.outputPath;
-    if (outputPath == null) return;
+    if (task == null || outputPath == null) return;
+    if (task.galleryStatus == GallerySaveStatus.saved) {
+      await ref.read(platformAdapterProvider).openGallery(uri: task.galleryUri);
+      return;
+    }
     // 目录提取在功能层(dart:io 纯路径处理,不触文件系统)
     await ref
         .read(platformAdapterProvider)
         .openFolder(File(outputPath).parent.path);
+  }
+
+  /// 系统分享面板发送输出文件(相册保存失败/低版本系统的兜底)。
+  Future<void> shareGif() async {
+    final outputPath = state.task?.outputPath;
+    if (outputPath == null) return;
+    await ref.read(platformAdapterProvider).shareFile(outputPath);
   }
 
   (Duration, Duration) _normalized(Duration start, Duration? end) {
