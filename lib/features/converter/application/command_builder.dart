@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../../core/utils/duration_format.dart';
 import '../../../domain/entities/image_gif_source.dart';
 import '../../../domain/entities/video_info.dart';
@@ -200,19 +202,24 @@ class GifCommandBuilder {
   /// 图片模式单输入滤镜链:`fps=F` 恒在,scale 按宽高组合追加,`setsar=1` 兜底。
   ///
   /// 与 [_filterChain] 语义一致,差异:
-  /// - 未指定宽高(全 0)时统一到首图尺寸 —— concat 要求各输入分辨率一致,
-  ///   不同尺寸图片不统一会报 "Input link parameters do not match"
-  ///   (首图尺寸未知时退化为无 scale,由 UI 在选图时探测首图尺寸填充
-  ///   [ImageGifSource.width/height]);
+  /// - 未指定宽高(全 0)时统一到首图尺寸;单边指定时另一边按首图宽高比
+  ///   推算成定值 —— concat 要求各输入分辨率一致,单边 `-1` 会让每张图
+  ///   按各自宽高比缩放、分辨率不一,报 "Input link parameters do not
+  ///   match"(首图尺寸未知时退化为 -1 等比,尽力而为);
   /// - 末尾恒接 `setsar=1`:concat 校验各输入 SAR,不同宽高比的图片
   ///   scale 后 SAR 不一致会报错(已真机实证 ffmpeg 8),setsar=1 统一归一。
   String _perInputChain(GifSetting setting, ImageGifSource source) {
     final fps = _formatFps(setting.fps);
     var width = setting.width;
     var height = setting.height;
-    if (width == 0 && height == 0 && source.width > 0 && source.height > 0) {
+    final knownSource = source.width > 0 && source.height > 0;
+    if (width == 0 && height == 0 && knownSource) {
       width = source.width;
       height = source.height;
+    } else if (width > 0 && height == 0 && knownSource) {
+      height = math.max(1, (width * source.height / source.width).round());
+    } else if (height > 0 && width == 0 && knownSource) {
+      width = math.max(1, (height * source.width / source.height).round());
     }
     final scale = (width > 0 || height > 0)
         ? ',scale=${width > 0 ? width : -1}:'

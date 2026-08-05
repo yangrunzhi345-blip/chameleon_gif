@@ -168,6 +168,51 @@ void main() {
       expect(filterOf(cmd.args), contains('fps=15,setsar=1'));
       expect(filterOf(cmd.args), isNot(contains('scale=')));
     });
+
+    test('仅指定宽度 → 高度按首图宽高比推算(concat 分辨率一致)', () {
+      // 源 800×600(4:3),宽 320 → 高 240
+      const setting = GifSetting(width: 320);
+      final cmd = builder
+          .buildFromImages(
+            setting: setting,
+            source: source,
+            workDir: '/tmp/work',
+            outputPath: '/tmp/work/out.gif',
+            usePalette: false,
+          )
+          .single;
+      expect(filterOf(cmd.args), contains('scale=320:240:flags=lanczos'));
+    });
+
+    test('仅指定高度 → 宽度按首图宽高比推算', () {
+      // 源 640×480(4:3),高 360 → 宽 480
+      const setting = GifSetting(height: 360);
+      final cmd = builder
+          .buildFromImages(
+            setting: setting,
+            source: source,
+            workDir: '/tmp/work',
+            outputPath: '/tmp/work/out.gif',
+            usePalette: false,
+          )
+          .single;
+      expect(filterOf(cmd.args), contains('scale=480:360:flags=lanczos'));
+    });
+
+    test('单边指定 + 首图尺寸未知 → 退化为 -1 等比(尽力而为)', () {
+      const setting = GifSetting(width: 320);
+      const unknown = ImageGifSource(paths: ['/img/1.png', '/img/2.png']);
+      final cmd = builder
+          .buildFromImages(
+            setting: setting,
+            source: unknown,
+            workDir: '/tmp/work',
+            outputPath: '/tmp/work/out.gif',
+            usePalette: false,
+          )
+          .single;
+      expect(filterOf(cmd.args), contains('scale=320:-1:flags=lanczos'));
+    });
   });
 
   group('单遍(usePalette=false)', () {
