@@ -1,16 +1,213 @@
-# gif_forge
+# 🦎 Chameleon Gif
 
-A new Flutter project.
+> **MP4 / 多图片 → GIF 的现代跨平台工具**
+> 可视化时间轴裁剪 · 两遍调色板法专业级画质 · 任务队列批量转换 · 本地离线零隐私风险
 
-## Getting Started
+Chameleon Gif 把「视频转 GIF」从命令行工具变成**人人可用的现代化桌面应用**:所见即所得的实时预览、毫秒级时间轴选区、专业级调色板优化,一条命令都不用记,点几下鼠标就能产出高质量 GIF。
 
-This project is a starting point for a Flutter application.
+---
 
-A few resources to get you started if this is your first Flutter project:
+## ✨ 为什么选择 Chameleon Gif?
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+| 对比维度 | Chameleon Gif | Ezgif 等在线工具 | Gifski | ffmpeg 命令行 |
+|----------|---------------|------------------|--------|---------------|
+| 🔒 隐私安全 | ✅ **本地转换,文件不上传** | ❌ 上传服务器 | ✅ | ✅ |
+| 🎬 时间轴可视化裁剪 | ✅ 拖动选区,即时预览 | ❌ 手填秒数 | ❌ | ❌ 靠记忆 |
+| 🎨 画质优化 | ✅ **两遍调色板法(Palette)** | 部分支持 | ✅ | ⚠️ 需手写参数 |
+| ⚙️ 参数可视化调节 | ✅ 帧率/尺寸/循环/质量 | ⚠️ 基础参数 | ⚠️ 有限 | ❌ 需学语法 |
+| 📋 批量队列 | ✅ 批量导入 + 任务队列 | ❌ | ❌ | ⚠️ 脚本 |
+| 🕘 历史记录与重转 | ✅ 持久化记录,一键重转 | ❌ | ❌ | ❌ |
+| 📱 跨平台 | ✅ Linux / Windows / Android | Web | 桌面为主 | 各平台 |
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+**一句话**:要隐私、要画质、要省心,选 Chameleon Gif。
+
+---
+
+## 🎯 核心特性
+
+### 🎬 视频 → GIF
+- 选择任意 MP4 文件,**可视化时间轴**设定起止区间(毫秒级精度)
+- 实时视频预览,输出宽高比即时反馈(变形警告提前告知)
+- 帧率(8~60 fps 预设)、宽高缩放、循环次数、质量模式自由组合
+- **两遍调色板法**:先全局采样生成调色板,再精确定位输出,色彩过渡平滑无断层
+
+### 🖼️ 多图片 → GIF(帧动画)
+- 多张 PNG / JPG / WebP 按顺序合成为帧动画,上移/下移调整顺序
+- 每图停留时长(毫秒)、帧率、宽高、循环、质量独立配置
+- 不同宽高比图片自动归一,输出分辨率统一
+
+### ⚡ 高性能与可靠
+- **实时进度**:FFmpeg 原生转码 + 流式进度解析(进度百分比)
+- **任务队列**:多任务排队执行,失败自动重试,崩溃恢复续转
+- **转换中可取消**,临时文件自动清理
+- 500MB 级视频流畅操作,转码在独立 isolate 执行,UI 不卡顿
+
+### 🕘 记录与复用
+- 每次转换持久化到本地数据库(Isar),状态:等待 / 进行中 / 完成 / 失败 / 已取消
+- **历史列表**:查看详情、一键重转、删除记录
+- 输出预览 + 「另存为」,随时分享
+
+### 🌗 现代化界面
+- Material 3 设计语言,支持主题切换
+- 响应式布局:大窗口双栏卡片工作台,小窗口自动单列
+- 桌面端原生的文件选择与保存对话框
+
+---
+
+## 🖥️ 界面一览
+
+三页面工作流,全屏/半屏自适应:
+
+```
+┌────────────────────────────────────────────┐
+│  ← 返回          工作台标题                 │
+├──────────────────────┬─────────────────────┤
+│  预览区 / 图片列表    │  输出控制面板        │
+│                      │  ─ 帧率 / 尺寸      │
+│  [视频画面]          │  ─ 循环 / 质量      │
+│  ▶ 播放控制条        │  ─ 时间轴选区(视频) │
+│  ── 时间轴 ──        │  ─ 导出目录         │
+│                      │  [ 开始转换 ]       │
+└──────────────────────┴─────────────────────┘
+```
+
+> 📸 界面截图待发布版补充。
+
+---
+
+## 📦 平台支持
+
+| 平台 | 状态 | 转码引擎 | 分发形态 |
+|------|------|----------|----------|
+| 🐧 Linux | ✅ 首发(主要开发平台) | 系统 ffmpeg/ffprobe 二进制 | AppImage / deb |
+| 🪟 Windows | ✅ 首发 | 系统 ffmpeg/ffprobe 二进制 | NSIS 安装包 |
+| 🤖 Android | ✅ 首发 | 内置 FFmpegKit 原生库(随包分发) | APK / AAB |
+| 🍎 macOS | 🔒 预留(V3) | 系统二进制(待签名公证) | — |
+| 🌐 Web | 🔒 预留(V3) | FFmpeg WASM | — |
+| 📱 iOS | 🔒 预留(V3 后) | ffmpeg_kit_flutter(评审后引入) | — |
+
+> **桌面端依赖**:Linux / Windows 需系统已安装 `ffmpeg` / `ffprobe`(缺二进制时应用会给出明确提示);Android 端 FFmpeg 内嵌,无需任何额外安装。
+
+---
+
+## 🚀 快速开始(使用)
+
+1. **导入素材**:点击「导入 MP4」选择视频,或「图片制作 GIF」选择多张图片
+2. **预览与裁剪**(视频):拖动时间轴设定起止区间,实时预览
+3. **调节参数**:帧率、宽高、循环次数、高质量(调色板)开关
+4. **选择目录**:默认输出到系统临时目录,完成后可「另存为」
+5. **开始转换**:实时进度条,完成后弹窗预览,可打开所在文件夹
+
+> 💡 小技巧:高动态画面(如游戏片段)建议开启「高质量」;简单 UI 录屏用标准模式更快。
+
+---
+
+## 🛠️ 从源码构建
+
+### 环境要求
+
+| 依赖 | 版本 |
+|------|------|
+| Flutter SDK | `>= 3.38.0` |
+| Dart SDK | `>= 3.10.0` |
+| ffmpeg / ffprobe(仅桌面端运行) | 任意现代版本 |
+
+### 步骤
+
+```bash
+git clone <仓库地址> && cd chameleon_gif
+
+flutter pub get                                                       # 拉取依赖
+dart run build_runner build --delete-conflicting-outputs              # 生成 freezed/isar/riverpod 代码
+
+flutter run -d linux                                                  # 桌面运行(Linux;按平台替换 -d)
+```
+
+### 常用命令
+
+```bash
+dart format .                            # 格式化
+flutter analyze                          # 静态分析(零告警要求)
+flutter test                             # 单元测试(全绿要求)
+dart run tool/probe_check.dart           # FFmpeg 探测链路自检
+dart run tool/convert_check.dart         # 真实转码 SHA-256 一致性验证
+```
+
+---
+
+## 🏗️ 技术架构
+
+```
+┌─────────────────────────────────────────────────┐
+│  app(组合根)  MaterialApp · GoRouter · 页面壳    │
+├─────────────────────────────────────────────────┤
+│  features(模块)  converter · preview · export    │
+│                  history · task_queue · timeline │
+│                  import · image_gif              │
+│      application(纯 Dart) → presentation(UI)     │
+├─────────────────────────────────────────────────┤
+│  domain(领域层)  实体 · 值对象 · 端口接口 · 异常   │
+├─────────────────────────────────────────────────┤
+│  shared(基础设施)  PlatformAdapter · FFmpegEngine │
+│                  Isar 仓储 · 引擎执行器          │
+└─────────────────────────────────────────────────┘
+```
+
+### 技术亮点
+
+| 维度 | 方案 |
+|------|------|
+| 状态管理 | Riverpod 3(代码生成)+ AsyncValue 状态机 |
+| 路由 | GoRouter 声明式路由 |
+| 模型 | Freezed 不可变模型 + JSON 序列化 |
+| 持久化 | Isar 高性能 NoSQL(本地数据库)+ SharedPreferences |
+| 转码引擎 | **接口化抽象 `FFmpegEngine`**:桌面走系统二进制,Android 走内置 FFmpegKit,业务层零平台分支 |
+| 视频预览 | media_kit(自带 FFmpeg 播放内核) |
+| 架构约束 | 功能层纯 Dart 可单测;UI 层只渲染转发;依赖单向 `presentation → application` |
+
+---
+
+## 🧪 质量保障
+
+- `flutter analyze` **零告警**为提交门槛(Flutter 官方 lints)
+- `flutter test` 全绿:核心逻辑(FFmpeg 命令构造、`-progress` 流式进度解析)有专项单测
+- 三平台同参输出 **SHA-256 一致性**验证(`tool/convert_check.dart`)
+- 全部生成式代码(freezed / isar / riverpod)仅经 build_runner 产出,不手改
+
+---
+
+## 🗺️ 路线图
+
+| 阶段 | 状态 | 能力 |
+|------|------|------|
+| **MVP** | ✅ 基本完成 | 单视频转换、预览、时间轴、参数调节、历史记录、批量队列、图片合成 GIF |
+| **V2 专业版** | 🔜 进行中 | 速度/倒放/镜像/裁剪/旋转、色彩数量控制、Dithering、大小与质量预估强化 |
+| **V3 生态版** | 🔒 规划 | macOS/Web 落地、多语言、预设系统、自动更新、插件系统、WebP/APNG 导出 |
+
+> 完整技术设计说明书见 `docs/` 目录(17 篇):需求、选型、架构、FFmpeg 设计、测试计划、发布计划等。
+
+---
+
+## 📚 项目文档
+
+| 文档 | 内容 |
+|------|------|
+| [CLAUDE.md](CLAUDE.md) | 项目规范与版本锁定表(与 docs 同步维护) |
+| [docs/01-项目介绍.md](docs/01-项目介绍.md) | 愿景、平台矩阵、竞品定位、目标用户 |
+| [docs/02-需求分析.md](docs/02-需求分析.md) | 功能需求与验收标准 |
+| [docs/08-FFmpeg设计.md](docs/08-FFmpeg设计.md) | FFmpeg 引擎接口与分平台接入 |
+| [docs/16-V2.0扩展规划.md](docs/16-V2.0扩展规划.md) | V2/V3 路线与数据兼容承诺 |
+
+---
+
+## 🤝 贡献
+
+1. 任务开始前:确认工作区干净、拉取最新代码、从 main 切功能分支(`feat/<分支名>`)
+2. 提交规范:`type(scope): 中文描述`(`feat` / `fix` / `refactor` / `docs` / `chore` / `test` / `perf`)
+3. 完成门槛:`dart format .` → `flutter analyze` 零告警 → `flutter test` 全绿
+
+---
+
+## 📄 许可证
+
+本项目为个人开源项目,许可证待定(规划中)。
