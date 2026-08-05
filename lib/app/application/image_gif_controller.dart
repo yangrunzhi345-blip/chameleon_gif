@@ -9,6 +9,7 @@ import '../../domain/value_objects/gif_setting.dart';
 import '../../domain/value_objects/task_state.dart';
 import '../../features/export/application/output_dir_picker.dart'
     as output_dir_picker;
+import '../../features/import/application/import_providers.dart';
 import '../../features/task_queue/application/task_queue_providers.dart';
 import '../../shared/platform/gallery_save_result.dart';
 import '../../shared/providers/core_providers.dart';
@@ -167,14 +168,11 @@ class ImageGifController extends Notifier<ImageGifFormState> {
 
   /// 提交图片合成任务(多图 → GIF,入任务队列)。
   ///
-  /// [paths] 有序图片路径(≥1);[sourceWidth/sourceHeight] 为首图尺寸
-  /// (UI 层解码探测,0 = 未知,命令构造据此决定是否统一分辨率)。
-  /// 空列表拒绝;重入守卫防连点。
-  Future<void> submit(
-    List<String> paths, {
-    int sourceWidth = 0,
-    int sourceHeight = 0,
-  }) async {
+  /// [paths] 有序图片路径(≥1);首图尺寸经 [imageProbePortProvider] 在
+  /// application 内探测(命令构造据此决定是否统一分辨率,UI 不再持有
+  /// 解码逻辑,可独立单测)。探测失败 → formError 明确拦截(此前为
+  /// 静默退化,后续 concat 神秘报错);空列表拒绝;重入守卫防连点。
+  Future<void> submit(List<String> paths) async {
     if (_submitting) return;
     if (paths.isEmpty) {
       state = state.copyWith(formError: '请先选择图片');
@@ -183,17 +181,23 @@ class ImageGifController extends Notifier<ImageGifFormState> {
     _submitting = true;
     try {
       final setting = assembleSetting();
+      final size = await _probeFirstImageSize(paths);
+      if (size.width == 0 || size.height == 0) {
+        state = state.copyWith(formError: '无法读取首图尺寸,请更换图片');
+        return;
+      }
       final id = await ref
           .read(taskQueueControllerProvider.notifier)
           .submitFromImages(
             setting,
             ImageGifSource(
               paths: paths,
-              width: sourceWidth,
-              height: sourceHeight,
+              width: size.width,
+              height: size.height,
             ),
             outputDir: state.outputDir,
           );
+      if (!ref.mounted) return; // autoDispose 会话已销毁(页面离开)
       _activeTaskId = id;
       state = state.copyWith(
         lifecycle: ImageGifLifecycle.exporting,
@@ -202,6 +206,18 @@ class ImageGifController extends Notifier<ImageGifFormState> {
       );
     } finally {
       _submitting = false;
+    }
+  }
+
+  /// 探测首图尺寸(失败静默返回 0,由 submit 侧拦截)。
+  Future<({int width, int height})> _probeFirstImageSize(
+    List<String> paths,
+  ) async {
+    try {
+      return await ref.read(imageProbePortProvider).probe(paths.first);
+    } catch (e) {
+      ref.read(appLoggerProvider).w('首图尺寸探测失败: ${paths.first}', error: e);
+      return (width: 0, height: 0);
     }
   }
 

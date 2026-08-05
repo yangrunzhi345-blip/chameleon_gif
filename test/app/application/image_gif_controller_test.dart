@@ -1,0 +1,258 @@
+import 'dart:io';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:chameleon_gif/app/application/image_gif_controller.dart';
+import 'package:chameleon_gif/app/application/image_gif_state.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/entities/image_gif_source.dart';
+import 'package:chameleon_gif/domain/entities/video_info.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_service.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/parse_video_port.dart';
+import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
+import 'package:chameleon_gif/features/import/application/import_providers.dart';
+import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
+import 'package:chameleon_gif/features/task_queue/application/task_queue_providers.dart';
+import 'package:chameleon_gif/shared/platform/platform_adapter.dart';
+import 'package:chameleon_gif/shared/providers/core_providers.dart';
+import 'package:chameleon_gif/shared/repositories/in_memory_history_repository.dart';
+import 'package:chameleon_gif/shared/repositories/in_memory_task_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../fixtures/fake_image_probe_port.dart';
+
+/// [ImageGifController] 单测:探测透传/表单默认/提交守卫/生命周期。
+void main() {
+  late ProviderContainer container;
+  late InMemoryTaskRepository taskRepo;
+  late FakeImageProbePort probe;
+  late _FakeConvertService service;
+  late Directory tempRoot;
+  late SharedPreferences prefs;
+
+  ProviderContainer build({Object? probeError}) {
+    probe = FakeImageProbePort(error: probeError);
+    service = _FakeConvertService();
+    taskRepo = InMemoryTaskRepository();
+    return ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        appLoggerProvider.overrideWithValue(AppLogger()),
+        imageProbePortProvider.overrideWithValue(probe),
+        parseVideoPortProvider.overrideWithValue(_FakeParseVideoPort()),
+        platformAdapterProvider.overrideWithValue(_TestAdapter(tempRoot.path)),
+        taskRepositoryProvider.overrideWithValue(taskRepo),
+        historyRepositoryProvider.overrideWithValue(
+          InMemoryHistoryRepository(),
+        ),
+        taskManagerProvider.overrideWith(
+          (ref) => TaskManager(
+            taskRepository: ref.read(taskRepositoryProvider),
+            historyRepository: ref.read(historyRepositoryProvider),
+            ffmpegService: service,
+            platformAdapter: _TestAdapter(tempRoot.path),
+            logger: AppLogger(),
+            retryDelay: (_) async {},
+          ),
+        ),
+      ],
+    )..listen(imageGifControllerProvider, (_, _) {});
+  }
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
+    tempRoot = await Directory.systemTemp.createTemp('gifforge_imgc_');
+  });
+
+  tearDown(() {
+    container.dispose();
+    tempRoot.deleteSync(recursive: true);
+  });
+
+  ImageGifFormState state() => container.read(imageGifControllerProvider);
+
+  Future<ImageGifFormState> waitLifecycle(ImageGifLifecycle lifecycle) async {
+    for (var i = 0; i < 100; i++) {
+      final s = state();
+      if (s.lifecycle == lifecycle) return s;
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    fail('等待生命周期超时: $lifecycle');
+  }
+
+  test('init 应用默认参数(frameDurationMs 默认 1000ms,usePalette 默认 true)', () {
+    container = build();
+    container.read(imageGifControllerProvider.notifier).init();
+
+    final s = state();
+    expect(s.fps, 15.0);
+    expect(s.frameDurationMs, 1000);
+    expect(s.usePalette, isTrue);
+    expect(s.width, 0);
+  });
+
+  test('submit:探测首图尺寸并透传给源,状态 → exporting', () async {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+
+    await notifier.submit(const ['/img/a.png', '/img/b.png']);
+
+    expect(probe.probeCalls, ['/img/a.png'], reason: '探测首图');
+    final s = await waitLifecycle(ImageGifLifecycle.exporting);
+    expect(s.taskId, isNotNull);
+    final tasks = await taskRepo.all();
+    expect(tasks.single.imagePaths, ['/img/a.png', '/img/b.png']);
+    // 经 TaskManager 缓存 → 由 _FakeConvertService 收到的源断言尺寸透传;
+    // 转换异步执行,等待 done(源已消费)后断言
+    await waitLifecycle(ImageGifLifecycle.done);
+    expect(service.receivedSources.single.width, 640);
+    expect(service.receivedSources.single.height, 480);
+  });
+
+  test('探测失败 → formError 拦截,不入队', () async {
+    container = build(probeError: StateError('decode failed'));
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+
+    await notifier.submit(const ['/img/a.png']);
+
+    expect(state().formError, contains('无法读取首图尺寸'));
+    expect(state().lifecycle, ImageGifLifecycle.idle, reason: '不入队');
+    expect(await taskRepo.all(), isEmpty);
+  });
+
+  test('空列表拒绝', () async {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+
+    await notifier.submit(const []);
+
+    expect(state().formError, contains('请先选择图片'));
+    expect(await taskRepo.all(), isEmpty);
+  });
+
+  test('updateFrameDurationMs:低于帧率下限 → formError,合法值生效', () {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+
+    notifier.updateFrameDurationMs(20); // 15fps 下限 67ms
+    expect(state().formError, contains('每张图片停留时长'));
+
+    notifier.updateFrameDurationMs(500);
+    expect(state().frameDurationMs, 500);
+    expect(state().formError, isNull);
+  });
+
+  test('updateFps 联动每图时长下限自动抬升', () {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+    notifier.updateFrameDurationMs(80); // 15fps 下限 67 → 合法
+
+    notifier.updateFps(60); // 下限 17ms
+    expect(state().fps, 60);
+    expect(state().frameDurationMs, 80, reason: '合法值不被抬升');
+
+    notifier.updateFrameDurationMs(10); // 60fps 下限 17 → 非法
+    expect(state().formError, isNotNull);
+  });
+
+  test('submit 重入守卫:连点只入队一个任务', () async {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+    final f1 = notifier.submit(const ['/img/a.png']);
+    final f2 = notifier.submit(const ['/img/b.png']);
+    await Future.wait([f1, f2]);
+    // 仅第一个提交生效(第二个被 _submitting 守卫拦截)
+    final tasks = await taskRepo.all();
+    expect(tasks, hasLength(1));
+  });
+
+  test('转换成功 → done 态(含输出大小),reset 回 idle', () async {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+
+    await notifier.submit(const ['/img/a.png']);
+    final done = await waitLifecycle(ImageGifLifecycle.done);
+    expect(done.task, isNotNull);
+    expect(done.outputSizeBytes, 123);
+
+    await notifier.reset();
+    expect(state().lifecycle, ImageGifLifecycle.idle);
+  });
+}
+
+// ---- 测试替身 ----
+
+class _FakeConvertService implements FFmpegService {
+  final receivedSources = <ImageGifSource>[];
+
+  @override
+  Future<ConvertResult> convert({
+    required GifSetting setting,
+    required VideoInfo video,
+    required int taskId,
+    required String workDir,
+    required String outputPath,
+    CancelToken? cancelToken,
+    void Function(TaskProgress)? onProgress,
+    void Function(String line)? onLog,
+  }) async {
+    await File(outputPath).writeAsBytes(List.filled(123, 1));
+    return const ConvertResult(
+      exitCode: 0,
+      elapsed: Duration(seconds: 1),
+      outputSizeBytes: 123,
+    );
+  }
+
+  @override
+  Future<ConvertResult> convertImages({
+    required ImageGifSource source,
+    required GifSetting setting,
+    required int taskId,
+    required String workDir,
+    required String outputPath,
+    CancelToken? cancelToken,
+    void Function(TaskProgress)? onProgress,
+    void Function(String line)? onLog,
+  }) async {
+    receivedSources.add(source);
+    await File(outputPath).writeAsBytes(List.filled(123, 1));
+    return const ConvertResult(
+      exitCode: 0,
+      elapsed: Duration(seconds: 1),
+      outputSizeBytes: 123,
+    );
+  }
+}
+
+class _FakeParseVideoPort implements ParseVideoPort {
+  @override
+  Future<VideoInfo> parse(String path) async => VideoInfo(
+    path: path,
+    formatName: 'mp4',
+    duration: const Duration(seconds: 1),
+    width: 64,
+    height: 64,
+    fps: 15,
+    codec: 'h264',
+  );
+}
+
+class _TestAdapter extends PlatformAdapter {
+  _TestAdapter(this.tempRoot);
+
+  final String tempRoot;
+
+  @override
+  String get systemTempDir => tempRoot;
+}

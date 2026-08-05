@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,8 +30,6 @@ class ImageGifScreen extends ConsumerStatefulWidget {
 
 class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
   late List<String> _paths = [];
-  int _sourceWidth = 0;
-  int _sourceHeight = 0;
   final _frameDurationCtrl = TextEditingController();
   final _loopCtrl = TextEditingController();
   bool _frameDurationFocused = false;
@@ -79,7 +76,6 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
       }
       _paths = List.of(paths);
       ref.read(imageGifControllerProvider.notifier).init();
-      unawaited(_probeSourceSize());
     });
     // 生命周期监听:完成 → 弹窗;失败/取消 → SnackBar(initState 用 listenManual)
     ref.listenManual<ImageGifFormState>(imageGifControllerProvider, (_, state) {
@@ -120,25 +116,6 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
     _frameDurationCtrl.dispose();
     _loopCtrl.dispose();
     super.dispose();
-  }
-
-  /// 探测首图尺寸(命令构造据此统一各图分辨率,不同尺寸图片才能 concat)。
-  Future<void> _probeSourceSize() async {
-    if (_paths.isEmpty) return;
-    try {
-      final bytes = await File(_paths.first).readAsBytes();
-      final codec = await ui.instantiateImageCodec(bytes);
-      final frame = await codec.getNextFrame();
-      frame.image.dispose();
-      codec.dispose();
-      if (!mounted) return;
-      setState(() {
-        _sourceWidth = frame.image.width;
-        _sourceHeight = frame.image.height;
-      });
-    } catch (_) {
-      // 解码失败静默:命令构造退化为无 scale(尺寸未知)
-    }
   }
 
   Future<void> _appendImages() async {
@@ -195,11 +172,7 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
 
   Future<void> _startConvert() async {
     final notifier = ref.read(imageGifControllerProvider.notifier);
-    await notifier.submit(
-      List.of(_paths),
-      sourceWidth: _sourceWidth,
-      sourceHeight: _sourceHeight,
-    );
+    await notifier.submit(List.of(_paths));
   }
 
   @override

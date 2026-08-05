@@ -24,6 +24,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../fixtures/fake_ffmpeg_service.dart';
+import '../../fixtures/fake_image_probe_port.dart';
 import '../../fixtures/fake_player_port.dart';
 
 /// 图片制作 GIF 页测试:路由/列表操作/表单联动/完整转换流。
@@ -51,6 +52,10 @@ void main() {
         sharedPrefsProvider.overrideWithValue(prefs),
         appLoggerProvider.overrideWithValue(AppLogger()),
         filePickPortProvider.overrideWithValue(pickPort),
+        // 探测端口:测试路径的图片文件不存在,注入 Fake 避免 formError 拦截
+        imageProbePortProvider.overrideWithValue(
+          FakeImageProbePort(width: 64, height: 64),
+        ),
         parseVideoPortProvider.overrideWithValue(_FakeParseVideoPort()),
         previewPlayerPortProvider.overrideWithValue(FakePlayerPort()),
         platformAdapterProvider.overrideWithValue(_ImgAdapter(tempRoot.path)),
