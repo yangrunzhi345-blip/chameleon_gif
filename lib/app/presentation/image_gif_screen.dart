@@ -476,7 +476,21 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
           }
           return Column(
             children: [
-              SizedBox(height: 260, child: listPanel),
+              // 窄屏(上下排):上方的图片顺序区同样加主题色 1px 边框 + 圆角
+              SizedBox(
+                height: 260,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                      width: 1,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: listPanel,
+                ),
+              ),
               const Divider(height: 1),
               Expanded(child: SafeArea(child: formPanel)),
             ],
