@@ -435,20 +435,39 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
                   child: SafeArea(
                     // Material 而非 ColoredBox:SwitchListTile 的 ink 需
                     // Material 祖先,ColoredBox 会隐藏波纹并触发框架断言
-                    child: Material(
-                      color: Theme.of(context).colorScheme.surfaceContainerLow,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          // 全屏/大窗口(右栏高 >= 阈值):面板靠上对齐,
-                          // Spacer 占据下方剩余空间
-                          if (constraints.maxHeight >=
-                              _outputPanelTopThreshold) {
-                            return Column(children: [panel, const Spacer()]);
-                          }
-                          // 半屏/小窗口:保持原有布局(仅面板,不加 Spacer)
-                          return Column(children: [panel]);
-                        },
-                      ),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        // 全屏/大窗口:右栏与左栏一致,加主题色 1px
+                        // 边框 + 圆角(Material 背景同步圆角防溢出)
+                        if (constraints.maxHeight >= _outputPanelTopThreshold) {
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Material(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Column(children: [panel, const Spacer()]),
+                            ),
+                          );
+                        }
+                        // 半屏/小窗口:保持原有布局(仅面板,不加 Spacer)
+                        return Material(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerLow,
+                          child: Column(children: [panel]),
+                        );
+                      },
                     ),
                   ),
                 ),
