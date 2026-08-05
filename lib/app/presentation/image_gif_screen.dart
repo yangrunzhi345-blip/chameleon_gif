@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/utils/duration_format.dart';
 import '../../features/export/application/scale_multiplier.dart';
+import '../../features/export/presentation/custom_value_dialog.dart';
 import '../../features/export/presentation/export_complete_dialog.dart';
 import '../../features/export/presentation/param_dropdown_field.dart';
 import '../../features/import/application/import_providers.dart';
@@ -207,6 +208,64 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
     await notifier.submit(List.of(_paths));
   }
 
+  /// 自定义宽度:弹输入框,1–4096 校验(非法 → formError)。
+  Future<void> _customWidth() async {
+    final text = await showCustomValueDialog(
+      context,
+      title: '自定义宽度',
+      initialValue: '${ref.read(imageGifControllerProvider).width}',
+      hintText: '1–4096',
+    );
+    if (text == null) return;
+    final v = int.tryParse(text.trim());
+    if (v == null || v < 1 || v > 4096) {
+      ref
+          .read(imageGifControllerProvider.notifier)
+          .updateFormError('宽度须为 1–4096 的数字');
+      return;
+    }
+    ref.read(imageGifControllerProvider.notifier).updateWidth(v);
+  }
+
+  /// 自定义高度:弹输入框,1–4096 校验(非法 → formError)。
+  Future<void> _customHeight() async {
+    final text = await showCustomValueDialog(
+      context,
+      title: '自定义高度',
+      initialValue: '${ref.read(imageGifControllerProvider).height}',
+      hintText: '1–4096',
+    );
+    if (text == null) return;
+    final v = int.tryParse(text.trim());
+    if (v == null || v < 1 || v > 4096) {
+      ref
+          .read(imageGifControllerProvider.notifier)
+          .updateFormError('高度须为 1–4096 的数字');
+      return;
+    }
+    ref.read(imageGifControllerProvider.notifier).updateHeight(v);
+  }
+
+  /// 自定义缩放倍数:弹输入框,0.1–4 校验(非法 → formError)。
+  Future<void> _customScaleMultiplier() async {
+    final text = await showCustomValueDialog(
+      context,
+      title: '自定义缩放倍数',
+      initialValue:
+          '${ref.read(imageGifControllerProvider).scaleMultiplier ?? 1.0}',
+      hintText: '0.1–4',
+    );
+    if (text == null) return;
+    final v = double.tryParse(text.trim());
+    if (v == null || v <= 0 || v > 4) {
+      ref
+          .read(imageGifControllerProvider.notifier)
+          .updateFormError('缩放倍数须为 0.1–4 的数字');
+      return;
+    }
+    ref.read(imageGifControllerProvider.notifier).updateScaleMultiplier(v);
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(imageGifControllerProvider);
@@ -338,11 +397,21 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
                     m,
                     '${m == m.roundToDouble() ? m.toInt() : m} 倍',
                   ),
+                // null 哨兵 = 自定义倍数(点击弹输入框)
+                const ParamDropdownItem<double?>(null, '自定义'),
               ],
-              // 宽高被手动指定后回显"自定义"(不提供菜单项,仅收起态文案)
-              valueLabelBuilder: (_) => '自定义',
+              // 收起态:null = 自定义(手动宽高);非选项值(自定义倍数)
+              // 显示具体值(如 1.25 倍)
+              valueLabelBuilder: (v) {
+                if (v == null) return '自定义';
+                return '${v == v.roundToDouble() ? v.toInt() : v} 倍';
+              },
               onChanged: (m) {
-                if (m != null) notifier.updateScaleMultiplier(m);
+                if (m == null) {
+                  _customScaleMultiplier();
+                  return;
+                }
+                notifier.updateScaleMultiplier(m);
               },
             ),
           ),
@@ -353,10 +422,18 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
               items: [
                 for (final w in _sizeOptions)
                   ParamDropdownItem(w, w == 0 ? '原图等比' : '$w px'),
+                // -1 哨兵 = 自定义宽度(选项表 0–1920 不冲突;点击弹输入框)
+                const ParamDropdownItem(-1, '自定义'),
               ],
               // 倍数联动算出的尺寸可能不在选项表(如 128px)→ 显示具体值
               valueLabelBuilder: (w) => w == 0 ? '原图等比' : '$w px',
-              onChanged: notifier.updateWidth,
+              onChanged: (w) {
+                if (w == -1) {
+                  _customWidth();
+                  return;
+                }
+                notifier.updateWidth(w);
+              },
               enabled: !exporting,
             ),
           ),
@@ -367,9 +444,16 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
               items: [
                 for (final h in _sizeOptions)
                   ParamDropdownItem(h, h == 0 ? '原图等比' : '$h px'),
+                const ParamDropdownItem(-1, '自定义'),
               ],
               valueLabelBuilder: (h) => h == 0 ? '原图等比' : '$h px',
-              onChanged: notifier.updateHeight,
+              onChanged: (h) {
+                if (h == -1) {
+                  _customHeight();
+                  return;
+                }
+                notifier.updateHeight(h);
+              },
               enabled: !exporting,
             ),
           ),

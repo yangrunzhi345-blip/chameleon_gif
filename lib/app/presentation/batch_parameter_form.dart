@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/utils/duration_format.dart';
 import '../../features/export/application/scale_multiplier.dart';
+import '../../features/export/presentation/custom_value_dialog.dart';
 import '../../features/export/presentation/param_dropdown_field.dart';
 import '../application/batch_form_mixin.dart';
 import '../application/batch_import_state.dart';
@@ -113,6 +114,57 @@ class _BatchParameterFormState extends State<BatchParameterForm> {
     widget.actions.updateEnd(parsed);
   }
 
+  /// 自定义宽度:弹输入框,1–4096 校验(非法 → formError)。
+  Future<void> _customWidth() async {
+    final text = await showCustomValueDialog(
+      context,
+      title: '自定义宽度',
+      initialValue: '${widget.state.width}',
+      hintText: '1–4096',
+    );
+    if (text == null) return;
+    final v = int.tryParse(text.trim());
+    if (v == null || v < 1 || v > 4096) {
+      widget.actions.updateFormError('宽度须为 1–4096 的数字');
+      return;
+    }
+    widget.actions.updateWidth(v);
+  }
+
+  /// 自定义高度:弹输入框,1–4096 校验(非法 → formError)。
+  Future<void> _customHeight() async {
+    final text = await showCustomValueDialog(
+      context,
+      title: '自定义高度',
+      initialValue: '${widget.state.height}',
+      hintText: '1–4096',
+    );
+    if (text == null) return;
+    final v = int.tryParse(text.trim());
+    if (v == null || v < 1 || v > 4096) {
+      widget.actions.updateFormError('高度须为 1–4096 的数字');
+      return;
+    }
+    widget.actions.updateHeight(v);
+  }
+
+  /// 自定义缩放倍数:弹输入框,0.1–4 校验(非法 → formError)。
+  Future<void> _customScaleMultiplier() async {
+    final text = await showCustomValueDialog(
+      context,
+      title: '自定义缩放倍数',
+      initialValue: '${widget.state.scaleMultiplier ?? 1.0}',
+      hintText: '0.1–4',
+    );
+    if (text == null) return;
+    final v = double.tryParse(text.trim());
+    if (v == null || v <= 0 || v > 4) {
+      widget.actions.updateFormError('缩放倍数须为 0.1–4 的数字');
+      return;
+    }
+    widget.actions.updateScaleMultiplier(v);
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
@@ -144,11 +196,21 @@ class _BatchParameterFormState extends State<BatchParameterForm> {
                   m,
                   '${m == m.roundToDouble() ? m.toInt() : m} 倍',
                 ),
+              // null 哨兵 = 自定义倍数(点击弹输入框)
+              const ParamDropdownItem<double?>(null, '自定义'),
             ],
-            // 宽高被手动指定后回显"自定义"(不提供菜单项,仅收起态文案)
-            valueLabelBuilder: (_) => '自定义',
+            // 收起态:null = 自定义(手动宽高);非选项值(自定义倍数)
+            // 显示具体值(如 1.25 倍)
+            valueLabelBuilder: (v) {
+              if (v == null) return '自定义';
+              return '${v == v.roundToDouble() ? v.toInt() : v} 倍';
+            },
             onChanged: (m) {
-              if (m != null) actions.updateScaleMultiplier(m);
+              if (m == null) {
+                _customScaleMultiplier();
+                return;
+              }
+              actions.updateScaleMultiplier(m);
             },
           ),
         ),
@@ -159,10 +221,18 @@ class _BatchParameterFormState extends State<BatchParameterForm> {
             items: [
               for (final w in _widthOptions)
                 ParamDropdownItem(w, w == 0 ? '原图等比' : '$w px'),
+              // -1 哨兵 = 自定义宽度(选项表 0–1920 不冲突;点击弹输入框)
+              const ParamDropdownItem(-1, '自定义'),
             ],
             // 倍数联动算出的尺寸可能不在选项表 → 显示具体值
             valueLabelBuilder: (w) => w == 0 ? '原图等比' : '$w px',
-            onChanged: actions.updateWidth,
+            onChanged: (w) {
+              if (w == -1) {
+                _customWidth();
+                return;
+              }
+              actions.updateWidth(w);
+            },
           ),
         ),
         ParamRow(
@@ -172,9 +242,16 @@ class _BatchParameterFormState extends State<BatchParameterForm> {
             items: [
               for (final h in _widthOptions)
                 ParamDropdownItem(h, h == 0 ? '原图等比' : '$h px'),
+              const ParamDropdownItem(-1, '自定义'),
             ],
             valueLabelBuilder: (h) => h == 0 ? '原图等比' : '$h px',
-            onChanged: actions.updateHeight,
+            onChanged: (h) {
+              if (h == -1) {
+                _customHeight();
+                return;
+              }
+              actions.updateHeight(h);
+            },
           ),
         ),
         ParamRow(

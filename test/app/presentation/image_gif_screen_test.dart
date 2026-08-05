@@ -140,6 +140,31 @@ void main() {
     expect(find.text('2 倍'), findsOneWidget, reason: '倍数回显 2 倍');
   });
 
+  testWidgets('自定义宽度:菜单"自定义" → 输入 150 → 回显 150 px', (tester) async {
+    final (app, router, _) = buildApp();
+    await pumpApp(tester, app);
+    await enterScreen(tester, router);
+
+    // 展开宽度菜单(收起显示"原图等比"),点"自定义"
+    await tester.tap(find.text('原图等比').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('自定义').last);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(TextField),
+      ),
+      '150',
+    );
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('150 px'), findsOneWidget, reason: '非选项值回显具体像素');
+    expect(find.text('自定义'), findsOneWidget, reason: '手动宽高 → 倍数回显自定义');
+  });
+
   testWidgets('上移/删除调整列表顺序', (tester) async {
     final (app, router, _) = buildApp();
     await pumpApp(tester, app);

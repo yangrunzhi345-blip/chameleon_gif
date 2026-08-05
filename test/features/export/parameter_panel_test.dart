@@ -90,6 +90,87 @@ void main() {
     expect(find.text('1 倍'), findsOneWidget);
   });
 
+  testWidgets('自定义宽度:菜单"自定义" → 输入 150 → 回显 150 px', (tester) async {
+    await pumpPanel(tester);
+    final container = containerOf(tester);
+
+    // 展开宽度菜单(收起显示"原图等比"),点"自定义"
+    await tester.tap(find.text('原图等比').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('自定义').last);
+    await tester.pumpAndSettle();
+
+    // 对话框输入宽度
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(TextField),
+      ),
+      '150',
+    );
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(exportControllerProvider).width, 150);
+    expect(find.text('150 px'), findsOneWidget, reason: '非选项值回显具体像素');
+    expect(
+      container.read(exportControllerProvider).scaleMultiplier,
+      isNull,
+      reason: '手动自定义宽高 → 倍数回显自定义',
+    );
+  });
+
+  testWidgets('自定义倍数:输入 1.25 → 回显 1.25 倍 + 宽高联动', (tester) async {
+    await pumpPanel(tester);
+    final container = containerOf(tester);
+
+    // 展开倍数菜单(收起显示"1 倍"),点"自定义"
+    await tester.tap(find.text('1 倍'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('自定义').last);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(TextField),
+      ),
+      '1.25',
+    );
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    final s = container.read(exportControllerProvider);
+    expect(s.scaleMultiplier, 1.25);
+    expect(s.width, 800, reason: '640 × 1.25');
+    expect(s.height, 450, reason: '360 × 1.25');
+    expect(find.text('1.25 倍'), findsOneWidget, reason: '自定义倍数回显具体值');
+  });
+
+  testWidgets('自定义倍数:非法输入 → formError 红字,数值不变', (tester) async {
+    await pumpPanel(tester);
+    final container = containerOf(tester);
+
+    await tester.tap(find.text('1 倍'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('自定义').last);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(TextField),
+      ),
+      'abc',
+    );
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('缩放倍数须为 0.1–4 的数字'), findsOneWidget);
+    expect(container.read(exportControllerProvider).scaleMultiplier, 1.0);
+    expect(container.read(exportControllerProvider).width, 0);
+  });
+
   testWidgets('缩放倍数:选 2 倍 → 宽高联动 1280×720;改宽高 → 自定义', (tester) async {
     await pumpPanel(tester);
     final container = containerOf(tester);
