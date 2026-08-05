@@ -157,6 +157,55 @@ void main() {
     expect(find.textContaining('共 1 张'), findsOneWidget);
   });
 
+  testWidgets('下移:位于上移左侧,末项禁用', (tester) async {
+    final (app, router, _) = buildApp();
+    await pumpApp(tester, app);
+    await enterScreen(tester, router);
+
+    // 第一张(a.png)的下移按钮 → 与 b.png 交换
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'a.png'),
+        matching: find.byIcon(Icons.arrow_downward),
+      ),
+    );
+    await tester.pump();
+    final tiles = tester
+        .widgetList<ListTile>(find.byType(ListTile))
+        .map((t) => (t.title as Text).data)
+        .where((d) => d != null && d.endsWith('.png'))
+        .toList();
+    expect(tiles, ['b.png', 'a.png'], reason: '下移第一张与第二张交换');
+
+    // 末项(a.png)下移按钮禁用
+    final downBtn = tester.widget<IconButton>(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'a.png'),
+        matching: find.widgetWithIcon(IconButton, Icons.arrow_downward),
+      ),
+    );
+    expect(downBtn.onPressed, isNull, reason: '末项下移禁用');
+
+    // 按钮位置:下移在上移左侧
+    final downPos = tester
+        .getCenter(
+          find.descendant(
+            of: find.widgetWithText(ListTile, 'b.png'),
+            matching: find.byIcon(Icons.arrow_downward),
+          ),
+        )
+        .dx;
+    final upPos = tester
+        .getCenter(
+          find.descendant(
+            of: find.widgetWithText(ListTile, 'b.png'),
+            matching: find.byIcon(Icons.arrow_upward),
+          ),
+        )
+        .dx;
+    expect(downPos, lessThan(upPos), reason: '下移位于上移左侧');
+  });
+
   testWidgets('追加图片:pickImages 结果合并进列表', (tester) async {
     final (app, router, _) = buildApp();
     await pumpApp(tester, app);

@@ -135,6 +135,15 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
     });
   }
 
+  void _moveDown(int index) {
+    if (index >= _paths.length - 1) return;
+    setState(() {
+      final tmp = _paths[index + 1];
+      _paths[index + 1] = _paths[index];
+      _paths[index] = tmp;
+    });
+  }
+
   void _removeAt(int index) {
     setState(() {
       _paths.removeAt(index);
@@ -220,6 +229,15 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          // 下移在左、上移在右(末项禁用)
+                          IconButton(
+                            tooltip: '下移',
+                            icon: const Icon(Icons.arrow_downward),
+                            onPressed:
+                                i < _paths.length - 1
+                                    ? () => _moveDown(i)
+                                    : null,
+                          ),
                           IconButton(
                             tooltip: '上移',
                             icon: const Icon(Icons.arrow_upward),
