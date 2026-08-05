@@ -41,48 +41,48 @@ class HomePage extends ConsumerWidget {
           ),
         ],
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // 应用 Logo(P9;圆角容纳,图片本身原样)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: Image.asset(
-                'assets/images/chameleon.jpg',
-                width: 96,
-                height: 96,
-                fit: BoxFit.cover,
-              ),
+      body: Column(
+        children: [
+          // 品牌区:Logo + 应用名 + 标语,整体上移(顶部留白 48)
+          const SizedBox(height: 48),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Image.asset(
+              'assets/images/chameleon.jpg',
+              width: 96,
+              height: 96,
+              fit: BoxFit.cover,
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Chameleon Gif',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text('基础架构就绪'),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () => pickMp4AndPreview(context, ref),
-              icon: const Icon(Icons.movie_outlined),
-              label: const Text('导入 MP4'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => _batchImport(context, ref),
-              icon: const Icon(Icons.playlist_add),
-              label: const Text('批量导入'),
-            ),
-            const SizedBox(height: 8),
-            // 批量导入默认参数设置(直接进设置界面,返回回首页)
-            TextButton.icon(
-              onPressed: () => context.push('/settings'),
-              icon: const Icon(Icons.settings_outlined),
-              label: const Text('批量导入设置'),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Chameleon Gif',
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text('基础架构就绪'),
+          // 按钮区下沉到底部
+          const Spacer(),
+          FilledButton.icon(
+            onPressed: () => pickMp4AndPreview(context, ref),
+            icon: const Icon(Icons.movie_outlined),
+            label: const Text('导入 MP4'),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => _batchImport(context, ref),
+            icon: const Icon(Icons.playlist_add),
+            label: const Text('批量导入'),
+          ),
+          const SizedBox(height: 8),
+          // 批量导入默认参数设置(直接进设置界面,返回回首页)
+          TextButton.icon(
+            onPressed: () => context.push('/settings'),
+            icon: const Icon(Icons.settings_outlined),
+            label: const Text('批量导入设置'),
+          ),
+          const SizedBox(height: 32),
+        ],
       ),
     );
   }
