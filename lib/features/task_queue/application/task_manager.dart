@@ -9,8 +9,7 @@ import '../../../domain/entities/export_task.dart';
 import '../../../domain/entities/image_gif_source.dart';
 import '../../../domain/entities/video_info.dart';
 import '../../../domain/exceptions/domain_exception.dart';
-import '../../../domain/exceptions/palette_exception.dart';
-import '../../../domain/exceptions/source_broken_exception.dart';
+import '../../../domain/exceptions/encode_exception.dart';
 import '../../../domain/repository_interfaces/ffmpeg_engine.dart';
 import '../../../domain/repository_interfaces/ffmpeg_service.dart';
 import '../../../domain/repository_interfaces/history_repository.dart';
@@ -438,10 +437,26 @@ class TaskManager {
         // 状态随任务事件流转,弹窗展示 saved/failed/unsupported 三态
         var gallery = const GallerySaveResult.unsupported();
         if (outputPath.startsWith('${_platformAdapter.systemTempDir}/')) {
-          gallery = await _platformAdapter.saveToGallery(
-            outputPath,
-            displayName: galleryDisplayName(task.videoPath),
-          );
+          try {
+            gallery = await _platformAdapter.saveToGallery(
+              outputPath,
+              displayName: galleryDisplayName(task.videoPath),
+            );
+          } on FileSystemException catch (e) {
+            // 完成收尾的 await 窗口内取消可能已清理输出文件 → 保存抛异常;
+            // 容错为 unsupported,避免掉进外层 catch 被误判 failed
+            _logger.w('相册保存失败(输出可能已被取消清理): id=$id', error: e);
+          }
+        }
+        // 完成收尾前复查取消:转换结束后的 await 窗口(清理/相册保存)内
+        // cancel() 可能已标记令牌并清理输出,引擎侧已无法检测;
+        // CancellationManager.cancel 先同步标记 token 再清理,令牌单调
+        // 不可逆,此处复查必然可见。复查通过后才登记历史与落 completed,
+        // 取消的任务不产生历史快照。残余微秒级窗口(复查与落库之间)接受。
+        if (token.isCancelled || _cancelRequests.contains(id)) {
+          _logger.w('完成收尾前检测到取消: id=$id(输出已被清理,落 cancelled)');
+          await _finish(id, TaskState.cancelled);
+          return;
         }
         final size = result.outputSizeBytes ?? 0;
         final history = ExportHistory(
@@ -483,15 +498,30 @@ class TaskManager {
           await _finish(id, TaskState.cancelled);
           return;
         }
+        // 失败清理:调色板/工作目录半成品(复用 CancellationManager 幂等
+        // 清理,与取消路径同语义:用户自选目录输出不删);重试时 workDir
+        // 由 _run 重建,palette 重新生成,无冲突
+        await _cancelManagers[id]?.cleanupTempFiles();
         if (e is DomainException &&
             _isRetryable(e) &&
             task.retryCount < kMaxRetryCount) {
           final retryCount = task.retryCount + 1;
+          // 显式构造重排队(与 start()/retry() 一致):copyWith 的
+          // null 参数是"保持"语义,无法清除 errorDetail/finishedAt/
+          // galleryStatus 等陈旧失败痕迹
           await _update(
-            current.copyWith(
+            ExportTask(
+              id: current.id,
+              videoPath: current.videoPath,
+              imagePaths: current.imagePaths,
+              outputPath: current.outputPath,
+              settings: current.settings,
               state: TaskState.queued,
+              progress: current.progress,
               retryCount: retryCount,
               errorCode: e.errorCode,
+              createdAt: current.createdAt,
+              galleryStatus: GallerySaveStatus.unsupported,
             ),
           );
           _logger.w('任务退避重试: id=$id retry=$retryCount code=${e.errorCode}');
@@ -575,8 +605,10 @@ class TaskManager {
     _taskEvents.add(latest);
   }
 
-  bool _isRetryable(DomainException e) =>
-      !(e is SourceBrokenException || e is PaletteException);
+  /// 仅"无特征签名"的编码失败(EncodeException)视为瞬时错误可重试;
+  /// 已分类的确定性错误(源缺失/损坏、磁盘满、权限、输出冲突、调色板、
+  /// FFmpeg 缺失)重试无意义,直接终态(避免无效退避排空队列)。
+  bool _isRetryable(DomainException e) => e is EncodeException;
 
   /// 清理调色板临时文件(转换成功路径;取消路径经 CancellationManager)。
   Future<void> _cleanupPalette(String workDir) async {

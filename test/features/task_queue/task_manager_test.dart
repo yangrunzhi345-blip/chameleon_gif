@@ -8,6 +8,7 @@ import 'package:chameleon_gif/domain/entities/export_task.dart';
 import 'package:chameleon_gif/domain/entities/image_gif_source.dart';
 import 'package:chameleon_gif/domain/entities/video_info.dart';
 import 'package:chameleon_gif/domain/exceptions/encode_exception.dart';
+import 'package:chameleon_gif/domain/exceptions/disk_full_exception.dart';
 import 'package:chameleon_gif/domain/exceptions/source_broken_exception.dart';
 import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
 import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
@@ -618,6 +619,122 @@ void main() {
       await waitForState(v1, TaskState.completed);
     });
   });
+
+  // ---- 审查修复回归(P7) ----
+
+  test('完成收尾的 await 窗口内取消 → 落 cancelled,无历史新增', () async {
+    // 相册保存被门控:转换完成后挂在 saveToGallery,期间 cancel
+    final gate = Completer<void>();
+    final gated = _GatedGalleryAdapter(tempRoot.path, gate: gate);
+    manager = TaskManager(
+      taskRepository: repo,
+      historyRepository: historyRepo,
+      ffmpegService: service,
+      platformAdapter: gated,
+      logger: logger,
+      retryDelay: (_) async {},
+    );
+    final id = await manager.submit(const GifSetting(), video);
+    // 等待转换完成并进入 saveToGallery 挂起(此时输出已被 _cleanupPalette
+    // 处理后仍在,取消前的最后一次可观测点)
+    for (var i = 0; i < 100 && !gated.savedCalled; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(gated.savedCalled, isTrue, reason: 'saveToGallery 应已挂起');
+
+    await manager.cancel(id); // 取消:标记令牌 + 清理输出
+    gate.complete(); // 放行 saveToGallery(输出已被清理 → 抛异常走容错)
+
+    final task = await waitForState(id, TaskState.cancelled);
+    expect(task.state, TaskState.cancelled,
+        reason: '完成收尾前复查到取消,不得落 completed');
+    expect(await historyRepo.list(), isEmpty, reason: '取消不应生成历史');
+  });
+
+  test('转换失败清理临时文件(调色板/工作目录半成品)', () async {
+    manager = build(
+      serviceError: const EncodeException(errorCode: 'GIF_1_ENCODE'),
+    );
+    // 预置 workDir 中的失败残留(真实失败后由 cleanupTempFiles 删除)
+    final workDir = '${tempRoot.path}/gifforge_1';
+    await Directory(workDir).create(recursive: true);
+    await File('$workDir/palette.png').writeAsString('x');
+    await File('$workDir/out.gif').writeAsString('x');
+
+    final id = await manager.submit(const GifSetting(), video);
+    final task = await waitForState(id, TaskState.failed);
+
+    expect(task.errorCode, 'GIF_1_ENCODE');
+    expect(await File('$workDir/palette.png').exists(), isFalse,
+        reason: '失败后调色板应被清理');
+    expect(await File('$workDir/out.gif').exists(), isFalse,
+        reason: '工作目录半成品应被清理');
+  });
+
+  test('退避重试显式构造清空陈旧错误字段(与 start/retry 一致)', () async {
+    repo = InMemoryTaskRepository(
+      seed: [
+        ExportTask(
+          id: 7,
+          videoPath: video.path,
+          settings: const GifSetting(),
+          state: TaskState.failed,
+          errorCode: 'GIF_1_ENCODE',
+          errorDetail: '旧错误文案',
+          finishedAt: DateTime(2026, 1, 1),
+          galleryStatus: GallerySaveStatus.failed,
+          galleryMessage: '旧相册提示',
+          createdAt: DateTime(2026, 1, 1),
+        ),
+      ],
+    );
+    // 第一次 convert 抛 EncodeException(可重试),第二次成功
+    service = FakeFfmpegService(
+      errorQueue: [const EncodeException(errorCode: 'GIF_1_ENCODE')],
+    );
+    manager = TaskManager(
+      taskRepository: repo,
+      historyRepository: historyRepo,
+      ffmpegService: service,
+      platformAdapter: _TestAdapter(tempRoot.path),
+      logger: logger,
+      retryDelay: (_) => Future<void>.delayed(
+        const Duration(milliseconds: 60),
+      ),
+    );
+    await manager.retry(7);
+
+    // 退避窗口内检查陈旧字段已被显式构造清除
+    var checked = false;
+    for (var i = 0; i < 100; i++) {
+      final t = await repo.byId(7);
+      if (t?.state == TaskState.queued && t?.retryCount == 1) {
+        expect(t!.errorDetail, isNull, reason: '重排队清除陈旧 errorDetail');
+        expect(t.finishedAt, isNull, reason: '重排队清除陈旧 finishedAt');
+        expect(t.galleryStatus, GallerySaveStatus.unsupported,
+            reason: '重排队清除陈旧相册状态');
+        checked = true;
+        break;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(checked, isTrue, reason: '应观测到退避中的重排队状态');
+
+    final done = await waitForState(7, TaskState.completed);
+    expect(done.retryCount, 1);
+    expect(done.errorDetail, isNull, reason: 'completed 后不残留旧错误文案');
+  });
+
+  test('确定性错误(DiskFull)不重试,直接 failed', () async {
+    manager = build(
+      serviceError: const DiskFullException(errorCode: 'GIF_1_DISK_FULL'),
+    );
+    final id = await manager.submit(const GifSetting(), video);
+
+    final task = await waitForState(id, TaskState.failed);
+    expect(task.retryCount, 0, reason: '确定性错误无退避重试');
+    expect(service.convertCalls, [id], reason: '仅执行一次');
+  });
 }
 
 class _TestAdapter extends PlatformAdapter {
@@ -643,6 +760,29 @@ class _GalleryAdapter extends _TestAdapter {
   }) async {
     lastDisplayName = displayName;
     return result;
+  }
+}
+
+/// 相册保存被 Completer 门控的适配器(完成收尾取消竞态回归,P7)。
+class _GatedGalleryAdapter extends _TestAdapter {
+  _GatedGalleryAdapter(super.tempRoot, {required this.gate});
+
+  final Completer<void> gate;
+  bool savedCalled = false;
+
+  @override
+  Future<GallerySaveResult> saveToGallery(
+    String sourcePath, {
+    String? displayName,
+  }) async {
+    savedCalled = true;
+    await gate.future;
+    // 取消已清理输出 → 模拟文件不存在抛异常(TaskManager 侧容错为
+    // unsupported,不误判 failed)
+    if (!File(sourcePath).existsSync()) {
+      throw const FileSystemException('file not found');
+    }
+    return const GallerySaveResult.unsupported();
   }
 }
 
