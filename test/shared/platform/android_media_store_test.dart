@@ -15,7 +15,8 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
-  void mock(Map<String, dynamic>? Function(MethodCall call) handler) {
+  /// handler 可返回任意基础类型(Map/bool 等),与各方法 invokeMethod 泛型对应。
+  void mock(Object? Function(MethodCall call) handler) {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async => handler(call));
   }
@@ -74,6 +75,108 @@ void main() {
 
       final r = await const AndroidMediaStoreSaver().saveToGallery('/x.gif');
       expect(r.status, GallerySaveStatus.unsupported);
+    });
+  });
+
+  group('AndroidMediaStoreSaver.saveVideo', () {
+    test('参数透传 + saved 结果解析(视频分区)', () async {
+      MethodCall? received;
+      mock((call) {
+        received = call;
+        return {
+          'status': 'saved',
+          'displayPath': 'Movies/GIFForge/capture_20260806_120000_001.mp4',
+          'uri': 'content://media/external/video/media/7',
+        };
+      });
+
+      final r = await const AndroidMediaStoreSaver().saveVideo(
+        '/tmp/capture_20260806_120000_001.mp4',
+        displayName: 'capture_20260806_120000_001.mp4',
+      );
+      expect(received?.method, 'saveVideo');
+      expect(received?.arguments, {
+        'path': '/tmp/capture_20260806_120000_001.mp4',
+        'displayName': 'capture_20260806_120000_001.mp4',
+      });
+      expect(r.status, GallerySaveStatus.saved);
+      expect(r.displayPath, 'Movies/GIFForge/capture_20260806_120000_001.mp4');
+      expect(r.uri, 'content://media/external/video/media/7');
+    });
+
+    test('failed 结果解析(中文提示)', () async {
+      mock((call) => {'status': 'failed', 'message': '输出文件不存在,无法保存到相册'});
+
+      final r = await const AndroidMediaStoreSaver().saveVideo('/x.mp4');
+      expect(r.status, GallerySaveStatus.failed);
+      expect(r.message, '输出文件不存在,无法保存到相册');
+    });
+
+    test('未知状态 → unsupported', () async {
+      mock((call) => {'status': 'weird'});
+
+      final r = await const AndroidMediaStoreSaver().saveVideo('/x.mp4');
+      expect(r.status, GallerySaveStatus.unsupported);
+    });
+
+    test('PlatformException → failed', () async {
+      mock((call) => throw PlatformException(code: 'err', message: 'boom'));
+
+      final r = await const AndroidMediaStoreSaver().saveVideo('/x.mp4');
+      expect(r.status, GallerySaveStatus.failed);
+      expect(r.message, contains('boom'));
+    });
+
+    test('MissingPluginException → unsupported(桌面宿主)', () async {
+      mock((call) => throw MissingPluginException());
+
+      final r = await const AndroidMediaStoreSaver().saveVideo('/x.mp4');
+      expect(r.status, GallerySaveStatus.unsupported);
+    });
+  });
+
+  group('AndroidMediaStoreSaver.contentExists', () {
+    test('参数透传;true/false 原样返回', () async {
+      MethodCall? received;
+      mock((call) {
+        received = call;
+        return true;
+      });
+
+      expect(
+        await const AndroidMediaStoreSaver().contentExists(
+          'content://media/external/video/media/7',
+        ),
+        isTrue,
+      );
+      expect(received?.method, 'contentExists');
+      expect(received?.arguments, {
+        'uri': 'content://media/external/video/media/7',
+      });
+
+      mock((call) => false);
+      expect(
+        await const AndroidMediaStoreSaver().contentExists('content://media/x'),
+        isFalse,
+      );
+    });
+
+    test('PlatformException → null(无法判定)', () async {
+      mock((call) => throw PlatformException(code: 'err'));
+
+      expect(
+        await const AndroidMediaStoreSaver().contentExists('content://media/x'),
+        isNull,
+      );
+    });
+
+    test('MissingPluginException → null(无法判定)', () async {
+      mock((call) => throw MissingPluginException());
+
+      expect(
+        await const AndroidMediaStoreSaver().contentExists('content://media/x'),
+        isNull,
+      );
     });
   });
 
