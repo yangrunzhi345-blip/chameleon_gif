@@ -1,6 +1,7 @@
 import '../../core/logger/app_logger.dart';
 import '../../domain/entities/video_info.dart';
 import '../../domain/value_objects/gif_setting.dart';
+import '../../features/export/application/scale_multiplier.dart';
 import '../../features/import/application/import_video_use_case.dart';
 
 /// 批量导入结果。
@@ -63,7 +64,14 @@ class BatchImportUseCase {
     for (final path in paths) {
       try {
         final video = await importVideoUseCase.execute(path);
-        final id = await submit(effective, video, outputDir: dir);
+        // 逐文件展开倍数:每个视频按自身尺寸 × 倍数落成具体宽高
+        // (任务参数自包含;宽高已指定/倍数 1.0/源尺寸未知时不展开)
+        final perFile = expandScaleMultiplier(
+          effective,
+          sourceWidth: video.width,
+          sourceHeight: video.height,
+        );
+        final id = await submit(perFile, video, outputDir: dir);
         taskIds.add(id);
         enqueued++;
       } on Object catch (e, st) {

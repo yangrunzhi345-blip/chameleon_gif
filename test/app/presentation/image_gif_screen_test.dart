@@ -124,6 +124,22 @@ void main() {
     expect(find.byType(ImageGifScreen), findsNothing);
   });
 
+  testWidgets('缩放倍数:选 2 倍 → 首图 64×64 联动 128×128', (tester) async {
+    final (app, router, _) = buildApp();
+    await pumpApp(tester, app);
+    await enterScreen(tester, router);
+
+    // 默认 1 倍收起;展开菜单选 2 倍
+    await tester.tap(find.text('1 倍'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2 倍').last);
+    await tester.pumpAndSettle();
+
+    // 宽度/高度回显联动值(64×64 × 2 = 128×128)
+    expect(find.text('128 px'), findsNWidgets(2), reason: '宽度与高度均 128');
+    expect(find.text('2 倍'), findsOneWidget, reason: '倍数回显 2 倍');
+  });
+
   testWidgets('上移/删除调整列表顺序', (tester) async {
     final (app, router, _) = buildApp();
     await pumpApp(tester, app);

@@ -19,6 +19,7 @@ _GifSetting _$GifSettingFromJson(Map<String, dynamic> json) => _GifSetting(
   loop: (json['loop'] as num?)?.toInt() ?? 0,
   frameDurationMs: (json['frameDurationMs'] as num?)?.toInt(),
   usePalette: json['usePalette'] as bool? ?? true,
+  scaleMultiplier: (json['scaleMultiplier'] as num?)?.toDouble() ?? 1.0,
 );
 
 Map<String, dynamic> _$GifSettingToJson(_GifSetting instance) =>
@@ -31,4 +32,5 @@ Map<String, dynamic> _$GifSettingToJson(_GifSetting instance) =>
       'loop': instance.loop,
       'frameDurationMs': instance.frameDurationMs,
       'usePalette': instance.usePalette,
+      'scaleMultiplier': instance.scaleMultiplier,
     };

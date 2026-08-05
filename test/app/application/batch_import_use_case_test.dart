@@ -98,6 +98,60 @@ void main() {
     expect(submitted, ['/tmp/a.mp4', '/tmp/c.mp4']);
   });
 
+  test('倍数展开:宽高全 0 且倍数 2 → 各视频按自身尺寸 × 2 落成', () async {
+    final submitted = <GifSetting>[];
+    // 按路径返回不同尺寸的视频(640×360 与 1280×720)
+    final useCase = BatchImportUseCase(
+      importVideoUseCase: _FakeImportUseCase(
+        onExecute: (path) => path.contains('a.mp4')
+            ? video(path)
+            : video(path).copyWith(width: 1280, height: 720),
+      ),
+      submit: (setting, v, {String? outputDir}) async {
+        submitted.add(setting);
+        return submitted.length;
+      },
+      logger: logger,
+    );
+
+    final result = await useCase.execute([
+      '/tmp/a.mp4',
+      '/tmp/b.mp4',
+    ], setting: const GifSetting(scaleMultiplier: 2.0));
+
+    expect(result.enqueued, 2);
+    expect(submitted[0].width, 1280, reason: '640×360 × 2');
+    expect(submitted[0].height, 720);
+    expect(submitted[1].width, 2560, reason: '1280×720 × 2');
+    expect(submitted[1].height, 1440);
+  });
+
+  test('倍数不展开:倍数 1.0 或宽高已指定时原样透传', () async {
+    final submitted = <GifSetting>[];
+    final useCase = BatchImportUseCase(
+      importVideoUseCase: _FakeImportUseCase(onExecute: video),
+      submit: (setting, v, {String? outputDir}) async {
+        submitted.add(setting);
+        return submitted.length;
+      },
+      logger: logger,
+    );
+
+    await useCase.execute(
+      ['/tmp/a.mp4'],
+      setting: const GifSetting(), // 倍数 1.0
+    );
+    expect(submitted.single.width, 0, reason: 'm=1.0 不展开,保持原图等比');
+    expect(submitted.single.height, 0);
+
+    submitted.clear();
+    await useCase.execute([
+      '/tmp/a.mp4',
+    ], setting: const GifSetting(width: 480, scaleMultiplier: 2.0));
+    expect(submitted.single.width, 480, reason: '宽高已指定 → 手动值优先');
+    expect(submitted.single.height, 0);
+  });
+
   test('全部失败 → enqueued 0', () async {
     final useCase = BatchImportUseCase(
       importVideoUseCase: _FakeImportUseCase(

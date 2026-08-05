@@ -27,6 +27,7 @@ class ExportFormState {
     this.end,
     this.outputDir,
     this.formError,
+    this.scaleMultiplier,
   });
 
   const ExportFormState.idle() : this._(lifecycle: ExportLifecycle.idle);
@@ -84,7 +85,11 @@ class ExportFormState {
   /// 表单级错误(时间格式非法/目录选择失败等;非空时禁用导出)。
   final String? formError;
 
-  /// 未传标记(允许显式置 null:end/errorMessage/formError)。
+  /// 等比缩放倍数(null = 宽高被手动指定,回显"自定义";选倍数时
+  /// 源尺寸已知则联动落成具体宽高,未知则仅存偏好)。
+  final double? scaleMultiplier;
+
+  /// 未传标记(允许显式置 null:end/errorMessage/formError/scaleMultiplier)。
   static const _unset = Object();
 
   ExportFormState copyWith({
@@ -101,6 +106,7 @@ class ExportFormState {
     Object? end = _unset,
     Object? outputDir = _unset,
     Object? formError = _unset,
+    Object? scaleMultiplier = _unset,
   }) {
     return ExportFormState._(
       lifecycle: lifecycle ?? this.lifecycle,
@@ -124,6 +130,9 @@ class ExportFormState {
       formError: identical(formError, _unset)
           ? this.formError
           : formError as String?,
+      scaleMultiplier: identical(scaleMultiplier, _unset)
+          ? this.scaleMultiplier
+          : scaleMultiplier as double?,
     );
   }
 

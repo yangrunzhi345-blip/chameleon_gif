@@ -96,6 +96,33 @@ void main() {
     expect(state().outputDir, isNull, reason: '默认导出目录空 → null');
   });
 
+  test('init:宽高强制 0 时继承默认倍数(入队按各文件尺寸展开)', () {
+    container = build(defaultSetting: const GifSetting(scaleMultiplier: 2.0));
+    ctl().init();
+
+    expect(state().scaleMultiplier, 2.0, reason: '倍数偏好继承');
+    expect(state().width, 0);
+    expect(state().height, 0);
+  });
+
+  test('updateScaleMultiplier:重置宽高 0 仅存倍数;手动宽高 → 自定义', () {
+    ctl().init();
+    ctl().updateWidth(480);
+    expect(state().scaleMultiplier, isNull, reason: '手动宽高 → 自定义');
+
+    ctl().updateScaleMultiplier(2.0);
+    expect(state().scaleMultiplier, 2.0);
+    expect(state().width, 0, reason: '选倍数 = 等比语义,宽高重置');
+    expect(state().height, 0);
+
+    ctl().updateWidth(640);
+    expect(state().scaleMultiplier, isNull, reason: '再手动改宽高 → 自定义');
+    // 恢复 (0,0) 原图等比 → 1.0(不缩放;选倍数偏好已被手动操作覆盖)
+    ctl().updateWidth(0);
+    ctl().updateHeight(0);
+    expect(state().scaleMultiplier, 1.0, reason: '恢复原图等比 → 1.0');
+  });
+
   test('update*:钳制并清 formError', () {
     ctl().init();
     ctl().updateFormError('旧错误');

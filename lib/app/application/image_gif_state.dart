@@ -26,6 +26,7 @@ class ImageGifFormState {
     this.usePalette = true,
     this.outputDir,
     this.formError,
+    this.scaleMultiplier,
   });
 
   const ImageGifFormState.idle() : this._(lifecycle: ImageGifLifecycle.idle);
@@ -71,7 +72,12 @@ class ImageGifFormState {
   /// 表单级错误(时长非法/目录选择失败等;非空时禁用导出)。
   final String? formError;
 
-  /// 未传标记(允许显式置 null:taskId/task/errorMessage/outputDir/formError)。
+  /// 等比缩放倍数(null = 宽高被手动指定,回显"自定义";选倍数时
+  /// 首图尺寸已知则联动落成具体宽高,未知则仅存偏好)。
+  final double? scaleMultiplier;
+
+  /// 未传标记(允许显式置 null:taskId/task/errorMessage/outputDir/formError/
+  /// scaleMultiplier)。
   static const _unset = Object();
 
   ImageGifFormState copyWith({
@@ -88,6 +94,7 @@ class ImageGifFormState {
     bool? usePalette,
     Object? outputDir = _unset,
     Object? formError = _unset,
+    Object? scaleMultiplier = _unset,
   }) {
     return ImageGifFormState._(
       lifecycle: lifecycle ?? this.lifecycle,
@@ -111,6 +118,9 @@ class ImageGifFormState {
       formError: identical(formError, _unset)
           ? this.formError
           : formError as String?,
+      scaleMultiplier: identical(scaleMultiplier, _unset)
+          ? this.scaleMultiplier
+          : scaleMultiplier as double?,
     );
   }
 

@@ -47,7 +47,9 @@ void main() {
   }) async {
     SharedPreferences.setMockInitialValues(prefsValues);
     prefs = await SharedPreferences.getInstance();
-    tester.view.physicalSize = const Size(1280, 800);
+    // 加高测试窗口:批量参数表单含缩放倍数行后,"保存设置"按钮在
+    // 1280×800 视口外
+    tester.view.physicalSize = const Size(1280, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     final adapter = _TestAdapter(tempRoot.path);
@@ -172,6 +174,27 @@ void main() {
     final saved = jsonDecode(prefs.getString('default_gif_setting')!) as Map;
     expect(saved['width'], 480);
     expect(saved['fps'], 15.0, reason: '其余字段保持内置默认');
+    expect(saved['scaleMultiplier'], 1.0, reason: '手动宽高 → 倍数归一 1.0');
+  });
+
+  testWidgets('选缩放倍数 2 倍 → 保存:倍数 2.0 + 宽高重置 0(入队逐文件展开)', (tester) async {
+    await pumpApp(tester);
+    await enterSettings(tester);
+
+    // 选 2 倍(默认收起显示"1 倍")
+    await tester.tap(find.text('1 倍'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2 倍').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('保存设置'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('设置已保存'), findsOneWidget);
+    final saved = jsonDecode(prefs.getString('default_gif_setting')!) as Map;
+    expect(saved['scaleMultiplier'], 2.0);
+    expect(saved['width'], 0, reason: '选倍数 = 等比语义,宽高重置 0');
+    expect(saved['height'], 0);
   });
 
   testWidgets('非法时间 → 红字 + 保存禁用;修正后恢复', (tester) async {

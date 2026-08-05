@@ -55,6 +55,65 @@ void main() {
     expect(find.text('原图等比'), findsOneWidget);
   });
 
+  testWidgets('值不在候选中且有 valueLabelBuilder → 展示 builder 文案(自定义)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 300,
+              child: ParamDropdownField<int?>(
+                value: null, // 自定义(不在候选中)
+                items: const [
+                  ParamDropdownItem<int?>(1, '1 倍'),
+                  ParamDropdownItem<int?>(2, '2 倍'),
+                ],
+                valueLabelBuilder: (_) => '自定义',
+                onChanged: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('自定义'), findsOneWidget, reason: '收起态回显自定义');
+    // 展开菜单不含"自定义"项(仅收起态文案)
+    await tester.tap(find.text('自定义'));
+    await tester.pumpAndSettle();
+    expect(find.text('自定义'), findsOneWidget, reason: '菜单中无"自定义"菜单项');
+    expect(find.text('1 倍'), findsOneWidget);
+    expect(find.text('2 倍'), findsOneWidget);
+  });
+
+  testWidgets('值在候选中时 valueLabelBuilder 不介入(正常显示 label)', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 300,
+              child: ParamDropdownField<int?>(
+                value: 2,
+                items: const [
+                  ParamDropdownItem<int?>(1, '1 倍'),
+                  ParamDropdownItem<int?>(2, '2 倍'),
+                ],
+                valueLabelBuilder: (_) => '自定义',
+                onChanged: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('2 倍'), findsOneWidget);
+    expect(find.text('自定义'), findsNothing);
+  });
+
   testWidgets('菜单在按钮正下方弹出(强制下拉)且与按钮同宽', (tester) async {
     await tester.pumpWidget(build());
 

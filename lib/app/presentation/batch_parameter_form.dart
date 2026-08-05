@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/utils/duration_format.dart';
+import '../../features/export/application/scale_multiplier.dart';
 import '../../features/export/presentation/param_dropdown_field.dart';
 import '../application/batch_form_mixin.dart';
 import '../application/batch_import_state.dart';
@@ -134,6 +135,24 @@ class _BatchParameterFormState extends State<BatchParameterForm> {
           ),
         ),
         ParamRow(
+          label: '缩放倍数',
+          child: ParamDropdownField<double?>(
+            value: state.scaleMultiplier,
+            items: [
+              for (final m in kScaleMultiplierOptions)
+                ParamDropdownItem<double?>(
+                  m,
+                  '${m == m.roundToDouble() ? m.toInt() : m} 倍',
+                ),
+            ],
+            // 宽高被手动指定后回显"自定义"(不提供菜单项,仅收起态文案)
+            valueLabelBuilder: (_) => '自定义',
+            onChanged: (m) {
+              if (m != null) actions.updateScaleMultiplier(m);
+            },
+          ),
+        ),
+        ParamRow(
           label: '宽度',
           child: ParamDropdownField<int>(
             value: state.width,
@@ -141,6 +160,8 @@ class _BatchParameterFormState extends State<BatchParameterForm> {
               for (final w in _widthOptions)
                 ParamDropdownItem(w, w == 0 ? '原图等比' : '$w px'),
             ],
+            // 倍数联动算出的尺寸可能不在选项表 → 显示具体值
+            valueLabelBuilder: (w) => w == 0 ? '原图等比' : '$w px',
             onChanged: actions.updateWidth,
           ),
         ),
@@ -152,6 +173,7 @@ class _BatchParameterFormState extends State<BatchParameterForm> {
               for (final h in _widthOptions)
                 ParamDropdownItem(h, h == 0 ? '原图等比' : '$h px'),
             ],
+            valueLabelBuilder: (h) => h == 0 ? '原图等比' : '$h px',
             onChanged: actions.updateHeight,
           ),
         ),

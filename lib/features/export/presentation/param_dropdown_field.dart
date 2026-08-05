@@ -21,6 +21,7 @@ class ParamDropdownField<T> extends StatefulWidget {
     required this.items,
     required this.onChanged,
     this.enabled = true,
+    this.valueLabelBuilder,
   });
 
   /// 当前选中值(收起态显示其 label)。
@@ -35,6 +36,10 @@ class ParamDropdownField<T> extends StatefulWidget {
   /// 禁用态:灰显且不可展开(面板锁定/转码中)。
   final bool enabled;
 
+  /// 选中值不在 [items] 中时的收起态文案构造器(如"自定义"回显)。
+  /// 为 null 时保持原行为(取 [items] 首项展示)。
+  final String Function(T value)? valueLabelBuilder;
+
   @override
   State<ParamDropdownField<T>> createState() => _ParamDropdownFieldState<T>();
 }
@@ -44,12 +49,12 @@ class _ParamDropdownFieldState<T> extends State<ParamDropdownField<T>> {
   OverlayEntry? _menuEntry;
 
   String get _label {
-    return widget.items
-        .firstWhere(
-          (e) => e.value == widget.value,
-          orElse: () => widget.items.first,
-        )
-        .label;
+    for (final item in widget.items) {
+      if (item.value == widget.value) return item.label;
+    }
+    final builder = widget.valueLabelBuilder;
+    if (builder != null) return builder(widget.value);
+    return widget.items.first.label;
   }
 
   @override

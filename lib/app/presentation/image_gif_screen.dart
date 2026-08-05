@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/utils/duration_format.dart';
+import '../../features/export/application/scale_multiplier.dart';
 import '../../features/export/presentation/export_complete_dialog.dart';
 import '../../features/export/presentation/param_dropdown_field.dart';
 import '../../features/import/application/import_providers.dart';
@@ -79,7 +80,11 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
         return;
       }
       _paths = List.of(paths);
-      ref.read(imageGifControllerProvider.notifier).init();
+      final notifier = ref.read(imageGifControllerProvider.notifier);
+      notifier.init();
+      // 探测首图尺寸(倍数联动/提交展开的源;首路径去重,后续列表
+      // 操作变化时再触发)
+      unawaited(notifier.updatePaths(List.of(_paths)));
     });
     // 生命周期监听:完成 → 弹窗;失败/取消 → SnackBar(initState 用 listenManual)
     ref.listenManual<ImageGifFormState>(imageGifControllerProvider, (_, state) {
@@ -128,6 +133,7 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
     setState(() {
       _paths = [..._paths, ...more];
     });
+    _syncSourceSize();
   }
 
   void _moveUp(int index) {
@@ -137,6 +143,7 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
       _paths[index - 1] = _paths[index];
       _paths[index] = tmp;
     });
+    _syncSourceSize();
   }
 
   void _moveDown(int index) {
@@ -146,12 +153,24 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
       _paths[index + 1] = _paths[index];
       _paths[index] = tmp;
     });
+    _syncSourceSize();
   }
 
   void _removeAt(int index) {
     setState(() {
       _paths.removeAt(index);
     });
+    _syncSourceSize();
+  }
+
+  /// 列表变动后同步首图尺寸探测(控制器按首路径去重,非首项操作零开销)。
+  void _syncSourceSize() {
+    if (!mounted) return;
+    unawaited(
+      ref
+          .read(imageGifControllerProvider.notifier)
+          .updatePaths(List.of(_paths)),
+    );
   }
 
   void _syncTextFields(ImageGifFormState state) {
@@ -309,6 +328,25 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
             ),
           ),
           ParamRow(
+            label: '缩放倍数',
+            child: ParamDropdownField<double?>(
+              value: state.scaleMultiplier,
+              enabled: !exporting,
+              items: [
+                for (final m in kScaleMultiplierOptions)
+                  ParamDropdownItem<double?>(
+                    m,
+                    '${m == m.roundToDouble() ? m.toInt() : m} 倍',
+                  ),
+              ],
+              // 宽高被手动指定后回显"自定义"(不提供菜单项,仅收起态文案)
+              valueLabelBuilder: (_) => '自定义',
+              onChanged: (m) {
+                if (m != null) notifier.updateScaleMultiplier(m);
+              },
+            ),
+          ),
+          ParamRow(
             label: '宽度',
             child: ParamDropdownField<int>(
               value: state.width,
@@ -316,6 +354,8 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
                 for (final w in _sizeOptions)
                   ParamDropdownItem(w, w == 0 ? '原图等比' : '$w px'),
               ],
+              // 倍数联动算出的尺寸可能不在选项表(如 128px)→ 显示具体值
+              valueLabelBuilder: (w) => w == 0 ? '原图等比' : '$w px',
               onChanged: notifier.updateWidth,
               enabled: !exporting,
             ),
@@ -328,6 +368,7 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
                 for (final h in _sizeOptions)
                   ParamDropdownItem(h, h == 0 ? '原图等比' : '$h px'),
               ],
+              valueLabelBuilder: (h) => h == 0 ? '原图等比' : '$h px',
               onChanged: notifier.updateHeight,
               enabled: !exporting,
             ),

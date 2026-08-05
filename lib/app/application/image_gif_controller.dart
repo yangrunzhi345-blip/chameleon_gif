@@ -8,6 +8,7 @@ import '../../domain/value_objects/gif_setting.dart';
 import '../../domain/value_objects/task_state.dart';
 import '../../features/export/application/output_dir_picker.dart'
     as output_dir_picker;
+import '../../features/export/application/scale_multiplier.dart';
 import '../../features/import/application/import_providers.dart';
 import '../../features/task_queue/application/task_queue_providers.dart';
 import '../../features/task_queue/application/task_session_lifecycle.dart';
@@ -30,6 +31,12 @@ final imageGifControllerProvider =
 /// 生命周期公共样板经 [TaskSessionLifecycle] 抽取(与 export 同源)。
 class ImageGifController extends Notifier<ImageGifFormState>
     with TaskSessionLifecycle<ImageGifFormState> {
+  /// 首图尺寸缓存(探测成功后填充;倍数联动与提交展开的依据)。
+  ({int width, int height})? _sourceSize;
+
+  /// 已探测的首图路径(去重:同一首图不重复探测)。
+  String? _probedPath;
+
   @override
   ImageGifFormState build() {
     initTaskSubscription();
@@ -37,23 +44,80 @@ class ImageGifController extends Notifier<ImageGifFormState>
   }
 
   /// 会话初始化:应用持久化默认参数(fps/width/height/loop/usePalette 继承;
-  /// frameDurationMs 无默认时 1000ms;outputDir 取默认导出目录)。
+  /// frameDurationMs 无默认时 1000ms;outputDir 取默认导出目录;
+  /// 倍数载入:宽高全 0 时继承偏好,否则 null = 自定义)。
   void init() {
     final repo = ref.read(settingsRepositoryProvider);
     final saved = repo.defaultGifSetting;
     final base = saved ?? const GifSetting();
     final outputDir = repo.defaultExportDir;
+    final w = base.width.clamp(0, 4096);
+    final h = base.height.clamp(0, 4096);
     state = state.copyWith(
       fps: base.fps.clamp(1, 60),
       frameDurationMs: (base.frameDurationMs ?? 1000)
           .clamp((1000 / base.fps.clamp(1, 60)).ceil(), 60000)
           .toInt(),
-      width: base.width.clamp(0, 4096),
-      height: base.height.clamp(0, 4096),
+      width: w,
+      height: h,
       loop: base.loop.clamp(0, 100),
       usePalette: base.usePalette,
       outputDir: outputDir.isEmpty ? null : outputDir,
+      scaleMultiplier: (w == 0 && h == 0) ? base.scaleMultiplier : null,
       formError: null,
+    );
+    // 首图尺寸在 UI 侧 init 后经 updatePaths 探测,探测成功后若
+    // 宽高全 0 且倍数非 1 → 联动回填具体尺寸(兑现持久化倍数意图)
+  }
+
+  /// 首图变化时探测尺寸(首路径去重;成功缓存,供倍数联动与提交展开;
+  /// 失败静默置空,submit 原有探测与 formError 兜底)。
+  Future<void> updatePaths(List<String> paths) async {
+    if (state.locked) return;
+    if (paths.isEmpty || paths.first == _probedPath) return;
+    _probedPath = paths.first;
+    final size = await _probeFirstImageSize(paths);
+    if (size.width == 0 || size.height == 0) {
+      _sourceSize = null;
+      return;
+    }
+    _sourceSize = (width: size.width, height: size.height);
+    final m = state.scaleMultiplier;
+    if (state.width == 0 &&
+        state.height == 0 &&
+        m != null &&
+        (m - 1.0).abs() > 1e-9) {
+      // 宽高全 0 且倍数非 1 → 按首图尺寸 × 倍数联动回填
+      state = state.copyWith(
+        width: scaledDimension(size.width, m),
+        height: scaledDimension(size.height, m),
+      );
+      return;
+    }
+    // 其余情形按回显规则刷新倍数(源已知后可匹配)
+    state = state.copyWith(
+      scaleMultiplier: _echoMultiplier(
+        width: state.width,
+        height: state.height,
+      ),
+    );
+  }
+
+  /// 当前宽高对应的倍数回显:
+  /// - (0,0) 原图等比:源已知 → 1.0(不缩放);源未知 → 保持偏好
+  /// - 手动宽高:源已知时匹配选项(命中 → 该倍数,否则 null = 自定义);
+  ///   源未知 → null
+  double? _echoMultiplier({required int width, required int height}) {
+    final src = _sourceSize;
+    if (width == 0 && height == 0) {
+      return src != null ? 1.0 : (state.scaleMultiplier ?? 1.0);
+    }
+    if (src == null) return null;
+    return matchScaleMultiplier(
+      sourceWidth: src.width,
+      sourceHeight: src.height,
+      width: width,
+      height: height,
     );
   }
 
@@ -85,16 +149,48 @@ class ImageGifController extends Notifier<ImageGifFormState>
     state = state.copyWith(frameDurationMs: ms, formError: null);
   }
 
-  /// 宽度(钳制 0–4096,0 = 原图等比)。
+  /// 宽度(钳制 0–4096,0 = 原图等比;手动指定后倍数回显"自定义")。
   void updateWidth(int width) {
     if (state.locked) return;
-    state = state.copyWith(width: width.clamp(0, 4096), formError: null);
+    final w = width.clamp(0, 4096);
+    state = state.copyWith(
+      width: w,
+      scaleMultiplier: _echoMultiplier(width: w, height: state.height),
+      formError: null,
+    );
   }
 
-  /// 高度(钳制 0–4096,0 = 原图等比)。
+  /// 高度(钳制 0–4096,0 = 原图等比;手动指定后倍数回显"自定义")。
   void updateHeight(int height) {
     if (state.locked) return;
-    state = state.copyWith(height: height.clamp(0, 4096), formError: null);
+    final h = height.clamp(0, 4096);
+    state = state.copyWith(
+      height: h,
+      scaleMultiplier: _echoMultiplier(width: state.width, height: h),
+      formError: null,
+    );
+  }
+
+  /// 等比缩放倍数(0.5–3;首图尺寸已知时联动落成具体宽高,保持比例;
+  /// 未知时重置宽高 0 仅存偏好,待探测成功后联动回填)。
+  void updateScaleMultiplier(double multiplier) {
+    if (state.locked) return;
+    final src = _sourceSize;
+    if (src != null) {
+      state = state.copyWith(
+        width: scaledDimension(src.width, multiplier),
+        height: scaledDimension(src.height, multiplier),
+        scaleMultiplier: multiplier,
+        formError: null,
+      );
+      return;
+    }
+    state = state.copyWith(
+      width: 0,
+      height: 0,
+      scaleMultiplier: multiplier,
+      formError: null,
+    );
   }
 
   /// 循环次数(钳制 0–100,0 = 无限)。
@@ -149,7 +245,7 @@ class ImageGifController extends Notifier<ImageGifFormState>
   }
 
   /// 表单 → GifSetting(start 恒 zero、end 留 null,由 TaskManager
-  /// 装配总输出时长)。
+  /// 装配总输出时长;倍数 null = 自定义,持久化时归一为 1.0)。
   GifSetting assembleSetting() => GifSetting(
     fps: state.fps,
     frameDurationMs: state.frameDurationMs,
@@ -157,6 +253,7 @@ class ImageGifController extends Notifier<ImageGifFormState>
     height: state.height,
     loop: state.loop,
     usePalette: state.usePalette,
+    scaleMultiplier: state.scaleMultiplier ?? 1.0,
   );
 
   // ---- 生命周期 ----
@@ -181,10 +278,17 @@ class ImageGifController extends Notifier<ImageGifFormState>
         state = state.copyWith(formError: '无法读取首图尺寸,请更换图片');
         return;
       }
+      // 提交时展开倍数(宽高全 0 且倍数非 1 → 首图尺寸 × 倍数落成
+      // 具体宽高;任务参数自包含,命令构造零改动)
+      final expanded = expandScaleMultiplier(
+        setting,
+        sourceWidth: size.width,
+        sourceHeight: size.height,
+      );
       final id = await ref
           .read(taskQueueControllerProvider.notifier)
           .submitFromImages(
-            setting,
+            expanded,
             ImageGifSource(
               paths: paths,
               width: size.width,

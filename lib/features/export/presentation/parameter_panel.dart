@@ -9,6 +9,7 @@ import '../application/aspect_ratio.dart';
 import '../application/estimate_size.dart';
 import '../application/export_providers.dart';
 import '../application/export_state.dart';
+import '../application/scale_multiplier.dart';
 import 'export_action_area.dart';
 import 'param_dropdown_field.dart';
 
@@ -141,6 +142,25 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
             ),
           ),
           _ParamRow(
+            label: '缩放倍数',
+            child: ParamDropdownField<double?>(
+              value: state.scaleMultiplier,
+              enabled: enabled,
+              items: [
+                for (final m in kScaleMultiplierOptions)
+                  ParamDropdownItem<double?>(
+                    m,
+                    '${m == m.roundToDouble() ? m.toInt() : m} 倍',
+                  ),
+              ],
+              // 宽高被手动指定后回显"自定义"(不提供菜单项,仅收起态文案)
+              valueLabelBuilder: (_) => '自定义',
+              onChanged: (m) {
+                if (m != null) controller.updateScaleMultiplier(m);
+              },
+            ),
+          ),
+          _ParamRow(
             label: '宽度',
             child: ParamDropdownField<int>(
               value: state.width,
@@ -149,6 +169,8 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
                 for (final w in _widthOptions)
                   ParamDropdownItem(w, w == 0 ? '原图等比' : '$w px'),
               ],
+              // 倍数联动算出的尺寸可能不在选项表(如 128px)→ 显示具体值
+              valueLabelBuilder: (w) => w == 0 ? '原图等比' : '$w px',
               onChanged: controller.updateWidth,
             ),
           ),
@@ -161,6 +183,7 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
                 for (final h in _widthOptions)
                   ParamDropdownItem(h, h == 0 ? '原图等比' : '$h px'),
               ],
+              valueLabelBuilder: (h) => h == 0 ? '原图等比' : '$h px',
               onChanged: controller.updateHeight,
             ),
           ),

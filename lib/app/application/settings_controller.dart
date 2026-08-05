@@ -31,14 +31,18 @@ class SettingsController extends Notifier<BatchImportFormState>
     final repo = ref.read(settingsRepositoryProvider);
     final saved = repo.defaultGifSetting ?? const GifSetting();
     final outputDir = repo.defaultExportDir;
+    final w = saved.width;
+    final h = saved.height;
     state = state.copyWith(
       fps: saved.fps,
-      width: saved.width,
-      height: saved.height,
+      width: w,
+      height: h,
       loop: saved.loop,
       start: saved.start,
       end: saved.end,
       outputDir: outputDir.isEmpty ? null : outputDir,
+      // 宽高全 0(原图等比)才继承倍数偏好;手动指定过宽高 → null
+      scaleMultiplier: (w == 0 && h == 0) ? saved.scaleMultiplier : null,
       formError: null,
     );
   }

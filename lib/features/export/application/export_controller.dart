@@ -12,6 +12,7 @@ import '../../task_queue/application/task_queue_providers.dart';
 import '../../task_queue/application/task_session_lifecycle.dart';
 import '../../timeline/application/timeline_providers.dart';
 import 'export_state.dart';
+import 'scale_multiplier.dart';
 // 别名:顶层函数与本控制器方法同名,须经别名调用
 import 'output_dir_picker.dart' as output_dir_picker;
 
@@ -27,40 +28,85 @@ class ExportController extends Notifier<ExportFormState>
     with TaskSessionLifecycle<ExportFormState> {
   Duration? _videoDuration;
 
+  /// 源视频尺寸缓存(>0 才填充;倍数联动与提交展开的依据)。
+  ({int width, int height})? _sourceSize;
+
   @override
   ExportFormState build() {
     initTaskSubscription();
     return const ExportFormState.idle();
   }
 
-  /// 会话初始化:缓存视频时长 + 应用默认参数(无则内置默认)。
+  /// 会话初始化:缓存视频尺寸/时长 + 应用默认参数(无则内置默认)。
   void initForm({required VideoInfo video}) {
     _videoDuration = video.duration;
+    _sourceSize = (video.width > 0 && video.height > 0)
+        ? (width: video.width, height: video.height)
+        : null;
     final saved = ref.read(settingsRepositoryProvider).defaultGifSetting;
     final base = saved ?? const GifSetting();
+    final w = base.width.clamp(0, 4096);
+    final h = base.height.clamp(0, 4096);
     state = state.copyWith(
       fps: base.fps.clamp(1, 60),
-      width: base.width.clamp(0, 4096),
-      height: base.height.clamp(0, 4096),
+      width: w,
+      height: h,
       loop: base.loop.clamp(0, 100),
       start: base.start,
       end: base.end,
       formError: null,
     );
+    _applyLoadedMultiplier(w, h, base.scaleMultiplier);
   }
 
   /// 重新应用持久化默认参数(载入默认按钮;无默认时不动表单)。
   void loadDefault() {
     final saved = ref.read(settingsRepositoryProvider).defaultGifSetting;
     if (saved == null) return;
+    final w = saved.width.clamp(0, 4096);
+    final h = saved.height.clamp(0, 4096);
     state = state.copyWith(
       fps: saved.fps.clamp(1, 60),
-      width: saved.width.clamp(0, 4096),
-      height: saved.height.clamp(0, 4096),
+      width: w,
+      height: h,
       loop: saved.loop.clamp(0, 100),
       start: saved.start,
       end: saved.end,
       formError: null,
+    );
+    _applyLoadedMultiplier(w, h, saved.scaleMultiplier);
+  }
+
+  /// 载入默认参数后的倍数归一:
+  /// - 宽高全 0 且倍数非 1 且源尺寸已知 → 落成具体宽高(兑现持久化
+  ///   倍数意图,如设置页存的"2 倍")
+  /// - 否则按 [matchScaleMultiplier] 回显(命中选项 → 该倍数;
+  ///   (0,0) → 1.0;手动宽高不匹配 → null = 自定义)
+  void _applyLoadedMultiplier(int w, int h, double m) {
+    final src = _sourceSize;
+    if (src != null && w == 0 && h == 0 && (m - 1.0).abs() > 1e-9) {
+      state = state.copyWith(
+        width: scaledDimension(src.width, m),
+        height: scaledDimension(src.height, m),
+        scaleMultiplier: m,
+      );
+      return;
+    }
+    state = state.copyWith(
+      scaleMultiplier: _echoMultiplier(width: w, height: h),
+    );
+  }
+
+  /// 当前宽高对应的倍数回显(见 _applyLoadedMultiplier 注释)。
+  double? _echoMultiplier({required int width, required int height}) {
+    final src = _sourceSize;
+    if (width == 0 && height == 0) return 1.0;
+    if (src == null) return null;
+    return matchScaleMultiplier(
+      sourceWidth: src.width,
+      sourceHeight: src.height,
+      width: width,
+      height: height,
     );
   }
 
@@ -79,16 +125,43 @@ class ExportController extends Notifier<ExportFormState>
     state = state.copyWith(fps: fps.clamp(1, 60), formError: null);
   }
 
-  /// 宽度(钳制 0–4096,0 = 原图等比)。
+  /// 宽度(钳制 0–4096,0 = 原图等比;手动指定后倍数回显"自定义")。
   void updateWidth(int width) {
     if (state.locked) return;
-    state = state.copyWith(width: width.clamp(0, 4096), formError: null);
+    final w = width.clamp(0, 4096);
+    state = state.copyWith(
+      width: w,
+      scaleMultiplier: _echoMultiplier(width: w, height: state.height),
+      formError: null,
+    );
   }
 
-  /// 高度(钳制 0–4096,0 = 原图等比)。
+  /// 高度(钳制 0–4096,0 = 原图等比;手动指定后倍数回显"自定义")。
   void updateHeight(int height) {
     if (state.locked) return;
-    state = state.copyWith(height: height.clamp(0, 4096), formError: null);
+    final h = height.clamp(0, 4096);
+    state = state.copyWith(
+      height: h,
+      scaleMultiplier: _echoMultiplier(width: state.width, height: h),
+      formError: null,
+    );
+  }
+
+  /// 等比缩放倍数(0.5–3;源尺寸已知时联动落成具体宽高,保持比例)。
+  void updateScaleMultiplier(double multiplier) {
+    if (state.locked) return;
+    final src = _sourceSize;
+    if (src != null) {
+      state = state.copyWith(
+        width: scaledDimension(src.width, multiplier),
+        height: scaledDimension(src.height, multiplier),
+        scaleMultiplier: multiplier,
+        formError: null,
+      );
+      return;
+    }
+    // 源尺寸未知(解析异常):仅存偏好,提交时无源可展开(原样输出)
+    state = state.copyWith(scaleMultiplier: multiplier, formError: null);
   }
 
   /// 循环次数(钳制 0–100,0 = 无限)。
@@ -126,7 +199,8 @@ class ExportController extends Notifier<ExportFormState>
     state = state.copyWith(start: start, end: end, formError: null);
   }
 
-  /// 表单 → GifSetting(end 保留 null,由 TaskManager 装配视频时长)。
+  /// 表单 → GifSetting(end 保留 null,由 TaskManager 装配视频时长;
+  /// 倍数 null = 自定义,持久化时归一为 1.0)。
   GifSetting assembleSetting() => GifSetting(
     fps: state.fps,
     width: state.width,
@@ -134,6 +208,7 @@ class ExportController extends Notifier<ExportFormState>
     loop: state.loop,
     start: state.start,
     end: state.end,
+    scaleMultiplier: state.scaleMultiplier ?? 1.0,
   );
 
   /// 设置导出目录(空串 → null = 系统临时目录)。
@@ -179,11 +254,20 @@ class ExportController extends Notifier<ExportFormState>
     if (!claimSubmit()) return;
     try {
       final effective = setting ?? assembleSetting();
-      final end = effective.end ?? video.duration;
+      // 防御性展开:直传 setting(测试/重转)未展开倍数时补一次
+      // (源尺寸未知或宽高已指定时工具内守卫自动跳过)
+      final expanded = _sourceSize == null
+          ? effective
+          : expandScaleMultiplier(
+              effective,
+              sourceWidth: _sourceSize!.width,
+              sourceHeight: _sourceSize!.height,
+            );
+      final end = expanded.end ?? video.duration;
       // end == 0 是"时长未知 → 输出全片"哨兵(command_builder._trimArgs
       // 省略 -to),此时 start>=end 恒真;仅 end>0 才做区间校验,
       // 否则时长元数据为 0 的视频被恒定拒绝、永远无法导出
-      if (end > Duration.zero && effective.start >= end) {
+      if (end > Duration.zero && expanded.start >= end) {
         state = state.copyWith(
           lifecycle: ExportLifecycle.failed,
           errorMessage: '起点不能晚于或等于终点',
@@ -192,7 +276,7 @@ class ExportController extends Notifier<ExportFormState>
       }
       final id = await ref
           .read(taskQueueControllerProvider.notifier)
-          .submit(effective, video, outputDir: state.outputDir);
+          .submit(expanded, video, outputDir: state.outputDir);
       trackTask(id);
       state = state.copyWith(
         lifecycle: ExportLifecycle.exporting,

@@ -34,6 +34,18 @@ void main() {
       // 图片模式字段:老 JSON 无此字段 → 默认
       expect(s.frameDurationMs, isNull);
       expect(s.usePalette, isTrue);
+      // 缩放倍数:老 JSON 无此字段 → 默认 1.0(不缩放)
+      expect(s.scaleMultiplier, 1.0);
+    });
+
+    test('老 JSON 无 scaleMultiplier 键 → 1.0;带键 → 原样往返', () {
+      final legacy = GifSetting.fromJson(const {'fps': 24});
+      expect(legacy.scaleMultiplier, 1.0);
+
+      const scaled = GifSetting(scaleMultiplier: 2.0);
+      final roundTrip = GifSetting.fromJson(scaled.toJson());
+      expect(roundTrip.scaleMultiplier, 2.0);
+      expect(roundTrip, scaled);
     });
 
     test('end 显式 null 容错', () {

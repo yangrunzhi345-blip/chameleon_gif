@@ -117,6 +117,79 @@ void main() {
     expect(container.read(exportControllerProvider).height, 0);
   });
 
+  test('updateScaleMultiplier:源已知(640×360)联动落成具体宽高', () async {
+    container = build();
+    final ctl = container.read(exportControllerProvider.notifier);
+    ctl.initForm(video: video);
+
+    ctl.updateScaleMultiplier(2.0);
+    final s2 = container.read(exportControllerProvider);
+    expect(s2.width, 1280);
+    expect(s2.height, 720);
+    expect(s2.scaleMultiplier, 2.0);
+
+    // 0.75 倍:偶数化后 480×270
+    ctl.updateScaleMultiplier(0.75);
+    final s075 = container.read(exportControllerProvider);
+    expect(s075.width, 480);
+    expect(s075.height, 270);
+    expect(s075.scaleMultiplier, 0.75);
+  });
+
+  test('手动改宽高 → 倍数回显"自定义"(null);恢复 (0,0) → 1.0', () async {
+    container = build();
+    final ctl = container.read(exportControllerProvider.notifier);
+    ctl.initForm(video: video);
+    ctl.updateScaleMultiplier(2.0);
+
+    // 手动改宽度(不匹配任何倍数)→ null = 自定义
+    ctl.updateWidth(700);
+    expect(container.read(exportControllerProvider).scaleMultiplier, isNull);
+    // 仅改高度(宽度 700 仍不匹配)→ 保持 null
+    ctl.updateHeight(360);
+    expect(container.read(exportControllerProvider).scaleMultiplier, isNull);
+    // 宽高恢复 640×360(命中 1.0 选项)→ 回显 1.0
+    ctl.updateWidth(640);
+    expect(container.read(exportControllerProvider).scaleMultiplier, 1.0);
+    // 恢复原图等比 → 1.0
+    ctl.updateWidth(0);
+    ctl.updateHeight(0);
+    expect(container.read(exportControllerProvider).scaleMultiplier, 1.0);
+  });
+
+  test('载入持久化默认 (0,0,2.0) → 按源尺寸联动落成(兑现倍数意图)', () async {
+    // 预置默认参数:2 倍,宽高原图等比
+    prefs.setString(
+      'default_gif_setting',
+      '{"fps":15,"width":0,"height":0,"loop":0,"start":0,'
+          '"end":null,"frameDurationMs":null,"usePalette":true,'
+          '"scaleMultiplier":2.0}',
+    );
+    container = build();
+    final ctl = container.read(exportControllerProvider.notifier);
+    ctl.initForm(video: video);
+
+    final s = container.read(exportControllerProvider);
+    expect(s.width, 1280);
+    expect(s.height, 720);
+    expect(s.scaleMultiplier, 2.0);
+  });
+
+  test('submit:宽高全 0 且倍数非 1 → 防御展开落成具体尺寸', () async {
+    container = build();
+    final ctl = container.read(exportControllerProvider.notifier);
+    ctl.initForm(video: video);
+    // 直传 setting(绕过表单,模拟测试/重转):(0,0) + 2 倍
+    await ctl.submit(
+      setting: const GifSetting(scaleMultiplier: 2.0),
+      video: video,
+    );
+
+    final tasks = await taskRepo.all();
+    expect(tasks.single.settings.width, 1280);
+    expect(tasks.single.settings.height, 720);
+  });
+
   test('submit:end 缺省装配为 video.duration,状态 idle → exporting', () async {
     container = build();
     final ctl = container.read(exportControllerProvider.notifier);

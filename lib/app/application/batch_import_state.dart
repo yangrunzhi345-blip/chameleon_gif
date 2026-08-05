@@ -13,6 +13,7 @@ class BatchImportFormState {
     this.end,
     this.outputDir,
     this.formError,
+    this.scaleMultiplier,
   });
 
   /// 初始态(内置默认:15fps、原图等比、全长、临时目录)。
@@ -42,7 +43,11 @@ class BatchImportFormState {
   /// 表单级错误(时间格式非法/目录选择失败等;非空时禁用开始按钮)。
   final String? formError;
 
-  /// 未传标记(允许显式置 null:end/outputDir/formError)。
+  /// 等比缩放倍数(null = 宽高被手动指定,回显"自定义";仅批量/设置页
+  /// 无源尺寸语义,选倍数只存偏好,入队时按各文件自身尺寸展开)。
+  final double? scaleMultiplier;
+
+  /// 未传标记(允许显式置 null:end/outputDir/formError/scaleMultiplier)。
   static const _unset = Object();
 
   BatchImportFormState copyWith({
@@ -54,6 +59,7 @@ class BatchImportFormState {
     Object? end = _unset,
     Object? outputDir = _unset,
     Object? formError = _unset,
+    Object? scaleMultiplier = _unset,
   }) {
     return BatchImportFormState._(
       fps: fps ?? this.fps,
@@ -68,6 +74,9 @@ class BatchImportFormState {
       formError: identical(formError, _unset)
           ? this.formError
           : formError as String?,
+      scaleMultiplier: identical(scaleMultiplier, _unset)
+          ? this.scaleMultiplier
+          : scaleMultiplier as double?,
     );
   }
 }

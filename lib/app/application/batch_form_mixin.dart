@@ -24,6 +24,10 @@ abstract interface class BatchFormActions {
   /// 高度(钳制 0–4096,0 = 原图等比)。
   void updateHeight(int height);
 
+  /// 等比缩放倍数(源尺寸未知:仅存偏好,宽高重置 0,入队时按各文件
+  /// 自身尺寸展开)。
+  void updateScaleMultiplier(double multiplier);
+
   /// 循环次数(钳制 0–100,0 = 无限)。
   void updateLoop(int loop);
 
@@ -61,12 +65,36 @@ mixin BatchFormMixin on Notifier<BatchImportFormState>
 
   @override
   void updateWidth(int width) {
-    state = state.copyWith(width: width.clamp(0, 4096), formError: null);
+    final w = width.clamp(0, 4096);
+    // 手动指定宽高 → 倍数回显"自定义"(null);恢复 (0,0) 原图等比 →
+    // 1.0(不缩放;选倍数设置的偏好已被手动操作覆盖,不再回显)
+    state = state.copyWith(
+      width: w,
+      scaleMultiplier: (w == 0 && state.height == 0) ? 1.0 : null,
+      formError: null,
+    );
   }
 
   @override
   void updateHeight(int height) {
-    state = state.copyWith(height: height.clamp(0, 4096), formError: null);
+    final h = height.clamp(0, 4096);
+    state = state.copyWith(
+      height: h,
+      scaleMultiplier: (state.width == 0 && h == 0) ? 1.0 : null,
+      formError: null,
+    );
+  }
+
+  @override
+  void updateScaleMultiplier(double multiplier) {
+    // 选倍数 = 等比语义:重置宽高为 0(原图等比),仅存偏好,保证
+    // 入队时"宽高全 0 且倍数非 1"的展开条件可达
+    state = state.copyWith(
+      width: 0,
+      height: 0,
+      scaleMultiplier: multiplier,
+      formError: null,
+    );
   }
 
   @override
@@ -120,7 +148,8 @@ mixin BatchFormMixin on Notifier<BatchImportFormState>
     state = state.copyWith(formError: null);
   }
 
-  /// 表单 → GifSetting(end 保留 null,由 TaskManager 装配视频时长)。
+  /// 表单 → GifSetting(end 保留 null,由 TaskManager 装配视频时长;
+  /// 倍数 null = 自定义,持久化时归一为 1.0)。
   GifSetting assembleSetting() => GifSetting(
     fps: state.fps,
     width: state.width,
@@ -128,6 +157,7 @@ mixin BatchFormMixin on Notifier<BatchImportFormState>
     loop: state.loop,
     start: state.start,
     end: state.end,
+    scaleMultiplier: state.scaleMultiplier ?? 1.0,
   );
 
   /// 起止归一化:负值钳 0,end 为 null 保持 null;均非空时自动交换。

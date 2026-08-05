@@ -94,6 +94,69 @@ void main() {
     expect(s.width, 0);
   });
 
+  test('updatePaths:探测成功(640×480)后选 2 倍 → 联动 1280×960', () async {
+    container = build();
+    final ctl = container.read(imageGifControllerProvider.notifier);
+    ctl.init();
+
+    await ctl.updatePaths(['/tmp/img/a.png', '/tmp/img/b.png']);
+    expect(probe.probeCalls, ['/tmp/img/a.png']);
+
+    ctl.updateScaleMultiplier(2.0);
+    expect(state().width, 1280);
+    expect(state().height, 960);
+    expect(state().scaleMultiplier, 2.0);
+  });
+
+  test('updatePaths:同一首图去重,不重复探测', () async {
+    container = build();
+    final ctl = container.read(imageGifControllerProvider.notifier);
+    ctl.init();
+
+    await ctl.updatePaths(['/tmp/img/a.png']);
+    await ctl.updatePaths(['/tmp/img/a.png', '/tmp/img/c.png']);
+    expect(probe.probeCalls, ['/tmp/img/a.png'], reason: '首路径不变 → 跳过');
+  });
+
+  test('updatePaths:探测失败 → 选倍数仅存偏好;恢复后联动回填', () async {
+    container = build(probeError: StateError('decode failed'));
+    final ctl = container.read(imageGifControllerProvider.notifier);
+    ctl.init();
+
+    await ctl.updatePaths(['/tmp/img/a.png']);
+    // 探测失败:选倍数只存偏好,宽高重置 0(等待探测成功)
+    ctl.updateScaleMultiplier(2.0);
+    expect(state().scaleMultiplier, 2.0);
+    expect(state().width, 0);
+
+    // 探测恢复(更换图片)后联动回填
+    probe.error = null;
+    probe.width = 64;
+    probe.height = 64;
+    await ctl.updatePaths(['/tmp/img/b.png']);
+    expect(state().width, 128, reason: '64×64 × 2');
+    expect(state().height, 128);
+  });
+
+  test('init:持久化默认 (0,0,2.0) 继承倍数,updatePaths 后联动回填', () async {
+    prefs.setString(
+      'default_gif_setting',
+      '{"fps":15,"width":0,"height":0,"loop":0,"start":0,'
+          '"end":null,"frameDurationMs":null,"usePalette":true,'
+          '"scaleMultiplier":2.0}',
+    );
+    container = build();
+    final ctl = container.read(imageGifControllerProvider.notifier);
+    ctl.init();
+    expect(state().scaleMultiplier, 2.0);
+
+    probe.width = 64;
+    probe.height = 64;
+    await ctl.updatePaths(['/tmp/img/a.png']);
+    expect(state().width, 128);
+    expect(state().height, 128);
+  });
+
   test('submit:探测首图尺寸并透传给源,状态 → exporting', () async {
     container = build();
     final notifier = container.read(imageGifControllerProvider.notifier);

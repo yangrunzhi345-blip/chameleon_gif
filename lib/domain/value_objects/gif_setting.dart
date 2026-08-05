@@ -37,6 +37,13 @@ abstract class GifSetting with _$GifSetting {
     /// 图片模式:质量开关;true = 调色板两遍(高质,默认),false = 标准单遍。
     /// 视频模式不读取该字段(视频 UI 无质量开关,恒走两遍)。
     @Default(true) bool usePalette,
+
+    /// 输出等比缩放倍数(0.5/0.75/1/1.5/2/3;1.0 = 不缩放,默认)。
+    ///
+    /// 源尺寸已知时选倍数会联动落成具体 width/height;本字段是
+    /// "偏好/展开语义":批量入队时若 width==height==0 且 m!=1.0,
+    /// 按各视频自身尺寸 × m 展开(见 scale_multiplier.dart)。
+    @Default(1.0) double scaleMultiplier,
   }) = _GifSetting;
 
   factory GifSetting.fromJson(Map<String, dynamic> json) =>

@@ -58,6 +58,11 @@ void main() {
   /// 模拟壳的 initForm + timeline init 接线(否则视频时长未知,
   /// updateStart 经 timeline 回流时被钳制为 0)。
   Future<void> pumpPanel(WidgetTester tester) async {
+    // 加高测试窗口:参数面板含缩放倍数行后,底部"存为默认"等按钮
+    // 在默认 800×600 视口外
+    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(wrap());
     final container = containerOf(tester);
     container.read(exportControllerProvider.notifier).initForm(video: video);
@@ -80,6 +85,31 @@ void main() {
     expect(find.text('导出 GIF'), findsOneWidget);
     expect(find.text('存为默认'), findsOneWidget);
     expect(find.text('载入默认'), findsOneWidget);
+    // 缩放倍数行位于宽度上方,默认 1 倍
+    expect(find.text('缩放倍数'), findsOneWidget);
+    expect(find.text('1 倍'), findsOneWidget);
+  });
+
+  testWidgets('缩放倍数:选 2 倍 → 宽高联动 1280×720;改宽高 → 自定义', (tester) async {
+    await pumpPanel(tester);
+    final container = containerOf(tester);
+
+    // 选 2 倍(源 640×360)
+    await tester.tap(find.text('1 倍'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2 倍').last);
+    await tester.pumpAndSettle();
+
+    final s = container.read(exportControllerProvider);
+    expect(s.width, 1280);
+    expect(s.height, 720);
+    expect(s.scaleMultiplier, 2.0);
+    expect(find.text('2 倍'), findsOneWidget, reason: '回显 2 倍');
+
+    // 手动改宽度(不匹配任何倍数)→ 回显"自定义"
+    container.read(exportControllerProvider.notifier).updateWidth(700);
+    await tester.pump();
+    expect(find.text('自定义'), findsOneWidget);
   });
 
   testWidgets('帧率下拉改值 → 表单状态更新', (tester) async {
