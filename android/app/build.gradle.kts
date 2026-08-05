@@ -28,6 +28,14 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // 仅保留 arm64-v8a:砍掉 32 位与 x86 原生库,APK 体积减半。
+        // 注意必须先 clear() 再添加:Flutter Gradle 插件会先写入全部
+        // 4 个 ABI,直接 += 追加会被合并成 4 个 ABI(见 FlutterPlugin.kt
+        // configureAbiWithoutSplits);abiFilters 为 val MutableSet 不可赋值
+        ndk {
+            abiFilters.clear()
+            abiFilters.add("arm64-v8a")
+        }
     }
 
     buildTypes {
