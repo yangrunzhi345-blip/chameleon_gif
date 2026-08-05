@@ -1,11 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/utils/duration_math.dart';
-import '../../domain/exceptions/file_pick_exception.dart';
 import '../../domain/value_objects/gif_setting.dart';
-import '../../features/export/application/export_providers.dart'
-    show directoryPickPortProvider;
-import '../../shared/providers/core_providers.dart';
+// 别名:顶层函数与混入的抽象成员同名,须经别名调用
+import '../../features/export/application/output_dir_picker.dart'
+    as output_dir_picker;
 import 'batch_import_state.dart';
 
 /// 批量参数表单动作集(组件与控制器之间的最小契约)。
@@ -100,20 +99,15 @@ mixin BatchFormMixin on Notifier<BatchImportFormState>
   }
 
   @override
-  Future<void> pickOutputDir() async {
-    final initial =
-        state.outputDir ??
-        ref.read(settingsRepositoryProvider).defaultExportDir;
-    try {
-      final dir = await ref
-          .read(directoryPickPortProvider)
-          .pickDirectory(initialDirectory: initial.isEmpty ? null : initial);
-      if (dir == null) return; // 用户取消
-      updateOutputDir(dir);
-      await ref.read(settingsRepositoryProvider).setDefaultExportDir(dir);
-    } on FilePickException catch (e) {
-      state = state.copyWith(formError: e.userMessage);
-    }
+  Future<void> pickOutputDir() {
+    // 目录选择公共动作(export/image_gif/batch 共用,见 output_dir_picker)
+    return output_dir_picker.pickOutputDir(
+      ref: ref,
+      currentOutputDir: state.outputDir,
+      locked: false,
+      onPicked: updateOutputDir,
+      onError: (message) => state = state.copyWith(formError: message),
+    );
   }
 
   @override

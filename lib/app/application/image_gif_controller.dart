@@ -5,10 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/export_task.dart';
 import '../../domain/entities/image_gif_source.dart';
-import '../../domain/exceptions/file_pick_exception.dart';
 import '../../domain/value_objects/gif_setting.dart';
 import '../../domain/value_objects/task_state.dart';
-import '../../features/export/application/export_providers.dart';
+import '../../features/export/application/output_dir_picker.dart'
+    as output_dir_picker;
 import '../../features/task_queue/application/task_queue_providers.dart';
 import '../../shared/platform/gallery_save_result.dart';
 import '../../shared/providers/core_providers.dart';
@@ -123,22 +123,15 @@ class ImageGifController extends Notifier<ImageGifFormState> {
   }
 
   /// 打开系统目录选择器;成功后回填表单并持久化为默认导出目录。
-  Future<void> pickOutputDir() async {
-    if (state.locked) return;
-    final initial =
-        state.outputDir ??
-        ref.read(settingsRepositoryProvider).defaultExportDir;
-    try {
-      final dir = await ref
-          .read(directoryPickPortProvider)
-          .pickDirectory(initialDirectory: initial.isEmpty ? null : initial);
-      if (dir == null) return; // 用户取消
-      updateOutputDir(dir);
-      await ref.read(settingsRepositoryProvider).setDefaultExportDir(dir);
-    } on FilePickException catch (e) {
-      if (state.locked) return;
-      state = state.copyWith(formError: e.userMessage);
-    }
+  /// (公共动作见 output_dir_picker.dart)
+  Future<void> pickOutputDir() {
+    return output_dir_picker.pickOutputDir(
+      ref: ref,
+      currentOutputDir: state.outputDir,
+      locked: state.locked,
+      onPicked: updateOutputDir,
+      onError: (message) => state = state.copyWith(formError: message),
+    );
   }
 
   /// 设置表单级错误(UI 层输入异常等;非空时禁用导出)。
