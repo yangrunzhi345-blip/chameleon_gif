@@ -402,7 +402,34 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
           if (constraints.maxWidth >= 1024) {
             return Row(
               children: [
-                SizedBox(width: 380, child: SafeArea(child: listPanel)),
+                SizedBox(
+                  width: 380,
+                  child: SafeArea(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        // 全屏/大窗口:图片顺序区加主题色 1px 边框 + 圆角
+                        // (与右栏面板同一高度阈值判定)
+                        if (constraints.maxHeight >= _outputPanelTopThreshold) {
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: listPanel,
+                          );
+                        }
+                        // 半屏/小窗口:保持原有布局(无边框)
+                        return listPanel;
+                      },
+                    ),
+                  ),
+                ),
                 const VerticalDivider(width: 1),
                 Expanded(
                   child: SafeArea(
