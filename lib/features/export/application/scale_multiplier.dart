@@ -1,7 +1,18 @@
 import '../../../domain/value_objects/gif_setting.dart';
 
-/// 等比缩放倍数选项(1.0 = 不缩放,默认)。
-const kScaleMultiplierOptions = [0.5, 0.75, 1.0, 1.5, 2.0, 3.0];
+/// 等比缩放倍数选项(1.0 = 不缩放,默认;含 0.1–0.4 精细缩小档)。
+const kScaleMultiplierOptions = [
+  0.1,
+  0.2,
+  0.3,
+  0.4,
+  0.5,
+  0.75,
+  1.0,
+  1.5,
+  2.0,
+  3.0,
+];
 
 /// 源尺寸 × 倍数 → 输出尺寸。
 ///
