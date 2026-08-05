@@ -109,7 +109,7 @@ shared(基础)    PlatformAdapter · FFmpegEngine · Isar 仓储 · 引擎执行
 - 三平台同参数输出 SHA-256 一致性验证(`tool/convert_check.dart`)
 - 生成式代码(freezed / isar / riverpod)只经 build_runner 产出,不手改
 
-架构细节、设计取舍、版本锁定表在 `docs/` 目录有 17 篇文档(需求、选型、架构、FFmpeg 设计、测试计划、发布计划等)。
+架构细节、设计取舍、版本锁定表在 `docs/` 目录有 18 篇文档(需求、选型、架构、FFmpeg 设计、测试计划、发布计划、相机拍摄开发计划等)。
 
 ## 接下来做什么
 
