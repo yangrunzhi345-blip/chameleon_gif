@@ -2,8 +2,9 @@ import '../../domain/entities/export_task.dart';
 import '../../domain/repository_interfaces/task_repository.dart';
 import '../../domain/value_objects/task_state.dart';
 
-/// [TaskRepository] 内存实现(P3 过渡;P5-WP1 替换为 Isar 仓储,
-/// 见 docs/12-开发计划.md)。
+/// [TaskRepository] 内存实现(测试注入用;生产走 Isar 仓储,
+/// 见 isar_task_repository.dart)。字段级复制与 Isar 实现保持对齐,
+/// 缺字段会导致依赖本仓储的测试断言失真。
 ///
 /// 支持预种子任务(测试模拟"崩溃会话"恢复场景)。
 class InMemoryTaskRepository implements TaskRepository {
@@ -34,6 +35,10 @@ class InMemoryTaskRepository implements TaskRepository {
       startedAt: task.startedAt,
       finishedAt: task.finishedAt,
       imagePaths: task.imagePaths,
+      galleryStatus: task.galleryStatus,
+      galleryPath: task.galleryPath,
+      galleryUri: task.galleryUri,
+      galleryMessage: task.galleryMessage,
     );
     return id;
   }

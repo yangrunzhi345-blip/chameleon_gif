@@ -43,7 +43,8 @@ class ExportTaskSchema {
 
   DateTime? finishedAt;
 
-  /// GallerySaveStatus.index(默认 0 = unsupported)
+  /// GallerySaveStatus.index(默认 0 = saved;仅新行缺省,
+  /// 持久化经 fromEntity 显式写入,枚举序见 gallery_save_result.dart)
   int galleryStatus = 0;
 
   String? galleryPath;
