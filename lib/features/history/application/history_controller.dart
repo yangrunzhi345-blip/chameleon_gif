@@ -71,9 +71,11 @@ class HistoryController extends Notifier<AsyncValue<List<ExportHistory>>> {
               ImageGifSource(paths: imagePaths),
             );
       }
-      // end null(全片)放行,由 TaskManager.submit 装配视频时长
+      // end null(全片)放行,由 TaskManager.submit 装配视频时长;
+      // end == 0("时长未知 → 输出全片"哨兵,见 export_controller.submit
+      // 同型守卫)也放行,否则 0 时长历史无法重转
       final end = history.settings.end;
-      if (end != null && history.settings.start >= end) {
+      if (end != null && end > Duration.zero && history.settings.start >= end) {
         throw const FilePickException(
           errorCode: 'GIF_RETRY_INVALID',
           userMessage: '历史参数无效,无法重转',

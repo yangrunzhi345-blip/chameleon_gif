@@ -231,6 +231,22 @@ void main() {
     );
   });
 
+  test('retry 0 时长参数放行(时长未知哨兵,与 export 同型守卫)', () async {
+    final id = await historyRepo.add(
+      history(
+        1,
+        settings: const GifSetting(start: Duration.zero, end: Duration.zero),
+      ),
+    );
+    await ctl().reload();
+
+    final newTaskId = await ctl().retry((await historyRepo.byId(id))!);
+    await waitForConvert(1);
+
+    expect(newTaskId, isNotNull, reason: 'end==0(时长未知)不应被拒绝');
+    expect(service.convertCalls, hasLength(1));
+  });
+
   test('retry 图片历史:直接 submitFromImages,不调 ffprobe', () async {
     const paths = ['/img/a.png', '/img/b.png'];
     final id = await historyRepo.add(

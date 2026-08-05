@@ -150,6 +150,34 @@ void main() {
     expect(await taskRepo.all(), isEmpty);
   });
 
+  test('submit:0 时长视频放行(时长未知哨兵,输出全片)', () async {
+    container = build();
+    final ctl = container.read(exportControllerProvider.notifier);
+    const zeroDurationVideo = VideoInfo(
+      path: '/tmp/videos/zero.mp4',
+      formatName: 'mp4',
+      duration: Duration.zero,
+      width: 640,
+      height: 360,
+      fps: 30,
+      codec: 'h264',
+    );
+
+    await ctl.submit(
+      setting: const GifSetting(start: Duration.zero),
+      video: zeroDurationVideo,
+    );
+
+    expect(
+      container.read(exportControllerProvider).lifecycle,
+      ExportLifecycle.exporting,
+      reason: '0 时长(未知)视频不应被 start>=end 拒绝',
+    );
+    final tasks = await taskRepo.all();
+    expect(tasks, hasLength(1));
+    expect(tasks.single.settings.end, Duration.zero);
+  });
+
   test('转换成功 → done 态(含输出大小)', () async {
     container = build();
     final ctl = container.read(exportControllerProvider.notifier);
@@ -308,6 +336,20 @@ void main() {
     final state = container.read(exportControllerProvider);
     expect(state.outputDir, '${tempRoot.path}/my_gif');
     expect(prefs.getString('default_export_dir'), '${tempRoot.path}/my_gif');
+  });
+
+  test('loadDefault 应用 height(与 initForm 全量字段一致)', () async {
+    container = build();
+    final ctl = container.read(exportControllerProvider.notifier);
+    ctl.initForm(video: video);
+    // 保存含 height 的默认参数
+    ctl.updateHeight(480);
+    await ctl.saveAsDefault();
+    // 改动表单 height 使其偏离默认
+    ctl.updateHeight(0);
+    // 载入默认 → height 应恢复为 480(修复前 loadDefault 漏应用 height)
+    ctl.loadDefault();
+    expect(container.read(exportControllerProvider).height, 480);
   });
 
   test('pickOutputDir:取消(null)静默,表单不变', () async {

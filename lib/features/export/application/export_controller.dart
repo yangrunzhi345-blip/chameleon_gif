@@ -59,6 +59,7 @@ class ExportController extends Notifier<ExportFormState> {
     state = state.copyWith(
       fps: saved.fps.clamp(1, 60),
       width: saved.width.clamp(0, 4096),
+      height: saved.height.clamp(0, 4096),
       loop: saved.loop.clamp(0, 100),
       start: saved.start,
       end: saved.end,
@@ -190,7 +191,10 @@ class ExportController extends Notifier<ExportFormState> {
     try {
       final effective = setting ?? assembleSetting();
       final end = effective.end ?? video.duration;
-      if (effective.start >= end) {
+      // end == 0 是"时长未知 → 输出全片"哨兵(command_builder._trimArgs
+      // 省略 -to),此时 start>=end 恒真;仅 end>0 才做区间校验,
+      // 否则时长元数据为 0 的视频被恒定拒绝、永远无法导出
+      if (end > Duration.zero && effective.start >= end) {
         state = state.copyWith(
           lifecycle: ExportLifecycle.failed,
           errorMessage: '起点不能晚于或等于终点',
