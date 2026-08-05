@@ -295,7 +295,9 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
               controller: _frameDurationCtrl,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                hintText: '毫秒',
+                // 常显单位(默认 1000 是毫秒,无单位提示易误读为秒)
+                suffixText: '毫秒',
+                hintText: '如 1000',
                 border: _inputBorder,
               ),
               onChanged: (_) => _frameDurationFocused = true,
