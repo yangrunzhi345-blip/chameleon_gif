@@ -2,15 +2,15 @@
 
 ## 一、项目身份
 
-我是一名 Flutter 开发者,正在开发 **Chameleon Gif**:一款 **MP4 转 GIF** 的跨平台工具。**首发平台:Linux(主要开发平台)、Windows、Android**;macOS / Web / iOS 为预留平台(V3 及以后)。选择 Flutter 的核心原因是**全平台一套代码**;架构要求:首发三平台体验一致,预留平台不破坏现有接口(详见 docs/01-项目介绍.md 与 docs/16-V2.0扩展规划.md)。
+我是一名 Flutter 开发者,正在开发 **Chameleon Gif**:一款 **MP4/多图片 → GIF** 的跨平台工具。**首发平台:Linux(主要开发平台)、Windows、Android**;macOS / Web / iOS 为预留平台(V3 及以后)。选择 Flutter 的核心原因是**全平台一套代码**;架构要求:首发三平台体验一致,预留平台不破坏现有接口(详见 docs/01-项目介绍.md 与 docs/16-V2.0扩展规划.md)。
 
 **完整技术设计说明书在 `docs/` 目录(17 篇),本文件与 docs/03-技术选型.md 版本锁定表同步维护,冲突时以 docs/ 为准。**
 
 **核心功能:**
 
-1. 选择 MP4 视频文件
-2. 配置转换参数:输出帧率、宽高/缩放、起止时间裁剪、质量
-3. 调用 FFmpeg 执行 MP4 → GIF 转换,实时展示进度
+1. 选择 MP4 视频文件 / 多张图片(图片合成帧动画)
+2. 配置转换参数:输出帧率、宽高/缩放、起止时间裁剪(视频)、每图停留时长(图片)、循环、质量
+3. 调用 FFmpeg 执行 MP4/图片 → GIF 转换,实时展示进度
 4. 转换记录持久化(历史列表、重转、删除)
 5. 保存/预览输出 GIF
 
@@ -184,6 +184,21 @@ ffmpeg -i in.mp4 -i palette.png -lavfi "fps=15,scale=480:-1:flags=lanczos[x];[x]
 - 以 `-progress pipe:1` 解析 `out_time_us` → 计算百分比,经 `Stream` 推送给 UI。
 - 取消 = 终止子进程,清理临时文件(palette.png、半成品 gif)。
 - 转换前后在 Isar 中登记记录,状态:等待中 / 进行中 / 完成 / 失败 / 已取消。
+
+### 6.4 图片模式(多图合成 GIF,与视频模式并列)
+
+- 输入:多张图片(png/jpg/jpeg/webp)按顺序合成帧动画;每图输入
+  `-loop 1 -t <每图时长> -framerate <F> -i img`,filter_complex 逐图
+  `fps=F,scale=...,setsar=1` 后 `concat=n=N`,两遍调色板法与视频一致
+  (palette 遍无 `-progress`,encode 遍带 `-progress pipe:1` 与输出 `-loop`)。
+- 参数:帧率、每图停留时长(毫秒,下限 `ceil(1000/fps)` 防 0 帧图)、
+  宽高缩放、循环、质量开关(高质两遍/标准单遍,`GifSetting.usePalette`)。
+- 源模型 `ImageGifSource`(paths/首图尺寸);任务持久化经
+  `ExportTask.imagePaths`(Isar JSON 列),崩溃恢复/历史重转以路径列表
+  重建源,**不依赖 ffprobe**;`GifSetting` 新增 `frameDurationMs`/
+  `usePalette`(均带默认值,老 JSON 兼容)。
+- 未指定宽高时统一到首图尺寸(concat 要求分辨率一致),首图尺寸由
+  UI 解码探测填充;不同宽高比的图经 `setsar=1` 归一(ffmpeg 8 已实证)。
 
 ## 七、常用命令
 

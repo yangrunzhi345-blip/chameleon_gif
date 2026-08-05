@@ -17,6 +17,8 @@ _GifSetting _$GifSettingFromJson(Map<String, dynamic> json) => _GifSetting(
       ? null
       : Duration(microseconds: (json['end'] as num).toInt()),
   loop: (json['loop'] as num?)?.toInt() ?? 0,
+  frameDurationMs: (json['frameDurationMs'] as num?)?.toInt(),
+  usePalette: json['usePalette'] as bool? ?? true,
 );
 
 Map<String, dynamic> _$GifSettingToJson(_GifSetting instance) =>
@@ -27,4 +29,6 @@ Map<String, dynamic> _$GifSettingToJson(_GifSetting instance) =>
       'start': instance.start.inMicroseconds,
       'end': instance.end?.inMicroseconds,
       'loop': instance.loop,
+      'frameDurationMs': instance.frameDurationMs,
+      'usePalette': instance.usePalette,
     };

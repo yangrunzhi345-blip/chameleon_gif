@@ -94,6 +94,32 @@ ffmpeg -ss <start> -to <end> -i <in.mp4> -i <work>/palette.png
   - `speed` → `setpts=PTS/<speed>`
   - V3:codec 分支(`-f webp` / APNG muxer)在此扩展
 
+#### 8.3.2.1 图片模式(多图合成 GIF,`buildFromImages`)
+
+- 输入 `GifSetting + ImageGifSource(paths + 首图尺寸)` → 输出命令列表;
+  与视频路径互不影响(`build()` 逐字节不变)
+- **每图一个输入**(`-t` 为输入选项,只作用于该输入;未来可逐图差异化):
+
+```bash
+ffmpeg -loop 1 -t <D> -framerate <F> -i <img1> -loop 1 -t <D> -framerate <F> -i <img2> ...
+  -filter_complex "[0:v]fps=F,scale=...,setsar=1[s0];[1:v]fps=F,scale=...,setsar=1[s1];
+                    [s0][s1]concat=n=N:v=1:a=0[vout]"
+  -map "[vout]" -progress pipe:1 -y -loop <n> <out.gif>
+```
+
+- 两遍调色板法与视频一致:palette 遍 `[vout]palettegen=max_colors=256[pal]
+  -map "[pal]"`(无 `-progress`);encode 遍 `[vout][N:v]paletteuse=...`(palette
+  为第 N 个输入),显式 `-map` 保证三平台确定
+- 关键约束(真机实证):
+  - **分辨率统一**:concat 要求各输入分辨率一致 —— 未指定宽高时统一到首图
+    尺寸(UI 解码探测首图尺寸填充 `ImageGifSource.width/height`;未知时
+    退化为无 scale)
+  - **`setsar=1` 必加**:不同宽高比图片 scale 后 SAR 不一致,concat 校验
+    失败(ffmpeg 8 实测报 "Input link parameters do not match")
+  - 每图时长下限 `ceil(1000/fps)` 毫秒,低于该值该图在 `-t` 窗口内 0 帧
+    被 concat 静默跳过(控制器钳制 + formError)
+- 进度分母 = `N × 每图时长`(encode 遍 out_time_us 沿 concat 时间轴)
+
 ### 8.3.3 ProgressParser(纯函数,可单测)
 
 - 输入:`-progress pipe:1` 的 stdout 行流

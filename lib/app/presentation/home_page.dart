@@ -69,6 +69,13 @@ class HomePage extends ConsumerWidget {
             const Text('基础架构就绪', textAlign: TextAlign.center),
             // 按钮区下沉到底部
             const Spacer(),
+            // 图片制作 GIF:入口位于「导入 MP4」上方,样式一致
+            FilledButton.icon(
+              onPressed: () => pickImagesAndBuild(context, ref),
+              icon: const Icon(Icons.photo_library_outlined),
+              label: const Text('图片制作 GIF'),
+            ),
+            const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: () => pickMp4AndPreview(context, ref),
               icon: const Icon(Icons.movie_outlined),

@@ -61,11 +61,17 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
         case ExportLifecycle.done:
           final task = state.task;
           if (task != null) {
+            final notifier = ref.read(exportControllerProvider.notifier);
             showDialog<void>(
               context: context,
               builder: (_) => ExportCompleteDialog(
                 task: task,
                 outputSizeBytes: state.outputSizeBytes ?? 0,
+                actions: ExportCompleteActions(
+                  onOpen: notifier.openOutputFolder,
+                  onShare: notifier.shareGif,
+                  onReset: notifier.reset,
+                ),
               ),
             );
           }

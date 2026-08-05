@@ -6,4 +6,8 @@ abstract interface class FilePickPort {
 
   /// 多选 MP4 源文件(P6-WP1 批量导入);取消/空选归一为 null。
   Future<List<String>?> pickMp4s();
+
+  /// 多选图片(png/jpg/jpeg/webp,图片→GIF 功能);
+  /// 取消/空选归一为 null。
+  Future<List<String>?> pickImages();
 }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/entities/export_history.dart';
 import '../../../domain/entities/export_task.dart';
+import '../../../domain/entities/image_gif_source.dart';
 import '../../../domain/entities/video_info.dart';
 import '../../../domain/exceptions/file_pick_exception.dart';
 import '../../../domain/value_objects/task_state.dart';
@@ -59,6 +60,17 @@ class HistoryController extends Notifier<AsyncValue<List<ExportHistory>>> {
   Future<int?> retry(ExportHistory history) async {
     if (!_retrying.add(history.id)) return null;
     try {
+      // 图片模式:直接以历史 imagePaths 重建源入队(不依赖 ffprobe,
+      // settings.end 已由提交时装配为总输出时长,校验自然通过)
+      final imagePaths = history.imagePaths;
+      if (imagePaths != null && imagePaths.isNotEmpty) {
+        return ref
+            .read(taskQueueControllerProvider.notifier)
+            .submitFromImages(
+              history.settings,
+              ImageGifSource(paths: imagePaths),
+            );
+      }
       // end null(全片)放行,由 TaskManager.submit 装配视频时长
       final end = history.settings.end;
       if (end != null && history.settings.start >= end) {

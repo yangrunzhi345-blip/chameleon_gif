@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
 import 'package:chameleon_gif/domain/entities/export_history.dart';
+import 'package:chameleon_gif/domain/entities/image_gif_source.dart';
 import 'package:chameleon_gif/domain/entities/video_info.dart';
 import 'package:chameleon_gif/domain/exceptions/file_pick_exception.dart';
 import 'package:chameleon_gif/domain/exceptions/source_missing_exception.dart';
@@ -229,14 +230,47 @@ void main() {
       ),
     );
   });
+
+  test('retry 图片历史:直接 submitFromImages,不调 ffprobe', () async {
+    const paths = ['/img/a.png', '/img/b.png'];
+    final id = await historyRepo.add(
+      ExportHistory(
+        id: 9,
+        videoPath: paths.first,
+        imagePaths: paths,
+        outputPath: '/tmp/gifforge_9/out.gif',
+        settings: const GifSetting(frameDurationMs: 1000),
+        durationMs: 1200,
+        outputSizeBytes: 2048,
+        createdAt: DateTime(2026, 1, 2),
+        sourceDurationMs: 3000,
+        outputFrameCount: 45,
+      ),
+    );
+    await ctl().reload();
+
+    final newTaskId = await ctl().retry((await historyRepo.byId(id))!);
+    await waitForConvert(1); // TaskManager 异步链
+
+    expect(newTaskId, isNotNull);
+    expect(service.convertImagesCalls, hasLength(1));
+    expect(
+      service.receivedSources.single.paths,
+      paths,
+      reason: '以历史 imagePaths 重建源',
+    );
+    expect(parsePort.parseCalls, isEmpty, reason: '图片重转不调 ffprobe');
+  });
 }
 
 class FakeParseVideoPort implements ParseVideoPort {
   Object? error;
   Completer<VideoInfo>? blocker;
+  final parseCalls = <String>[];
 
   @override
   Future<VideoInfo> parse(String path) async {
+    parseCalls.add(path);
     if (error != null) throw error!;
     if (blocker != null) return blocker!.future;
     return const VideoInfo(
@@ -252,6 +286,41 @@ class FakeParseVideoPort implements ParseVideoPort {
 }
 
 class _FakeService implements FFmpegService {
+  final convertImagesCalls = <int>[];
+  final receivedSources = <ImageGifSource>[];
+
+  @override
+  Future<ConvertResult> convertImages({
+    required ImageGifSource source,
+    required GifSetting setting,
+    required int taskId,
+    required String workDir,
+    required String outputPath,
+    CancelToken? cancelToken,
+    void Function(TaskProgress)? onProgress,
+    void Function(String line)? onLog,
+  }) async {
+    convertImagesCalls.add(taskId);
+    receivedSources.add(source);
+    return convert(
+      setting: setting,
+      video: VideoInfo(
+        path: source.paths.first,
+        formatName: '',
+        duration: Duration.zero,
+        width: source.width,
+        height: source.height,
+        codec: '',
+      ),
+      taskId: taskId,
+      workDir: workDir,
+      outputPath: outputPath,
+      cancelToken: cancelToken,
+      onProgress: onProgress,
+      onLog: onLog,
+    );
+  }
+
   final convertCalls = <int>[];
   GifSetting? lastSetting;
   VideoInfo? lastVideo;

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/entities/export_task.dart';
+import '../../../domain/entities/image_gif_source.dart';
 import '../../../domain/entities/video_info.dart';
 import '../../../domain/value_objects/gif_setting.dart';
 import '../../../domain/value_objects/task_state.dart';
@@ -45,6 +46,19 @@ class TaskQueueController extends Notifier<TaskQueueState> {
     final id = await ref
         .read(taskManagerProvider)
         .submit(setting, video, outputDir: outputDir);
+    await _refresh();
+    return id;
+  }
+
+  /// 提交图片合成任务([source] 为有序图片路径列表)。
+  Future<int> submitFromImages(
+    GifSetting setting,
+    ImageGifSource source, {
+    String? outputDir,
+  }) async {
+    final id = await ref
+        .read(taskManagerProvider)
+        .submitFromImages(setting, source, outputDir: outputDir);
     await _refresh();
     return id;
   }

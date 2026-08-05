@@ -31,12 +31,39 @@ void main() {
       expect(s.start, Duration.zero);
       expect(s.end, isNull);
       expect(s.loop, 0);
+      // 图片模式字段:老 JSON 无此字段 → 默认
+      expect(s.frameDurationMs, isNull);
+      expect(s.usePalette, isTrue);
     });
 
     test('end 显式 null 容错', () {
       final s = GifSetting.fromJson(const {'end': null, 'fps': 30});
       expect(s.end, isNull);
       expect(s.fps, 30);
+    });
+
+    test('图片字段读写往返', () {
+      const s = GifSetting(frameDurationMs: 500, usePalette: false);
+      expect(GifSetting.fromJson(s.toJson()), s);
+    });
+  });
+
+  group('effectiveFrameDuration', () {
+    test('frameDurationMs 显式 → 原样返回', () {
+      const s = GifSetting(frameDurationMs: 500);
+      expect(s.effectiveFrameDuration, const Duration(milliseconds: 500));
+    });
+
+    test('frameDurationMs 为 null → 由 fps 推导(每图一帧)', () {
+      const s = GifSetting(fps: 15);
+      expect(s.effectiveFrameDuration, const Duration(milliseconds: 66));
+      const s10 = GifSetting(fps: 10);
+      expect(s10.effectiveFrameDuration, const Duration(milliseconds: 100));
+    });
+
+    test('下限保护:推导值至少 1ms', () {
+      const s = GifSetting(fps: 60);
+      expect(s.effectiveFrameDuration.inMilliseconds, greaterThanOrEqualTo(1));
     });
   });
 }

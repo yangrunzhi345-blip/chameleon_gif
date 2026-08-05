@@ -33,6 +33,7 @@ class InMemoryTaskRepository implements TaskRepository {
       createdAt: task.createdAt,
       startedAt: task.startedAt,
       finishedAt: task.finishedAt,
+      imagePaths: task.imagePaths,
     );
     return id;
   }

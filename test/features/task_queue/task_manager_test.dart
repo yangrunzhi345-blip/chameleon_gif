@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../fixtures/fake_ffmpeg_service.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
 import 'package:chameleon_gif/domain/entities/export_task.dart';
+import 'package:chameleon_gif/domain/entities/image_gif_source.dart';
 import 'package:chameleon_gif/domain/entities/video_info.dart';
 import 'package:chameleon_gif/domain/exceptions/encode_exception.dart';
 import 'package:chameleon_gif/domain/exceptions/source_broken_exception.dart';
@@ -494,6 +495,128 @@ void main() {
     final done = events.lastWhere((e) => e.state == TaskState.completed);
     expect(done.outputPath, isNotNull);
     await sub.cancel();
+  });
+
+  // 图片模式(多图合成 GIF,docs/14 §14.2 图片节)。
+  group('submitFromImages', () {
+    const source = ImageGifSource(
+      paths: ['/img/a.png', '/img/b.png', '/img/c.png'],
+      width: 64,
+      height: 64,
+    );
+
+    test('入队 → Fake 收到 source → 完成 → 历史快照含 imagePaths 与帧数', () async {
+      const setting = GifSetting(frameDurationMs: 1000, fps: 15);
+      final id = await manager.submitFromImages(setting, source);
+
+      final done = await waitForState(id, TaskState.completed);
+      expect(done.imagePaths, source.paths);
+      expect(
+        done.videoPath,
+        source.paths.first,
+        reason: '图片任务 videoPath 取首图路径(输出命名复用)',
+      );
+      expect(service.convertImagesCalls, [id]);
+      expect(service.receivedSources.single.paths, source.paths);
+      expect(
+        service.lastSetting!.end,
+        const Duration(seconds: 3),
+        reason: 'end 装配为总输出时长 N×D',
+      );
+
+      final histories = await historyRepo.list();
+      expect(histories, hasLength(1));
+      final h = histories.single;
+      expect(h.imagePaths, source.paths);
+      expect(h.sourceDurationMs, 3000);
+      expect(h.outputFrameCount, 45, reason: '15fps × 3s = 45 帧');
+    });
+
+    test('设置 end 已显式指定时不覆盖', () async {
+      const setting = GifSetting(
+        frameDurationMs: 500,
+        end: Duration(seconds: 2),
+      );
+      await manager.submitFromImages(setting, source);
+      await waitForState(1, TaskState.completed);
+      expect(service.lastSetting!.end, const Duration(seconds: 2));
+    });
+
+    test('崩溃恢复:预种子 imagePaths 任务 → start() 以 imagePaths 兜底重建源', () async {
+      repo = InMemoryTaskRepository(
+        seed: [
+          ExportTask(
+            id: 9,
+            videoPath: '/img/a.png',
+            imagePaths: source.paths,
+            settings: const GifSetting(frameDurationMs: 1000),
+            state: TaskState.queued,
+            createdAt: DateTime(2026, 1, 1),
+          ),
+        ],
+      );
+      manager = build();
+      await manager.start();
+
+      final done = await waitForState(9, TaskState.completed);
+      expect(done.imagePaths, source.paths);
+      expect(service.convertImagesCalls, [9]);
+      expect(
+        service.receivedSources.single.paths,
+        source.paths,
+        reason: '缓存已消费时以 task.imagePaths 兜底',
+      );
+    });
+
+    test('失败重试:重排队携带 imagePaths,重试后仍走图片路径', () async {
+      repo = InMemoryTaskRepository(
+        seed: [
+          ExportTask(
+            id: 5,
+            videoPath: '/img/a.png',
+            imagePaths: source.paths,
+            settings: const GifSetting(frameDurationMs: 1000),
+            state: TaskState.failed,
+            errorCode: 'GIF_1_ENCODE',
+            errorDetail: '失败',
+            createdAt: DateTime(2026, 1, 1),
+          ),
+        ],
+      );
+      manager = build();
+      await manager.retry(5);
+
+      final done = await waitForState(5, TaskState.completed);
+      expect(
+        done.imagePaths,
+        source.paths,
+        reason: 'retry 显式重建必须穿透 imagePaths,否则恢复后丢列表',
+      );
+      expect(service.convertImagesCalls, [5]);
+    });
+
+    test('取消排队中的图片任务:释放缓存无副作用', () async {
+      // 并发槽 1 + 首个任务阻塞,第二个图片任务排队期间取消
+      service = FakeFfmpegService(blockFirstConvert: true);
+      manager = TaskManager(
+        taskRepository: repo,
+        historyRepository: historyRepo,
+        ffmpegService: service,
+        platformAdapter: _TestAdapter(tempRoot.path),
+        logger: logger,
+        retryDelay: (_) async {},
+        concurrency: 1,
+      );
+      final v1 = await manager.submit(const GifSetting(), video);
+      await waitForState(v1, TaskState.running); // blocker 已挂起
+      final id2 = await manager.submitFromImages(const GifSetting(), source);
+      await manager.cancel(id2);
+
+      final t2 = await waitForState(id2, TaskState.cancelled);
+      expect(t2.imagePaths, source.paths);
+      service.unblock();
+      await waitForState(v1, TaskState.completed);
+    });
   });
 }
 

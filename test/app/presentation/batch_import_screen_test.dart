@@ -10,6 +10,7 @@ import 'package:chameleon_gif/app/presentation/home_page.dart';
 import 'package:chameleon_gif/app/presentation/settings_screen.dart';
 import 'package:chameleon_gif/app/router.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/entities/image_gif_source.dart';
 import 'package:chameleon_gif/domain/entities/video_info.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_service.dart';
@@ -236,6 +237,8 @@ void main() {
 }
 
 class _FakeFilePickPort implements FilePickPort {
+  @override
+  Future<List<String>?> pickImages() async => null;
   _FakeFilePickPort({this.pickMp4sResult});
 
   List<String>? pickMp4sResult;
@@ -272,6 +275,36 @@ class _TestAdapter extends PlatformAdapter {
 }
 
 class _BatchFakeService implements FFmpegService {
+  @override
+  Future<ConvertResult> convertImages({
+    required ImageGifSource source,
+    required GifSetting setting,
+    required int taskId,
+    required String workDir,
+    required String outputPath,
+    CancelToken? cancelToken,
+    void Function(TaskProgress)? onProgress,
+    void Function(String line)? onLog,
+  }) async {
+    return convert(
+      setting: setting,
+      video: VideoInfo(
+        path: source.paths.first,
+        formatName: '',
+        duration: Duration.zero,
+        width: source.width,
+        height: source.height,
+        codec: '',
+      ),
+      taskId: taskId,
+      workDir: workDir,
+      outputPath: outputPath,
+      cancelToken: cancelToken,
+      onProgress: onProgress,
+      onLog: onLog,
+    );
+  }
+
   @override
   Future<ConvertResult> convert({
     required GifSetting setting,

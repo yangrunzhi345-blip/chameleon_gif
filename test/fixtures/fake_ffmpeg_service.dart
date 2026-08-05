@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:chameleon_gif/domain/entities/image_gif_source.dart';
 import 'package:chameleon_gif/domain/entities/video_info.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_service.dart';
@@ -33,6 +34,8 @@ class FakeFfmpegService implements FFmpegService {
 
   final convertCalls = <int>[];
   final receivedVideos = <VideoInfo>[];
+  final convertImagesCalls = <int>[];
+  final receivedSources = <ImageGifSource>[];
   final cancelledAtCall = <int, bool>{};
   GifSetting? lastSetting;
   CancelToken? lastCancelToken;
@@ -101,6 +104,39 @@ class FakeFfmpegService implements FFmpegService {
       exitCode: 0,
       elapsed: Duration(seconds: 1),
       outputSizeBytes: 123,
+    );
+  }
+
+  /// 图片路径:与 [convert] 同语义(共享阻塞/错误/取消控制),记录调用与源。
+  @override
+  Future<ConvertResult> convertImages({
+    required ImageGifSource source,
+    required GifSetting setting,
+    required int taskId,
+    required String workDir,
+    required String outputPath,
+    CancelToken? cancelToken,
+    void Function(TaskProgress)? onProgress,
+    void Function(String line)? onLog,
+  }) async {
+    convertImagesCalls.add(taskId);
+    receivedSources.add(source);
+    return convert(
+      setting: setting,
+      video: VideoInfo(
+        path: source.paths.first,
+        formatName: '',
+        duration: Duration.zero,
+        width: source.width,
+        height: source.height,
+        codec: '',
+      ),
+      taskId: taskId,
+      workDir: workDir,
+      outputPath: outputPath,
+      cancelToken: cancelToken,
+      onProgress: onProgress,
+      onLog: onLog,
     );
   }
 }

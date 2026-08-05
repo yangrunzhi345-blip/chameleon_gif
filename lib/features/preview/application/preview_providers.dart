@@ -11,4 +11,3 @@ final previewControllerProvider =
     NotifierProvider.autoDispose<PreviewController, PreviewState>(
       PreviewController.new,
     );
-

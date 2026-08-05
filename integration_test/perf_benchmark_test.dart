@@ -228,6 +228,8 @@ void main() {
 
 class _NoopFilePickPort implements FilePickPort {
   @override
+  Future<List<String>?> pickImages() async => null;
+  @override
   Future<String?> pickMp4() async => null;
 
   @override

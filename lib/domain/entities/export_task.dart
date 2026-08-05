@@ -24,11 +24,18 @@ class ExportTask {
     this.galleryPath,
     this.galleryUri,
     this.galleryMessage,
+    this.imagePaths,
   });
 
   /// 自增主键(未持久化时可为 0)
   final int id;
+
+  /// 源路径:视频模式 = 视频文件路径;图片模式 = 首图路径
+  /// (输出命名/galleryDisplayName 复用该字段,零改动)。
   final String videoPath;
+
+  /// 图片模式:有序图片路径列表;null = 视频模式。
+  final List<String>? imagePaths;
   final String? outputPath;
   final GifSetting settings;
 
@@ -74,6 +81,7 @@ class ExportTask {
     String? galleryPath,
     String? galleryUri,
     String? galleryMessage,
+    List<String>? imagePaths,
   }) {
     return ExportTask(
       id: id,
@@ -92,6 +100,7 @@ class ExportTask {
       galleryPath: galleryPath ?? this.galleryPath,
       galleryUri: galleryUri ?? this.galleryUri,
       galleryMessage: galleryMessage ?? this.galleryMessage,
+      imagePaths: imagePaths ?? this.imagePaths,
     );
   }
 }

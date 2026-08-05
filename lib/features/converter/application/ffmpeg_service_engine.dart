@@ -1,6 +1,7 @@
 import 'dart:io' show File, FileSystemException;
 
 import '../../../core/logger/app_logger.dart';
+import '../../../domain/entities/image_gif_source.dart';
 import '../../../domain/entities/video_info.dart';
 import '../../../domain/repository_interfaces/ffmpeg_engine.dart';
 import '../../../domain/repository_interfaces/ffmpeg_service.dart';
@@ -50,6 +51,60 @@ class FfmpegServiceEngine implements FFmpegService {
       outputPath: outputPath,
     );
     final denominator = _builder.progressDenominator(setting, video);
+    return _runCommands(
+      commands: commands,
+      denominator: denominator,
+      taskId: taskId,
+      workDir: workDir,
+      outputPath: outputPath,
+      cancelToken: cancelToken,
+      onProgress: onProgress,
+      onLog: onLog,
+    );
+  }
+
+  @override
+  Future<ConvertResult> convertImages({
+    required ImageGifSource source,
+    required GifSetting setting,
+    required int taskId,
+    required String workDir,
+    required String outputPath,
+    CancelToken? cancelToken,
+    void Function(TaskProgress)? onProgress,
+    void Function(String line)? onLog,
+  }) async {
+    final commands = _builder.buildFromImages(
+      setting: setting,
+      source: source,
+      workDir: workDir,
+      outputPath: outputPath,
+      usePalette: setting.usePalette,
+    );
+    final denominator = _builder.progressDenominatorImages(setting, source);
+    return _runCommands(
+      commands: commands,
+      denominator: denominator,
+      taskId: taskId,
+      workDir: workDir,
+      outputPath: outputPath,
+      cancelToken: cancelToken,
+      onProgress: onProgress,
+      onLog: onLog,
+    );
+  }
+
+  /// 逐命令执行编排(video/图片两路径共用,§8.2 时序)。
+  Future<ConvertResult> _runCommands({
+    required List<GifCommand> commands,
+    required Duration denominator,
+    required int taskId,
+    required String workDir,
+    required String outputPath,
+    CancelToken? cancelToken,
+    void Function(TaskProgress)? onProgress,
+    void Function(String line)? onLog,
+  }) async {
     final tempFiles = commands.any((c) => c.label == GifCommand.kPaletteLabel)
         ? ['$workDir/palette.png', outputPath]
         : [outputPath];

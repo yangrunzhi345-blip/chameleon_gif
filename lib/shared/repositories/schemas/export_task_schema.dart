@@ -52,6 +52,10 @@ class ExportTaskSchema {
 
   String? galleryMessage;
 
+  /// 图片模式图片路径列表的 JSON 编码(null = 视频模式)。
+  /// Isar 3.x 无原生 List 列,仿 settingsJson 用 JSON 字符串列。
+  String? imagePathsJson;
+
   /// 领域实体 → 集合
   static ExportTaskSchema fromEntity(ExportTask task) {
     final schema = ExportTaskSchema()
@@ -70,7 +74,10 @@ class ExportTaskSchema {
       ..galleryStatus = task.galleryStatus.index
       ..galleryPath = task.galleryPath
       ..galleryUri = task.galleryUri
-      ..galleryMessage = task.galleryMessage;
+      ..galleryMessage = task.galleryMessage
+      ..imagePathsJson = task.imagePaths == null
+          ? null
+          : jsonEncode(task.imagePaths);
     return schema;
   }
 
@@ -97,6 +104,10 @@ class ExportTaskSchema {
       galleryPath: galleryPath,
       galleryUri: galleryUri,
       galleryMessage: galleryMessage,
+      imagePaths: imagePathsJson == null
+          ? null
+          : (const JsonDecoder().convert(imagePathsJson!) as List)
+                .cast<String>(),
     );
   }
 }

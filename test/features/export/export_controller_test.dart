@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chameleon_gif/shared/providers/core_providers.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/entities/image_gif_source.dart';
 import 'package:chameleon_gif/domain/entities/video_info.dart';
 import 'package:chameleon_gif/domain/exceptions/encode_exception.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/directory_pick_port.dart';
@@ -362,6 +363,36 @@ class _FakeDirPick implements DirectoryPickPort {
 }
 
 class FakeExportService implements FFmpegService {
+  @override
+  Future<ConvertResult> convertImages({
+    required ImageGifSource source,
+    required GifSetting setting,
+    required int taskId,
+    required String workDir,
+    required String outputPath,
+    CancelToken? cancelToken,
+    void Function(TaskProgress)? onProgress,
+    void Function(String line)? onLog,
+  }) async {
+    return convert(
+      setting: setting,
+      video: VideoInfo(
+        path: source.paths.first,
+        formatName: '',
+        duration: Duration.zero,
+        width: source.width,
+        height: source.height,
+        codec: '',
+      ),
+      taskId: taskId,
+      workDir: workDir,
+      outputPath: outputPath,
+      cancelToken: cancelToken,
+      onProgress: onProgress,
+      onLog: onLog,
+    );
+  }
+
   FakeExportService({this.error, this.blockFirstConvert = false});
 
   final Object? error;

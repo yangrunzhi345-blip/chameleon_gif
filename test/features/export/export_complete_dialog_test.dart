@@ -1,23 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chameleon_gif/domain/entities/export_task.dart';
-import 'package:chameleon_gif/domain/entities/video_info.dart';
-import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
-import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_service.dart';
 import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
-import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
 import 'package:chameleon_gif/domain/value_objects/task_state.dart';
-import 'package:chameleon_gif/core/logger/app_logger.dart';
-import 'package:chameleon_gif/features/export/application/export_controller.dart';
-import 'package:chameleon_gif/features/export/application/export_providers.dart';
-import 'package:chameleon_gif/features/export/application/export_state.dart';
 import 'package:chameleon_gif/features/export/presentation/export_complete_dialog.dart';
-import 'package:chameleon_gif/shared/providers/core_providers.dart';
-import 'package:chameleon_gif/shared/repositories/in_memory_history_repository.dart';
-import 'package:chameleon_gif/shared/repositories/in_memory_task_repository.dart';
+import 'package:chameleon_gif/shared/platform/gallery_save_result.dart';
 
-/// [ExportCompleteDialog] 渲染与按钮测试(纯 UI,动作仅验证转发)。
+/// [ExportCompleteDialog] 渲染与按钮测试(纯 UI,动作经 [ExportCompleteActions]
+/// 注入,仅验证转发)。
 void main() {
   final task = ExportTask(
     id: 1,
@@ -30,35 +20,33 @@ void main() {
     finishedAt: DateTime(2026, 1, 1, 10, 0, 5),
   );
 
-  Future<void> pump(
-    WidgetTester tester, {
-    _SpyExportController? controller,
-  }) async {
+  late int openCalls;
+  late int shareCalls;
+  late int resetCalls;
+
+  Future<void> pump(WidgetTester tester, {ExportTask? taskOverride}) async {
+    openCalls = 0;
+    shareCalls = 0;
+    resetCalls = 0;
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          if (controller != null)
-            exportControllerProvider.overrideWith(() => controller),
-          // 真实 controller 的 build 依赖任务链,注入 Noop 服务满足装配
-          appLoggerProvider.overrideWithValue(AppLogger()),
-          ffmpegServiceProvider.overrideWithValue(_NoopFfmpegService()),
-          taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
-          historyRepositoryProvider.overrideWithValue(
-            InMemoryHistoryRepository(),
-          ),
-        ],
-        child: MaterialApp(
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: Center(
-                child: ElevatedButton(
-                  onPressed: () => showDialog<void>(
-                    context: context,
-                    builder: (_) =>
-                        ExportCompleteDialog(task: task, outputSizeBytes: 1536),
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (_) => ExportCompleteDialog(
+                    task: taskOverride ?? task,
+                    outputSizeBytes: 1536,
+                    actions: ExportCompleteActions(
+                      onOpen: () async => openCalls++,
+                      onShare: () async => shareCalls++,
+                      onReset: () async => resetCalls++,
+                    ),
                   ),
-                  child: const Text('open'),
                 ),
+                child: const Text('open'),
               ),
             ),
           ),
@@ -91,61 +79,64 @@ void main() {
   });
 
   testWidgets('再转一次收起弹窗并复位', (tester) async {
-    final spy = _SpyExportController();
-    await pump(tester, controller: spy);
+    await pump(tester);
 
     await tester.tap(find.text('再转一次'));
     await tester.pumpAndSettle();
 
     expect(find.byType(ExportCompleteDialog), findsNothing);
-    expect(spy.resetCount, 1, reason: '再转一次应复位会话');
+    expect(resetCalls, 1, reason: '再转一次应复位会话');
   });
 
-  testWidgets('打开文件夹转发到控制器用例', (tester) async {
-    final spy = _SpyExportController();
-    await pump(tester, controller: spy);
+  testWidgets('打开文件夹转发到 onOpen 回调', (tester) async {
+    await pump(tester);
 
     await tester.tap(find.text('打开文件夹'));
     await tester.pump();
 
-    expect(spy.openFolderCalls, 1);
+    expect(openCalls, 1);
   });
-}
 
-/// 动作转发 spy(验证 UI 只转发、不直调基础设施)。
-class _SpyExportController extends ExportController {
-  int openFolderCalls = 0;
-  int resetCount = 0;
+  testWidgets('相册已保存 → 显示相册路径与"打开相册"', (tester) async {
+    await pump(
+      tester,
+      taskOverride: ExportTask(
+        id: 2,
+        videoPath: '/tmp/videos/demo.mp4',
+        outputPath: '/tmp/gifforge_2/out.gif',
+        settings: const GifSetting(),
+        state: TaskState.completed,
+        createdAt: DateTime(2026, 1, 1, 10),
+        galleryStatus: GallerySaveStatus.saved,
+        galleryPath: 'Pictures/GIFForge/demo.gif',
+        galleryUri: 'content://media/external/images/media/1',
+      ),
+    );
 
-  /// 覆盖 build:spy 不接真实依赖链(taskManager/ffmpegService)。
-  @override
-  ExportFormState build() => const ExportFormState.idle();
+    expect(find.textContaining('已保存到系统相册'), findsOneWidget);
+    expect(find.text('打开相册'), findsOneWidget);
+  });
 
-  @override
-  Future<void> openOutputFolder() async {
-    openFolderCalls++;
-  }
+  testWidgets('相册保存失败 → 显示失败提示与"分享"', (tester) async {
+    await pump(
+      tester,
+      taskOverride: ExportTask(
+        id: 3,
+        videoPath: '/tmp/videos/demo.mp4',
+        outputPath: '/tmp/gifforge_3/out.gif',
+        settings: const GifSetting(),
+        state: TaskState.completed,
+        createdAt: DateTime(2026, 1, 1, 10),
+        galleryStatus: GallerySaveStatus.failed,
+        galleryMessage: '系统版本过低,请使用系统分享保存',
+      ),
+    );
 
-  @override
-  Future<void> reset() async {
-    resetCount++;
-    await super.reset();
-  }
-}
+    expect(find.textContaining('未保存到相册'), findsOneWidget);
+    expect(find.text('分享'), findsOneWidget);
 
-/// 无操作 FFmpeg 服务(本测试不触导出,仅满足 controller 装配)。
-class _NoopFfmpegService implements FFmpegService {
-  @override
-  Future<ConvertResult> convert({
-    required GifSetting setting,
-    required VideoInfo video,
-    required int taskId,
-    required String workDir,
-    required String outputPath,
-    CancelToken? cancelToken,
-    void Function(TaskProgress)? onProgress,
-    void Function(String line)? onLog,
-  }) async {
-    throw UnimplementedError('本测试不执行导出');
-  }
+    await tester.tap(find.text('分享'));
+    await tester.pump();
+    expect(shareCalls, 1);
+  });
 }

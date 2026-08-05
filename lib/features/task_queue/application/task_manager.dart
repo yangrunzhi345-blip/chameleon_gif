@@ -6,6 +6,7 @@ import 'package:meta/meta.dart' show visibleForTesting;
 import '../../../core/logger/app_logger.dart';
 import '../../../domain/entities/export_history.dart';
 import '../../../domain/entities/export_task.dart';
+import '../../../domain/entities/image_gif_source.dart';
 import '../../../domain/entities/video_info.dart';
 import '../../../domain/exceptions/domain_exception.dart';
 import '../../../domain/exceptions/palette_exception.dart';
@@ -65,6 +66,11 @@ class TaskManager {
   final List<int> _queue = [];
   final Set<int> _running = {};
   final Map<int, VideoInfo> _videos = {};
+
+  /// 图片模式源缓存(与 [_videos] 平行:submitFromImages 提交时缓存,
+  /// _run 消费;恢复路径以 task.imagePaths 兜底重建)。
+  final Map<int, ImageGifSource> _imageSources = {};
+
   final Map<int, CancelToken> _tokens = {};
   final Map<int, CancellationManager> _cancelManagers = {};
 
@@ -137,6 +143,55 @@ class TaskManager {
     return id;
   }
 
+  /// 提交图片合成任务(多图 → GIF,与 [submit] 同构)。
+  ///
+  /// [setting.end] 缺省时装配为总输出时长 `N × 每图时长`(进度分母自洽);
+  /// 图片路径列表随任务持久化([ExportTask.imagePaths]),崩溃恢复/重转
+  /// 以此为源重建,不依赖 ffprobe。
+  Future<int> submitFromImages(
+    GifSetting setting,
+    ImageGifSource source, {
+    String? outputDir,
+  }) async {
+    final total = source.totalDuration(setting);
+    final effective = setting.end == null
+        ? setting.copyWith(end: total)
+        : setting;
+    final task = ExportTask(
+      id: 0,
+      videoPath: source.paths.first,
+      imagePaths: source.paths,
+      settings: effective,
+      state: TaskState.queued,
+      createdAt: DateTime.now(),
+    );
+    final id = await _taskRepository.add(task);
+    if (outputDir != null && outputDir.isNotEmpty) {
+      final outputPath = resolveOutputPath(
+        outputDir: outputDir,
+        sourcePath: source.paths.first,
+        taskId: id,
+      );
+      await _update(
+        ExportTask(
+          id: id,
+          videoPath: task.videoPath,
+          imagePaths: source.paths,
+          outputPath: outputPath,
+          settings: effective,
+          state: TaskState.queued,
+          createdAt: task.createdAt,
+        ),
+      );
+    }
+    _imageSources[id] = source;
+    _queue.add(id);
+    _logger.i('任务入队: id=$id images=${source.paths.length}张');
+    await _emitTask(await _taskRepository.byId(id) ?? task);
+    unawaited(_pump());
+    return id;
+  }
+
   /// 取消任务:queued 直接终态;running/启动窗口经 [CancellationManager]
   /// 触发令牌(引擎终止)+ 幂等清理,状态由转换侧或本方法收尾。
   ///
@@ -170,6 +225,7 @@ class TaskManager {
       _tokens[id]?.cancel();
       _queue.remove(id);
       _videos.remove(id); // 未执行的排队任务,释放提交时缓存的元数据
+      _imageSources.remove(id);
       await _update(
         task.copyWith(state: TaskState.cancelled, finishedAt: DateTime.now()),
       );
@@ -197,6 +253,7 @@ class TaskManager {
       ExportTask(
         id: task.id,
         videoPath: task.videoPath,
+        imagePaths: task.imagePaths,
         outputPath: task.outputPath,
         settings: task.settings,
         state: TaskState.queued,
@@ -229,6 +286,7 @@ class TaskManager {
         ExportTask(
           id: task.id,
           videoPath: task.videoPath,
+          imagePaths: task.imagePaths,
           outputPath: task.outputPath,
           settings: task.settings,
           state: TaskState.queued,
@@ -284,6 +342,9 @@ class TaskManager {
             height: 0,
             codec: '',
           );
+      // 图片模式标记:转换走 convertImages,历史快照用总时长(无 VideoInfo)
+      final isImageTask =
+          task.imagePaths != null && task.imagePaths!.isNotEmpty;
       final workDir = '${_platformAdapter.systemTempDir}/gifforge_$id';
       // 用户目录输出(提交时意图路径)或临时目录缺省
       final outputPath = task.outputPath ?? '$workDir/out.gif';
@@ -328,33 +389,44 @@ class TaskManager {
       _logger.i('任务开始执行: id=$id');
 
       try {
-        final result = await _ffmpegService.convert(
-          setting: task.settings,
-          video: video,
-          taskId: id,
-          workDir: workDir,
-          outputPath: outputPath,
-          cancelToken: token,
-          onProgress: (p) {
-            _progressController.add(p);
-            // 仓储进度写节流 500ms:ffmpeg 按帧输出,高频写对内存实现无碍,
-            // Isar 化后避免每帧持久化;per-task 节流(双槽互不干扰)
-            final now = DateTime.now();
-            final last = _lastProgressWrite[id];
-            if (last == null ||
-                now.difference(last) >= const Duration(milliseconds: 500)) {
-              _lastProgressWrite[id] = now;
-              unawaited(
-                _update(
-                  current.copyWith(
-                    state: TaskState.running,
-                    progress: p.percent,
-                  ),
-                ),
+        void onProgress(TaskProgress p) {
+          _progressController.add(p);
+          // 仓储进度写节流 500ms:ffmpeg 按帧输出,高频写对内存实现无碍,
+          // Isar 化后避免每帧持久化;per-task 节流(双槽互不干扰)
+          final now = DateTime.now();
+          final last = _lastProgressWrite[id];
+          if (last == null ||
+              now.difference(last) >= const Duration(milliseconds: 500)) {
+            _lastProgressWrite[id] = now;
+            unawaited(
+              _update(
+                current.copyWith(state: TaskState.running, progress: p.percent),
+              ),
+            );
+          }
+        }
+
+        final result = isImageTask
+            ? await _ffmpegService.convertImages(
+                source:
+                    _imageSources.remove(id) ??
+                    ImageGifSource(paths: task.imagePaths!),
+                setting: task.settings,
+                taskId: id,
+                workDir: workDir,
+                outputPath: outputPath,
+                cancelToken: token,
+                onProgress: onProgress,
+              )
+            : await _ffmpegService.convert(
+                setting: task.settings,
+                video: video,
+                taskId: id,
+                workDir: workDir,
+                outputPath: outputPath,
+                cancelToken: token,
+                onProgress: onProgress,
               );
-            }
-          },
-        );
         if (result.cancelled || token.isCancelled) {
           await _finish(id, TaskState.cancelled);
           return;
@@ -375,13 +447,19 @@ class TaskManager {
         final history = ExportHistory(
           id: 0,
           videoPath: task.videoPath,
+          imagePaths: task.imagePaths,
           outputPath: outputPath,
           settings: task.settings,
           durationMs: result.elapsed.inMilliseconds,
           outputSizeBytes: size,
           createdAt: DateTime.now(),
-          sourceDurationMs: video.duration.inMilliseconds,
-          outputFrameCount: _estimateFrameCount(task.settings, video),
+          sourceDurationMs: isImageTask
+              ? task.settings.effectiveFrameDuration.inMilliseconds *
+                    task.imagePaths!.length
+              : video.duration.inMilliseconds,
+          outputFrameCount: isImageTask
+              ? _estimateImageFrameCount(task.settings, task.imagePaths!.length)
+              : _estimateFrameCount(task.settings, video),
         );
         try {
           await _historyRepository.add(history);
@@ -512,6 +590,13 @@ class TaskManager {
   int _estimateFrameCount(GifSetting setting, VideoInfo video) {
     final end = setting.end ?? video.duration;
     final seconds = (end - setting.start).inMilliseconds / 1000.0;
+    return (setting.fps * seconds).round();
+  }
+
+  /// 图片模式输出帧数估算 = fps × N × 每图时长。
+  int _estimateImageFrameCount(GifSetting setting, int imageCount) {
+    final seconds =
+        setting.effectiveFrameDuration.inMicroseconds / 1e6 * imageCount;
     return (setting.fps * seconds).round();
   }
 

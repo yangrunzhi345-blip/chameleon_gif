@@ -19,5 +19,12 @@ ffmpeg -y -f lavfi -i "smptebars=duration=3:size=640x360:rate=25" \
 ffmpeg -y -f lavfi -i "testsrc=duration=10:size=320x240:rate=24" \
   -pix_fmt yuv420p -c:v libx264 -movflags +faststart "$DIR/clip_long.mp4" >/dev/null 2>&1
 
+# 图片→GIF 测试夹具:3 张 64×64 纯色 PNG(红/绿/蓝,见 §14.4 图片节)
+IMG_DIR="$BASE/test/fixtures/images"
+mkdir -p "$IMG_DIR"
+ffmpeg -y -f lavfi -i "color=c=red:s=64x64" -frames:v 1 "$IMG_DIR/red.png" >/dev/null 2>&1
+ffmpeg -y -f lavfi -i "color=c=green:s=64x64" -frames:v 1 "$IMG_DIR/green.png" >/dev/null 2>&1
+ffmpeg -y -f lavfi -i "color=c=blue:s=64x64" -frames:v 1 "$IMG_DIR/blue.png" >/dev/null 2>&1
+
 echo "生成完成:"
-ls -la "$DIR"
+ls -la "$DIR" "$IMG_DIR"

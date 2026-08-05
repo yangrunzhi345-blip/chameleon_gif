@@ -7,6 +7,9 @@ part 'gif_setting.g.dart';
 /// 新增字段一律带默认值,保证老历史 JSON 可读,见 docs/07-数据库设计.md §7.5)。
 @freezed
 abstract class GifSetting with _$GifSetting {
+  /// freezed 自定义 getter 要求私有构造(见 effectiveFrameDuration)。
+  const GifSetting._();
+
   const factory GifSetting({
     /// 输出帧率(1–60)
     @Default(15.0) double fps,
@@ -25,8 +28,27 @@ abstract class GifSetting with _$GifSetting {
 
     /// 循环次数(0 = 无限循环)
     @Default(0) int loop,
+
+    /// 图片模式:每张图片停留时长(毫秒);null = 由 [fps] 推导(每图一帧)。
+    /// 视频模式不读取该字段。
+    int? frameDurationMs,
+
+    /// 图片模式:质量开关;true = 调色板两遍(高质,默认),false = 标准单遍。
+    /// 视频模式不读取该字段(视频 UI 无质量开关,恒走两遍)。
+    @Default(true) bool usePalette,
   }) = _GifSetting;
 
   factory GifSetting.fromJson(Map<String, dynamic> json) =>
       _$GifSettingFromJson(json);
+
+  /// 图片模式:每张图片的实际输出时长。
+  ///
+  /// [frameDurationMs] 显式指定时原样返回;否则由帧率推导 1000/fps
+  /// (每图一帧,至少 1ms)。纯 Dart getter,可独立单测。
+  Duration get effectiveFrameDuration {
+    final ms =
+        frameDurationMs ??
+        Duration(microseconds: (1e6 / fps).round()).inMilliseconds;
+    return Duration(milliseconds: ms < 1 ? 1 : ms);
+  }
 }

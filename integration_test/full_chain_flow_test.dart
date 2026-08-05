@@ -277,6 +277,8 @@ void main() {
 }
 
 class _FakeFilePickPort implements FilePickPort {
+  @override
+  Future<List<String>?> pickImages() async => null;
   List<String> paths = [];
 
   @override

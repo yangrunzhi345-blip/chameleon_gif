@@ -30,6 +30,9 @@ class ExportHistorySchema {
 
   int? outputFrameCount;
 
+  /// 图片模式图片路径列表的 JSON 编码(null = 视频模式)。
+  String? imagePathsJson;
+
   static ExportHistorySchema fromEntity(ExportHistory history) {
     final schema = ExportHistorySchema()
       ..id = history.id
@@ -40,7 +43,10 @@ class ExportHistorySchema {
       ..outputSizeBytes = history.outputSizeBytes
       ..createdAt = history.createdAt
       ..sourceDurationMs = history.sourceDurationMs
-      ..outputFrameCount = history.outputFrameCount;
+      ..outputFrameCount = history.outputFrameCount
+      ..imagePathsJson = history.imagePaths == null
+          ? null
+          : jsonEncode(history.imagePaths);
     return schema;
   }
 
@@ -59,6 +65,10 @@ class ExportHistorySchema {
       createdAt: createdAt,
       sourceDurationMs: sourceDurationMs,
       outputFrameCount: outputFrameCount,
+      imagePaths: imagePathsJson == null
+          ? null
+          : (const JsonDecoder().convert(imagePathsJson!) as List)
+                .cast<String>(),
     );
   }
 }

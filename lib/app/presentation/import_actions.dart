@@ -23,3 +23,12 @@ Future<void> pickMp4AndPreview(BuildContext context, WidgetRef ref) async {
     ).showSnackBar(SnackBar(content: Text(e.userMessage)));
   }
 }
+
+/// 多选图片 → 跳图片制作页(首页"图片制作 GIF"入口)。
+///
+/// 取消选择静默;路径列表(JSON 基础类型)经路由 extra 传递,恢复安全。
+Future<void> pickImagesAndBuild(BuildContext context, WidgetRef ref) async {
+  final paths = await ref.read(filePickPortProvider).pickImages();
+  if (paths == null || paths.isEmpty || !context.mounted) return;
+  context.push('/image-gif', extra: paths);
+}

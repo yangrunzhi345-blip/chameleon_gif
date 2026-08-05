@@ -14,12 +14,19 @@ class ExportHistory {
     required this.createdAt,
     required this.sourceDurationMs,
     this.outputFrameCount,
+    this.imagePaths,
   });
 
   final int id;
+
+  /// 源路径:视频模式 = 视频文件路径;图片模式 = 首图路径。
   final String videoPath;
+
   final String outputPath;
   final GifSetting settings;
+
+  /// 图片模式:有序图片路径列表;null = 视频模式(重转分支依据)。
+  final List<String>? imagePaths;
 
   /// 转码耗时(ms)
   final int durationMs;

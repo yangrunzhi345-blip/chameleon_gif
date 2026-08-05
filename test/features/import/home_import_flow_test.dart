@@ -7,6 +7,7 @@ import 'package:chameleon_gif/shared/repositories/in_memory_history_repository.d
 import 'package:chameleon_gif/shared/repositories/in_memory_task_repository.dart';
 import 'package:chameleon_gif/app/router.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/entities/image_gif_source.dart';
 import 'package:chameleon_gif/domain/entities/video_info.dart';
 import 'package:chameleon_gif/domain/exceptions/source_broken_exception.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
@@ -24,6 +25,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../fixtures/fake_player_port.dart';
 
 class _FakeFilePickPort implements FilePickPort {
+  @override
+  Future<List<String>?> pickImages() async => null;
   _FakeFilePickPort({this.path = '/tmp/videos/demo.mp4'});
   final String? path;
 
@@ -136,6 +139,36 @@ void main() {
 
 /// 无操作 FFmpeg 服务(本测试不触导出,仅满足导出区 provider 装配)。
 class _NoopFfmpegService implements FFmpegService {
+  @override
+  Future<ConvertResult> convertImages({
+    required ImageGifSource source,
+    required GifSetting setting,
+    required int taskId,
+    required String workDir,
+    required String outputPath,
+    CancelToken? cancelToken,
+    void Function(TaskProgress)? onProgress,
+    void Function(String line)? onLog,
+  }) async {
+    return convert(
+      setting: setting,
+      video: VideoInfo(
+        path: source.paths.first,
+        formatName: '',
+        duration: Duration.zero,
+        width: source.width,
+        height: source.height,
+        codec: '',
+      ),
+      taskId: taskId,
+      workDir: workDir,
+      outputPath: outputPath,
+      cancelToken: cancelToken,
+      onProgress: onProgress,
+      onLog: onLog,
+    );
+  }
+
   @override
   Future<ConvertResult> convert({
     required GifSetting setting,

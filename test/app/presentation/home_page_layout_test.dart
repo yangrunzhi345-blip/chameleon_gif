@@ -31,8 +31,11 @@ void main() {
           (w.style?.fontSize ?? 0) >= 28,
     );
 
-    expect(centerXOf(bodyTitle), closeTo(screenCenter, 1.0),
-        reason: '标题以屏幕中线对齐');
+    expect(
+      centerXOf(bodyTitle),
+      closeTo(screenCenter, 1.0),
+      reason: '标题以屏幕中线对齐',
+    );
     expect(
       centerXOf(find.text('基础架构就绪')),
       closeTo(screenCenter, 1.0),
@@ -48,5 +51,39 @@ void main() {
     final btnCenter =
         btnBox.localToGlobal(Offset.zero).dx + btnBox.size.width / 2;
     expect(btnCenter, closeTo(screenCenter, 1.0), reason: '按钮以屏幕中线对齐');
+  });
+
+  testWidgets('图片制作 GIF 入口在导入 MP4 上方,同为 FilledButton', (tester) async {
+    tester.view.physicalSize = const Size(1260, 2800);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: HomePage())),
+    );
+    await tester.pump();
+
+    final gifBtn = tester.renderObject<RenderBox>(
+      find.ancestor(
+        of: find.text('图片制作 GIF'),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    final mp4Btn = tester.renderObject<RenderBox>(
+      find.ancestor(
+        of: find.text('导入 MP4'),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(
+      gifBtn.localToGlobal(Offset.zero).dy,
+      lessThan(mp4Btn.localToGlobal(Offset.zero).dy),
+      reason: '图片制作 GIF 入口位于导入 MP4 上方',
+    );
+    expect(
+      gifBtn.size.height,
+      mp4Btn.size.height,
+      reason: '同为 FilledButton 变体,高度一致(样式一致)',
+    );
   });
 }

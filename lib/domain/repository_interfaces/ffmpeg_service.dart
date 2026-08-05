@@ -1,3 +1,4 @@
+import '../entities/image_gif_source.dart';
 import '../entities/video_info.dart';
 import '../value_objects/gif_setting.dart';
 import '../value_objects/task_progress.dart';
@@ -18,6 +19,19 @@ abstract interface class FFmpegService {
   Future<ConvertResult> convert({
     required GifSetting setting,
     required VideoInfo video,
+    required int taskId,
+    required String workDir,
+    required String outputPath,
+    CancelToken? cancelToken,
+    void Function(TaskProgress)? onProgress,
+    void Function(String line)? onLog,
+  });
+
+  /// 图片模式转换(多图合成):语义与 [convert] 一致,命令构造走
+  /// `GifCommandBuilder.buildFromImages`(质量开关取 `setting.usePalette`)。
+  Future<ConvertResult> convertImages({
+    required ImageGifSource source,
+    required GifSetting setting,
     required int taskId,
     required String workDir,
     required String outputPath,
