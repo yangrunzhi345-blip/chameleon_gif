@@ -83,8 +83,26 @@ class FfmpegKitEngine implements FFmpegEngine {
     return completer.future;
   }
 
-  /// 装配 Kit 契约命令串:ffmpeg 前缀 + 空格拼接(P8 起为纯函数,单测锁定)。
+  /// 装配 Kit 契约命令串:空格拼接(P8 起为纯函数,单测锁定)。
+  ///
+  /// ⚠️ 不含 `ffmpeg` 可执行名前缀:ffmpeg-kit 的 executeAsync 直接执行
+  /// ffmpeg 本体,带前缀时 `ffmpeg` 被当作输出文件名,真机实测报
+  /// `Unable to choose an output format for 'ffmpeg'`(桌面 Process 引擎
+  /// 需前缀,属引擎差异)。
+  ///
+  /// 剥离 `-progress <pipe>` 参数对:ffmpeg-kit 重定向 stdout/stderr,不支持
+  /// `-progress pipe:1`(真机实测报 `Invalid argument` 致转换失败);进度改由
+  /// statistics 回调合成(见 [convert]),桌面 Process 引擎不受影响。
   @visibleForTesting
-  static String assembleCommand(List<String> args) =>
-      ['ffmpeg', ...args].join(' ');
+  static String assembleCommand(List<String> args) {
+    final filtered = <String>[];
+    for (var i = 0; i < args.length; i++) {
+      if (args[i] == '-progress') {
+        i++; // 跳过其值(pipe:1),两参数一并剥离
+        continue;
+      }
+      filtered.add(args[i]);
+    }
+    return filtered.join(' ');
+  }
 }

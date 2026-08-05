@@ -88,7 +88,7 @@ const _request = ConvertRequest(
 
 void main() {
   group('FfmpegKitEngine.assembleCommand', () {
-    test('ffmpeg 前缀 + 空格拼接(Kit 契约)', () {
+    test('空格拼接(Kit 契约,无可执行名前缀:ffmpeg-kit 直接执行 ffmpeg 本体)', () {
       expect(
         FfmpegKitEngine.assembleCommand([
           '-i',
@@ -98,12 +98,28 @@ void main() {
           '-y',
           'out.gif',
         ]),
-        'ffmpeg -i a.mp4 -frames:v 1 -y out.gif',
+        '-i a.mp4 -frames:v 1 -y out.gif',
       );
     });
 
-    test('空参数列表仅前缀', () {
-      expect(FfmpegKitEngine.assembleCommand([]), 'ffmpeg');
+    test('空参数列表返回空串', () {
+      expect(FfmpegKitEngine.assembleCommand([]), '');
+    });
+
+    test('剥离 -progress pipe:1 参数对(ffmpeg-kit 不支持,真机报 Invalid argument)', () {
+      expect(
+        FfmpegKitEngine.assembleCommand([
+          '-ss',
+          '00:00:01.000',
+          '-i',
+          'a.mp4',
+          '-progress',
+          'pipe:1',
+          '-y',
+          'out.gif',
+        ]),
+        '-ss 00:00:01.000 -i a.mp4 -y out.gif',
+      );
     });
   });
 
@@ -116,7 +132,7 @@ void main() {
       );
 
       final future = engine.convert(_request);
-      expect(kit.command, 'ffmpeg -i a.mp4 -y out.gif', reason: '命令串契约');
+      expect(kit.command, '-i a.mp4 -y out.gif', reason: '命令串契约(无 ffmpeg 前缀)');
       kit.completeCallback!(_FakeSession(returnCodeValue: 0));
       final result = await future;
 
