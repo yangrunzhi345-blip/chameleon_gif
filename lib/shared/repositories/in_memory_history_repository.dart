@@ -21,6 +21,7 @@ class InMemoryHistoryRepository implements HistoryRepository {
       sourceDurationMs: history.sourceDurationMs,
       outputFrameCount: history.outputFrameCount,
       imagePaths: history.imagePaths,
+      perImageControls: history.perImageControls,
     );
     return id;
   }

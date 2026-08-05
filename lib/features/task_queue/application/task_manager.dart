@@ -160,6 +160,7 @@ class TaskManager {
       id: 0,
       videoPath: source.paths.first,
       imagePaths: source.paths,
+      perImageControls: source.perImageControls,
       settings: effective,
       state: TaskState.queued,
       createdAt: DateTime.now(),
@@ -176,6 +177,7 @@ class TaskManager {
           id: id,
           videoPath: task.videoPath,
           imagePaths: source.paths,
+          perImageControls: source.perImageControls,
           outputPath: outputPath,
           settings: effective,
           state: TaskState.queued,
@@ -253,6 +255,7 @@ class TaskManager {
         id: task.id,
         videoPath: task.videoPath,
         imagePaths: task.imagePaths,
+        perImageControls: task.perImageControls,
         outputPath: task.outputPath,
         settings: task.settings,
         state: TaskState.queued,
@@ -286,6 +289,7 @@ class TaskManager {
           id: task.id,
           videoPath: task.videoPath,
           imagePaths: task.imagePaths,
+          perImageControls: task.perImageControls,
           outputPath: task.outputPath,
           settings: task.settings,
           state: TaskState.queued,
@@ -409,7 +413,11 @@ class TaskManager {
             ? await _ffmpegService.convertImages(
                 source:
                     _imageSources.remove(id) ??
-                    ImageGifSource(paths: task.imagePaths!),
+                    ImageGifSource(
+                      paths: task.imagePaths!,
+                      // 恢复路径:每图控制参数随任务持久化兜底重建
+                      perImageControls: task.perImageControls,
+                    ),
                 setting: task.settings,
                 taskId: id,
                 workDir: workDir,
@@ -463,6 +471,7 @@ class TaskManager {
           id: 0,
           videoPath: task.videoPath,
           imagePaths: task.imagePaths,
+          perImageControls: task.perImageControls,
           outputPath: outputPath,
           settings: task.settings,
           durationMs: result.elapsed.inMilliseconds,
@@ -514,6 +523,7 @@ class TaskManager {
               id: current.id,
               videoPath: current.videoPath,
               imagePaths: current.imagePaths,
+              perImageControls: current.perImageControls,
               outputPath: current.outputPath,
               settings: current.settings,
               state: TaskState.queued,
