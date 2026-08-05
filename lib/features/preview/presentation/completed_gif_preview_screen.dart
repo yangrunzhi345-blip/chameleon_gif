@@ -3,15 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../domain/entities/video_info.dart';
-import '../application/preview_controller.dart';
+import '../application/gif_preview_controller.dart';
 import '../application/preview_providers.dart';
-import 'preview_controls_bar.dart';
-import 'video_preview_panel.dart';
+import 'gif_preview_panel.dart';
 
 /// 预览完成 GIF 页(批量完成弹窗"预览"入口,任务 4 新增)。
 ///
-/// 左侧本批次已完成的 GIF 列表(点击切换),右侧 [VideoPreviewPanel] +
-/// [PreviewControlsBar];播放复用 preview 会话链路(mpv 播 GIF,循环)。
+/// 左侧本批次已完成的 GIF 列表(点击切换),右侧 [GifPreviewPanel] +
+/// [GifControlsBar];播放走 [GifPreviewController](image 包逐帧解码,
+/// Android mpv 无法播放 GIF 的替代,全平台一致)。
 /// 路由 extra: `List<String>` 输出路径;非法(恢复/深链)或空 → 回退返回。
 class CompletedGifPreviewScreen extends ConsumerStatefulWidget {
   const CompletedGifPreviewScreen({super.key, this.paths});
@@ -41,7 +41,7 @@ class _CompletedGifPreviewScreenState
     });
   }
 
-  /// 构造最小 VideoInfo:播放仅依赖 path([PreviewController.load] 只用
+  /// 构造最小 VideoInfo:播放仅依赖 path([GifPreviewController.load] 只用
   /// video.path),其余字段空值直给,不做 ffprobe。
   VideoInfo _gifInfo(String path) => VideoInfo(
     path: path,
@@ -52,15 +52,14 @@ class _CompletedGifPreviewScreenState
     codec: 'gif',
   );
 
-  /// 切换播放:同一 Player 重新 open(loading → ready,自动播放)。
+  /// 切换播放:同一控制器重新 load(loading → ready,自动播放)。
   void _select(String path) {
-    ref.read(previewControllerProvider.notifier).load(_gifInfo(path));
+    ref.read(gifPreviewControllerProvider.notifier).load(_gifInfo(path));
   }
 
   @override
   Widget build(BuildContext context) {
-    final previewState = ref.watch(previewControllerProvider);
-    final current = previewState.video?.path;
+    final current = ref.watch(gifPreviewControllerProvider).video?.path;
     final paths = widget.paths ?? const <String>[];
 
     final list = ListView.builder(
@@ -78,13 +77,8 @@ class _CompletedGifPreviewScreenState
     );
     final player = Column(
       children: [
-        Expanded(
-          child: Center(
-            // 错误态隐藏"返回"按钮:单 GIF 失败不退出整页,由列表切换兜底
-            child: VideoPreviewPanel(hideErrorBack: true),
-          ),
-        ),
-        SafeArea(child: PreviewControlsBar()),
+        Expanded(child: Center(child: GifPreviewPanel())),
+        SafeArea(child: GifControlsBar()),
       ],
     );
 
