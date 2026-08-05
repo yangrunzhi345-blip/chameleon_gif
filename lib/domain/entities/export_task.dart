@@ -1,4 +1,5 @@
 import '../value_objects/gif_setting.dart';
+import '../value_objects/per_image_control.dart';
 import '../value_objects/task_state.dart';
 import '../../shared/platform/gallery_save_result.dart';
 
@@ -25,6 +26,7 @@ class ExportTask {
     this.galleryUri,
     this.galleryMessage,
     this.imagePaths,
+    this.perImageControls,
   });
 
   /// 自增主键(未持久化时可为 0)
@@ -36,6 +38,9 @@ class ExportTask {
 
   /// 图片模式:有序图片路径列表;null = 视频模式。
   final List<String>? imagePaths;
+
+  /// 图片模式:每图精细化控制(与 imagePaths 等长对齐,null = 全部默认)。
+  final List<PerImageControl>? perImageControls;
   final String? outputPath;
   final GifSetting settings;
 
@@ -82,6 +87,7 @@ class ExportTask {
     String? galleryUri,
     String? galleryMessage,
     List<String>? imagePaths,
+    List<PerImageControl>? perImageControls,
   }) {
     return ExportTask(
       id: id,
@@ -101,6 +107,7 @@ class ExportTask {
       galleryUri: galleryUri ?? this.galleryUri,
       galleryMessage: galleryMessage ?? this.galleryMessage,
       imagePaths: imagePaths ?? this.imagePaths,
+      perImageControls: perImageControls ?? this.perImageControls,
     );
   }
 }

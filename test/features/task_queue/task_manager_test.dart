@@ -11,6 +11,7 @@ import 'package:chameleon_gif/domain/exceptions/encode_exception.dart';
 import 'package:chameleon_gif/domain/exceptions/disk_full_exception.dart';
 import 'package:chameleon_gif/domain/exceptions/source_broken_exception.dart';
 import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/per_image_control.dart';
 import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
 import 'package:chameleon_gif/domain/value_objects/task_state.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
@@ -569,13 +570,76 @@ void main() {
       );
     });
 
-    test('失败重试:重排队携带 imagePaths,重试后仍走图片路径', () async {
+    test('每图控制参数:提交持久化 → 服务收到 → 历史快照携带', () async {
+      const setting = GifSetting(frameDurationMs: 1000);
+      const controlled = ImageGifSource(
+        paths: ['/img/a.png', '/img/b.png', '/img/c.png'],
+        width: 64,
+        height: 64,
+        perImageControls: [
+          PerImageControl(scaleMultiplier: 2),
+          PerImageControl(width: 480, height: 480),
+          PerImageControl(),
+        ],
+      );
+      final id = await manager.submitFromImages(setting, controlled);
+
+      final done = await waitForState(id, TaskState.completed);
+      expect(
+        done.perImageControls,
+        controlled.perImageControls,
+        reason: '提交持久化:任务落库保留每图控制',
+      );
+      expect(
+        service.receivedSources.single.perImageControls,
+        controlled.perImageControls,
+        reason: '转换源携带每图控制(命令构造消费)',
+      );
+
+      final histories = await historyRepo.list();
+      expect(histories.single.perImageControls, controlled.perImageControls);
+    });
+
+    test('崩溃恢复:预种子带控制任务 → start() 以 task 持久化兜底重建源', () async {
+      const controls = [
+        PerImageControl(scaleMultiplier: 1.5),
+        PerImageControl(width: 320),
+        PerImageControl(),
+      ];
+      repo = InMemoryTaskRepository(
+        seed: [
+          ExportTask(
+            id: 9,
+            videoPath: '/img/a.png',
+            imagePaths: const ['/img/a.png', '/img/b.png', '/img/c.png'],
+            perImageControls: controls,
+            settings: const GifSetting(frameDurationMs: 1000),
+            state: TaskState.queued,
+            createdAt: DateTime(2026, 1, 1),
+          ),
+        ],
+      );
+      manager = build();
+      await manager.start();
+
+      final done = await waitForState(9, TaskState.completed);
+      expect(
+        service.receivedSources.single.perImageControls,
+        controls,
+        reason: '缓存已消费时以 task.perImageControls 兜底,恢复不丢控制',
+      );
+      expect(done.perImageControls, controls);
+    });
+
+    test('失败重试:重排队携带 imagePaths/控制,重试后仍走图片路径', () async {
+      const controls = [PerImageControl(scaleMultiplier: 2)];
       repo = InMemoryTaskRepository(
         seed: [
           ExportTask(
             id: 5,
             videoPath: '/img/a.png',
             imagePaths: source.paths,
+            perImageControls: controls,
             settings: const GifSetting(frameDurationMs: 1000),
             state: TaskState.failed,
             errorCode: 'GIF_1_ENCODE',
@@ -592,6 +656,11 @@ void main() {
         done.imagePaths,
         source.paths,
         reason: 'retry 显式重建必须穿透 imagePaths,否则恢复后丢列表',
+      );
+      expect(
+        done.perImageControls,
+        controls,
+        reason: 'retry 显式重建必须穿透每图控制,否则重试后丢参数',
       );
       expect(service.convertImagesCalls, [5]);
     });

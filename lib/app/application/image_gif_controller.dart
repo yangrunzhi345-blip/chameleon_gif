@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/export_task.dart';
 import '../../domain/entities/image_gif_source.dart';
 import '../../domain/value_objects/gif_setting.dart';
+import '../../domain/value_objects/per_image_control.dart';
 import '../../domain/value_objects/task_state.dart';
 import '../../features/export/application/output_dir_picker.dart'
     as output_dir_picker;
@@ -33,6 +35,31 @@ class ImageGifController extends Notifier<ImageGifFormState>
     with TaskSessionLifecycle<ImageGifFormState> {
   /// 首图尺寸缓存(探测成功后填充;倍数联动与提交展开的依据)。
   ({int width, int height})? _sourceSize;
+
+  /// 当前输出画布尺寸(精细控制页预览框比例用;null = 未知)。
+  ///
+  /// 规则与命令构造 `_canvasSize` 一致:表单宽高双边指定 → 指定尺寸;
+  /// 单边 → 另一侧按首图比例推算;均 0 → 首图尺寸;首图未知 → null。
+  ({int width, int height})? get canvasSize {
+    final w = state.width;
+    final h = state.height;
+    final src = _sourceSize;
+    if (w > 0 && h > 0) return (width: w, height: h);
+    if (src == null || src.width <= 0 || src.height <= 0) return null;
+    if (w > 0) {
+      return (
+        width: w,
+        height: math.max(1, (w * src.height / src.width).round()),
+      );
+    }
+    if (h > 0) {
+      return (
+        width: math.max(1, (h * src.width / src.height).round()),
+        height: h,
+      );
+    }
+    return src;
+  }
 
   /// 已探测的首图路径(去重:同一首图不重复探测)。
   String? _probedPath;
@@ -264,7 +291,14 @@ class ImageGifController extends Notifier<ImageGifFormState>
   /// application 内探测(命令构造据此决定是否统一分辨率,UI 不再持有
   /// 解码逻辑,可独立单测)。探测失败 → formError 明确拦截(此前为
   /// 静默退化,后续 concat 神秘报错);空列表拒绝;重入守卫防连点。
-  Future<void> submit(List<String> paths) async {
+  ///
+  /// [perImageControls] 为每图精细化控制(与 [paths] 索引对齐,元素可空
+  /// = 该图未操作);归一化后**全部默认 → null**(不持久化、命令走默认
+  /// 链),否则构造 [ImageGifSource.perImageControls] 随任务/历史持久化。
+  Future<void> submit(
+    List<String> paths, {
+    List<PerImageControl?>? perImageControls,
+  }) async {
     if (!claimSubmit()) return;
     if (paths.isEmpty) {
       releaseSubmit();
@@ -293,6 +327,10 @@ class ImageGifController extends Notifier<ImageGifFormState>
               paths: paths,
               width: size.width,
               height: size.height,
+              perImageControls: _normalizePerImageControls(
+                paths.length,
+                perImageControls,
+              ),
             ),
             outputDir: state.outputDir,
           );
@@ -318,6 +356,21 @@ class ImageGifController extends Notifier<ImageGifFormState>
       ref.read(appLoggerProvider).w('首图尺寸探测失败: ${paths.first}', error: e);
       return (width: 0, height: 0);
     }
+  }
+
+  /// 每图控制归一化:null 元素 → 默认值对象;长度与图片数对齐(截断/
+  /// 补齐);全部默认 → null(不产生控制、不持久化)。
+  List<PerImageControl>? _normalizePerImageControls(
+    int count,
+    List<PerImageControl?>? raw,
+  ) {
+    if (raw == null || raw.isEmpty) return null;
+    final normalized = <PerImageControl>[
+      for (var i = 0; i < count; i++)
+        (i < raw.length ? raw[i] : null) ?? const PerImageControl(),
+    ];
+    if (normalized.every((c) => c.isDefault)) return null;
+    return normalized;
   }
 
   /// 弹窗/失败提示关闭后回 idle,表单值保留(公共逻辑见

@@ -48,18 +48,23 @@ const ExportHistorySchemaSchema = CollectionSchema(
       name: r'outputSizeBytes',
       type: IsarType.long,
     ),
-    r'settingsJson': PropertySchema(
+    r'perImageControlsJson': PropertySchema(
       id: 6,
+      name: r'perImageControlsJson',
+      type: IsarType.string,
+    ),
+    r'settingsJson': PropertySchema(
+      id: 7,
       name: r'settingsJson',
       type: IsarType.string,
     ),
     r'sourceDurationMs': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'sourceDurationMs',
       type: IsarType.long,
     ),
     r'videoPath': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'videoPath',
       type: IsarType.string,
     ),
@@ -107,6 +112,12 @@ int _exportHistorySchemaEstimateSize(
     }
   }
   bytesCount += 3 + object.outputPath.length * 3;
+  {
+    final value = object.perImageControlsJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.settingsJson.length * 3;
   bytesCount += 3 + object.videoPath.length * 3;
   return bytesCount;
@@ -124,9 +135,10 @@ void _exportHistorySchemaSerialize(
   writer.writeLong(offsets[3], object.outputFrameCount);
   writer.writeString(offsets[4], object.outputPath);
   writer.writeLong(offsets[5], object.outputSizeBytes);
-  writer.writeString(offsets[6], object.settingsJson);
-  writer.writeLong(offsets[7], object.sourceDurationMs);
-  writer.writeString(offsets[8], object.videoPath);
+  writer.writeString(offsets[6], object.perImageControlsJson);
+  writer.writeString(offsets[7], object.settingsJson);
+  writer.writeLong(offsets[8], object.sourceDurationMs);
+  writer.writeString(offsets[9], object.videoPath);
 }
 
 ExportHistorySchema _exportHistorySchemaDeserialize(
@@ -143,9 +155,10 @@ ExportHistorySchema _exportHistorySchemaDeserialize(
   object.outputFrameCount = reader.readLongOrNull(offsets[3]);
   object.outputPath = reader.readString(offsets[4]);
   object.outputSizeBytes = reader.readLong(offsets[5]);
-  object.settingsJson = reader.readString(offsets[6]);
-  object.sourceDurationMs = reader.readLong(offsets[7]);
-  object.videoPath = reader.readString(offsets[8]);
+  object.perImageControlsJson = reader.readStringOrNull(offsets[6]);
+  object.settingsJson = reader.readString(offsets[7]);
+  object.sourceDurationMs = reader.readLong(offsets[8]);
+  object.videoPath = reader.readString(offsets[9]);
   return object;
 }
 
@@ -169,10 +182,12 @@ P _exportHistorySchemaDeserializeProp<P>(
     case 5:
       return (reader.readLong(offset)) as P;
     case 6:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 7:
-      return (reader.readLong(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 8:
+      return (reader.readLong(offset)) as P;
+    case 9:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -986,6 +1001,168 @@ extension ExportHistorySchemaQueryFilter
   }
 
   QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterFilterCondition>
+  perImageControlsJsonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'perImageControlsJson'),
+      );
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterFilterCondition>
+  perImageControlsJsonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'perImageControlsJson'),
+      );
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterFilterCondition>
+  perImageControlsJsonEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'perImageControlsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterFilterCondition>
+  perImageControlsJsonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'perImageControlsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterFilterCondition>
+  perImageControlsJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'perImageControlsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterFilterCondition>
+  perImageControlsJsonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'perImageControlsJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterFilterCondition>
+  perImageControlsJsonStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'perImageControlsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterFilterCondition>
+  perImageControlsJsonEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'perImageControlsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterFilterCondition>
+  perImageControlsJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'perImageControlsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterFilterCondition>
+  perImageControlsJsonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'perImageControlsJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterFilterCondition>
+  perImageControlsJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'perImageControlsJson', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterFilterCondition>
+  perImageControlsJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'perImageControlsJson',
+          value: '',
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterFilterCondition>
   settingsJsonEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
@@ -1426,6 +1603,20 @@ extension ExportHistorySchemaQuerySortBy
   }
 
   QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterSortBy>
+  sortByPerImageControlsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'perImageControlsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterSortBy>
+  sortByPerImageControlsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'perImageControlsJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterSortBy>
   sortBySettingsJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'settingsJson', Sort.asc);
@@ -1569,6 +1760,20 @@ extension ExportHistorySchemaQuerySortThenBy
   }
 
   QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterSortBy>
+  thenByPerImageControlsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'perImageControlsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterSortBy>
+  thenByPerImageControlsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'perImageControlsJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, ExportHistorySchema, QAfterSortBy>
   thenBySettingsJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'settingsJson', Sort.asc);
@@ -1659,6 +1864,16 @@ extension ExportHistorySchemaQueryWhereDistinct
   }
 
   QueryBuilder<ExportHistorySchema, ExportHistorySchema, QDistinct>
+  distinctByPerImageControlsJson({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(
+        r'perImageControlsJson',
+        caseSensitive: caseSensitive,
+      );
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, ExportHistorySchema, QDistinct>
   distinctBySettingsJson({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'settingsJson', caseSensitive: caseSensitive);
@@ -1727,6 +1942,13 @@ extension ExportHistorySchemaQueryProperty
   outputSizeBytesProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'outputSizeBytes');
+    });
+  }
+
+  QueryBuilder<ExportHistorySchema, String?, QQueryOperations>
+  perImageControlsJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'perImageControlsJson');
     });
   }
 

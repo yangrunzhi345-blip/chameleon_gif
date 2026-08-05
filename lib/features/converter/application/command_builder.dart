@@ -4,6 +4,7 @@ import '../../../core/utils/duration_format.dart';
 import '../../../domain/entities/image_gif_source.dart';
 import '../../../domain/entities/video_info.dart';
 import '../../../domain/value_objects/gif_setting.dart';
+import '../../../domain/value_objects/per_image_control.dart';
 import 'gif_command.dart';
 
 /// FFmpeg 命令构造器(纯函数,可独立单测,docs/08-FFmpeg设计.md §8.3.2)。
@@ -113,9 +114,10 @@ class GifCommandBuilder {
   }) {
     final n = source.paths.length;
     final inputs = _imageInputArgs(setting, source);
-    final perInput = _perInputChain(setting, source);
+    final canvas = _canvasSize(setting, source);
     final stages = [
-      for (var i = 0; i < n; i++) '[$i:v]$perInput[s$i]',
+      for (var i = 0; i < n; i++)
+        '[$i:v]${_perImageChain(setting, source, i, canvas: canvas)}[s$i]',
     ].join(';');
     final labels = [for (var i = 0; i < n; i++) '[s$i]'].join();
     final concatChain = '$stages;${labels}concat=n=$n:v=1:a=0[vout]';
@@ -199,33 +201,84 @@ class GifCommandBuilder {
     ];
   }
 
-  /// 图片模式单输入滤镜链:`fps=F` 恒在,scale 按宽高组合追加,`setsar=1` 兜底。
+  /// 统一输出画布尺寸(concat 要求各输入分辨率一致;越界容错见契约)。
   ///
-  /// 与 [_filterChain] 语义一致,差异:
-  /// - 未指定宽高(全 0)时统一到首图尺寸;单边指定时另一边按首图宽高比
-  ///   推算成定值 —— concat 要求各输入分辨率一致,单边 `-1` 会让每张图
-  ///   按各自宽高比缩放、分辨率不一,报 "Input link parameters do not
-  ///   match"(首图尺寸未知时退化为 -1 等比,尽力而为);
-  /// - 末尾恒接 `setsar=1`:concat 校验各输入 SAR,不同宽高比的图片
-  ///   scale 后 SAR 不一致会报错(已真机实证 ffmpeg 8),setsar=1 统一归一。
-  String _perInputChain(GifSetting setting, ImageGifSource source) {
+  /// 规则:表单宽高双边指定 → 画布 = 指定尺寸(含变形,画布语义);
+  /// 均 0 → 首图尺寸;仅单边 → 另一侧按首图宽高比推算;首图尺寸未知
+  /// → null(退化,见 [_perImageChain])。
+  ({int width, int height})? _canvasSize(
+    GifSetting setting,
+    ImageGifSource source,
+  ) {
+    final w = setting.width;
+    final h = setting.height;
+    if (w > 0 && h > 0) return (width: w, height: h);
+    final sw = source.width;
+    final sh = source.height;
+    if (sw <= 0 || sh <= 0) return null;
+    if (w > 0) return (width: w, height: math.max(1, (w * sh / sw).round()));
+    if (h > 0) return (width: math.max(1, (h * sw / sh).round()), height: h);
+    return (width: sw, height: sh);
+  }
+
+  /// 图片模式单输入滤镜链:`fps=F` 恒在,`setsar=1` 兜底(concat 校验
+  /// 各输入 SAR,不同宽高比图片 scale 后 SAR 不一致会报错,已实证)。
+  ///
+  /// **画布已知(正常路径,修复"所有图强制 scale 到首图尺寸 → 不同比例
+  /// 图被扭曲"的 BUG)**:
+  /// - 未精细控制([PerImageControl] 为 null 或 [PerImageControl.isDefault]):
+  ///   `scale=CW:CH:force_original_aspect_ratio=decrease`(保持比例 contain
+  ///   填满画布,小图放大、大图缩小,一律不扭曲)→ `format=rgba` →
+  ///   透明 pad 居中(居中表达式 (ow-iw)/2);pad 对无 alpha 输入不产生
+  ///   alpha 通道,必须先 format=rgba,否则透明色变不透明黑(已实证);
+  /// - 精细控制:先按控制 scale(双边 = 精确尺寸,遵守用户决定允许变形;
+  ///   单边/倍率 = 等比),再 `scale=min(iw\\,CW):min(ih\\,CH):
+  ///   force_original_aspect_ratio=decrease` 钳制链 —— 盒子每维 ≤ 输入
+  ///   (只缩不放大),控制目标不超画布时无操作原样显示,超出时按目标
+  ///   比例缩到画布内,再透明 pad。每张图独立,未控制图不受影响。
+  ///
+  /// **画布未知(首图尺寸未知,仅历史重转兜底)**:仅控制 scale 等比
+  /// (无 pad 无钳制),未控制则原样 `fps=F,setsar=1`。
+  String _perImageChain(
+    GifSetting setting,
+    ImageGifSource source,
+    int index, {
+    required ({int width, int height})? canvas,
+  }) {
     final fps = _formatFps(setting.fps);
-    var width = setting.width;
-    var height = setting.height;
-    final knownSource = source.width > 0 && source.height > 0;
-    if (width == 0 && height == 0 && knownSource) {
-      width = source.width;
-      height = source.height;
-    } else if (width > 0 && height == 0 && knownSource) {
-      height = math.max(1, (width * source.height / source.width).round());
-    } else if (height > 0 && width == 0 && knownSource) {
-      width = math.max(1, (height * source.width / source.height).round());
+    final control = source.controlAt(index);
+    final hasControl = control != null && !control.isDefault;
+    final canvasSize = canvas;
+    if (canvasSize == null) {
+      final controlScale = hasControl ? _controlScaleArgs(control) : null;
+      return 'fps=$fps${controlScale != null ? ',$controlScale' : ''},setsar=1';
     }
-    final scale = (width > 0 || height > 0)
-        ? ',scale=${width > 0 ? width : -1}:'
-              '${height > 0 ? height : -1}:flags=lanczos'
-        : '';
-    return 'fps=$fps$scale,setsar=1';
+    final cw = canvasSize.width;
+    final ch = canvasSize.height;
+    final pad =
+        'format=rgba,pad=$cw:$ch:(ow-iw)/2:(oh-ih)/2:'
+        'color=0x00000000,setsar=1';
+    if (!hasControl) {
+      return 'fps=$fps,scale=$cw:$ch:flags=lanczos:'
+          'force_original_aspect_ratio=decrease,$pad';
+    }
+    final controlScale = _controlScaleArgs(control);
+    // min 钳制链:表达式内逗号须转义 \,(Dart 串内写 \\,)
+    return 'fps=$fps,$controlScale,'
+        'scale=min(iw\\,$cw):min(ih\\,$ch):flags=lanczos:'
+        'force_original_aspect_ratio=decrease,$pad';
+  }
+
+  /// 精细化控制的目标 scale 滤镜串(等比用 iw/ih 表达式,双边为精确
+  /// 尺寸允许变形 —— 遵守用户决定;单边另一侧按该图自身比例推导)。
+  String _controlScaleArgs(PerImageControl control) {
+    final w = control.width;
+    final h = control.height;
+    if (w > 0 && h > 0) return 'scale=$w:$h:flags=lanczos';
+    if (w > 0) return 'scale=$w:-1:flags=lanczos';
+    if (h > 0) return 'scale=-1:$h:flags=lanczos';
+    final m = _formatFps(control.scaleMultiplier);
+    return 'scale=iw*$m:ih*$m:flags=lanczos';
   }
 
   /// 裁剪参数(`-ss`/`-to` 前置在 `-i` 前)。

@@ -110,15 +110,32 @@ ffmpeg -loop 1 -t <D> -framerate <F> -i <img1> -loop 1 -t <D> -framerate <F> -i 
 - 两遍调色板法与视频一致:palette 遍 `[vout]palettegen=max_colors=256[pal]
   -map "[pal]"`(无 `-progress`);encode 遍 `[vout][N:v]paletteuse=...`(palette
   为第 N 个输入),显式 `-map` 保证三平台确定
-- 关键约束(真机实证):
-  - **分辨率统一**:concat 要求各输入分辨率一致 —— 未指定宽高时统一到首图
-    尺寸(UI 解码探测首图尺寸填充 `ImageGifSource.width/height`;未知时
-    退化为无 scale)
+- **统一画布 + 每图不扭曲**(修复"不同尺寸图片混排被强制拉伸"的 BUG):
+  - 画布尺寸规则(`_canvasSize`):表单宽高双边指定 → 指定尺寸;均 0 →
+    首图尺寸;仅单边 → 另一侧按首图宽高比推算;首图尺寸未知 → 退化
+    (无画布,仅控制 scale 或无 scale)
+  - **未精细控制图**(默认链,`force_original_aspect_ratio=decrease` =
+    contain 填满画布,保持比例不扭曲,小图放大填满):
+    `fps=F,scale=CW:CH:flags=lanczos:force_original_aspect_ratio=decrease,
+    format=rgba,pad=CW:CH:(ow-iw)/2:(oh-ih)/2:color=0x00000000,setsar=1`
+  - **精细控制图**(每图独立 `PerImageControl`,仅作用于该图):
+    控制 scale(双边 = 精确尺寸**允许变形,遵守用户决定**;仅宽/仅高 =
+    `W:-1`/`-1:H` 等比;仅倍数 = `iw*m:ih*m` 等比)→ min 钳制链
+    `scale=min(iw\,CW):min(ih\,CH):...:force_original_aspect_ratio=decrease`
+    (盒子每维 ≤ 输入,只缩不放大,目标超画布时按目标比例缩入画布)→
+    format=rgba + 透明 pad
+  - **透明 pad 前提**(ffmpeg 8 实证):pad 对无 alpha 输入不产生 alpha
+    通道(透明色会变不透明黑),pad 前必须 `format=rgba`;palettegen
+    `reserve_transparent` 默认 true,透明像素经 paletteuse
+    `alpha_threshold=128` 直映射透明入口,**palette 参数零改动**
   - **`setsar=1` 必加**:不同宽高比图片 scale 后 SAR 不一致,concat 校验
     失败(ffmpeg 8 实测报 "Input link parameters do not match")
   - 每图时长下限 `ceil(1000/fps)` 毫秒,低于该值该图在 `-t` 窗口内 0 帧
     被 concat 静默跳过(控制器钳制 + formError)
 - 进度分母 = `N × 每图时长`(encode 遍 out_time_us 沿 concat 时间轴)
+- 每图精细控制参数随 `ImageGifSource.perImageControls` 进入命令构造,
+  随任务/历史 JSON 列持久化(崩溃恢复/重转以 `task.perImageControls`
+  兜底重建,不丢参数)
 
 ### 8.3.3 ProgressParser(纯函数,可单测)
 

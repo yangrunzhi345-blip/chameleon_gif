@@ -67,14 +67,18 @@ class HistoryController extends Notifier<AsyncValue<List<ExportHistory>>> {
     if (!_retrying.add(history.id)) return null;
     try {
       // 图片模式:直接以历史 imagePaths 重建源入队(不依赖 ffprobe,
-      // settings.end 已由提交时装配为总输出时长,校验自然通过)
+      // settings.end 已由提交时装配为总输出时长,校验自然通过;
+      // 每图精细控制参数随历史快照回填,重转完整复现)
       final imagePaths = history.imagePaths;
       if (imagePaths != null && imagePaths.isNotEmpty) {
         return ref
             .read(taskQueueControllerProvider.notifier)
             .submitFromImages(
               history.settings,
-              ImageGifSource(paths: imagePaths),
+              ImageGifSource(
+                paths: imagePaths,
+                perImageControls: history.perImageControls,
+              ),
             );
       }
       // end null(全片)放行,由 TaskManager.submit 装配视频时长;

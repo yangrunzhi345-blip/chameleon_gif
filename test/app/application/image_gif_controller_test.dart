@@ -11,6 +11,7 @@ import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_service.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/parse_video_port.dart';
 import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/per_image_control.dart';
 import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
 import 'package:chameleon_gif/features/import/application/import_providers.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
@@ -174,6 +175,62 @@ void main() {
     await waitLifecycle(ImageGifLifecycle.done);
     expect(service.receivedSources.single.width, 640);
     expect(service.receivedSources.single.height, 480);
+  });
+
+  test('submit 带每图控制:归一化后透传给源', () async {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+
+    await notifier.submit(
+      const ['/img/a.png', '/img/b.png'],
+      perImageControls: [
+        PerImageControl(scaleMultiplier: 2),
+        PerImageControl(width: 480, height: 480),
+      ],
+    );
+    await waitLifecycle(ImageGifLifecycle.done);
+    expect(service.receivedSources.single.perImageControls, const [
+      PerImageControl(scaleMultiplier: 2),
+      PerImageControl(width: 480, height: 480),
+    ]);
+    // 任务持久化同样携带(恢复/重转复现)
+    final tasks = await taskRepo.all();
+    expect(tasks.single.perImageControls, hasLength(2));
+  });
+
+  test('submit 每图控制部分为 null:补齐为默认值对象', () async {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+
+    await notifier.submit(
+      const ['/img/a.png', '/img/b.png'],
+      perImageControls: [null, PerImageControl(width: 320)],
+    );
+    await waitLifecycle(ImageGifLifecycle.done);
+    expect(service.receivedSources.single.perImageControls, const [
+      PerImageControl(),
+      PerImageControl(width: 320),
+    ]);
+  });
+
+  test('submit 每图控制全部默认 → null(不产生控制/不持久化)', () async {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+
+    await notifier.submit(
+      const ['/img/a.png', '/img/b.png'],
+      perImageControls: [
+        PerImageControl(),
+        PerImageControl(scaleMultiplier: 1.0),
+      ],
+    );
+    await waitLifecycle(ImageGifLifecycle.done);
+    expect(service.receivedSources.single.perImageControls, isNull);
+    final tasks = await taskRepo.all();
+    expect(tasks.single.perImageControls, isNull);
   });
 
   test('探测失败 → formError 拦截,不入队', () async {

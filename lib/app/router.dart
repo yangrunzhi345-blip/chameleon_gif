@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../domain/entities/video_info.dart';
+import '../../domain/value_objects/per_image_control.dart';
 import '../../features/history/presentation/history_page.dart';
 import '../../features/task_queue/presentation/queue_page.dart';
 import 'presentation/batch_import_screen.dart';
 import 'presentation/home_page.dart';
+import 'presentation/image_control_screen.dart';
 import 'presentation/image_gif_screen.dart';
 import 'presentation/preview_screen.dart';
 import 'presentation/settings_screen.dart';
@@ -49,6 +51,38 @@ List<RouteBase> buildRoutes() => [
       // (恢复/深链)时页面自行回退。
       final extra = state.extra;
       return ImageGifScreen(paths: extra is List<String> ? extra : null);
+    },
+  ),
+  GoRoute(
+    path: '/image-control',
+    name: 'image-control',
+    builder: (context, state) {
+      // extra 为 Map(全部 JSON 基础类型,恢复路径安全);非 Map/缺字段
+      // (恢复/深链)时页面以空 path 禁用编辑,不崩溃。
+      final extra = state.extra;
+      if (extra is Map<String, Object?>) {
+        final controlJson = extra['control'];
+        return ImageControlScreen(
+          path: extra['path'] is String ? extra['path'] as String : '',
+          index: (extra['index'] is num) ? (extra['index'] as num).toInt() : -1,
+          canvasW: (extra['canvasW'] is num)
+              ? (extra['canvasW'] as num).toInt()
+              : 0,
+          canvasH: (extra['canvasH'] is num)
+              ? (extra['canvasH'] as num).toInt()
+              : 0,
+          initial: controlJson is Map
+              ? PerImageControl.fromJson(Map<String, dynamic>.from(controlJson))
+              : null,
+        );
+      }
+      return const ImageControlScreen(
+        path: '',
+        index: -1,
+        canvasW: 0,
+        canvasH: 0,
+        initial: null,
+      );
     },
   ),
   GoRoute(

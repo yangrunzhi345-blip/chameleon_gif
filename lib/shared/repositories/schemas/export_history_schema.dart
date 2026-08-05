@@ -4,6 +4,7 @@ import 'package:isar_community/isar.dart';
 
 import '../../../domain/entities/export_history.dart';
 import '../../../domain/value_objects/gif_setting.dart';
+import '../../../domain/value_objects/per_image_control.dart';
 
 part 'export_history_schema.g.dart';
 
@@ -33,6 +34,10 @@ class ExportHistorySchema {
   /// 图片模式图片路径列表的 JSON 编码(null = 视频模式)。
   String? imagePathsJson;
 
+  /// 图片模式每图精细化控制的 JSON 编码(null = 全部默认)。
+  /// 可空 String 列,新增无迁移风险(参考 imagePathsJson 模式)。
+  String? perImageControlsJson;
+
   static ExportHistorySchema fromEntity(ExportHistory history) {
     final schema = ExportHistorySchema()
       ..id = history.id
@@ -46,7 +51,10 @@ class ExportHistorySchema {
       ..outputFrameCount = history.outputFrameCount
       ..imagePathsJson = history.imagePaths == null
           ? null
-          : jsonEncode(history.imagePaths);
+          : jsonEncode(history.imagePaths)
+      ..perImageControlsJson = history.perImageControls == null
+          ? null
+          : jsonEncode([for (final c in history.perImageControls!) c.toJson()]);
     return schema;
   }
 
@@ -69,6 +77,16 @@ class ExportHistorySchema {
           ? null
           : (const JsonDecoder().convert(imagePathsJson!) as List)
                 .cast<String>(),
+      perImageControls: _decodeControls(perImageControlsJson),
     );
+  }
+
+  /// 每图控制 JSON → 实体列表(解析失败抛由仓储层处理;null = 全部默认)。
+  static List<PerImageControl>? _decodeControls(String? json) {
+    if (json == null) return null;
+    return [
+      for (final item in const JsonDecoder().convert(json) as List)
+        PerImageControl.fromJson(Map<String, dynamic>.from(item as Map)),
+    ];
   }
 }

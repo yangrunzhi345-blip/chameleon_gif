@@ -3,6 +3,7 @@ import 'package:chameleon_gif/domain/entities/export_history.dart';
 import 'package:chameleon_gif/domain/entities/export_preset.dart';
 import 'package:chameleon_gif/domain/entities/export_task.dart';
 import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/per_image_control.dart';
 import 'package:chameleon_gif/domain/value_objects/task_state.dart';
 import 'package:chameleon_gif/shared/platform/gallery_save_result.dart';
 import 'package:chameleon_gif/shared/repositories/schemas/export_history_schema.dart';
@@ -100,6 +101,38 @@ void main() {
       expect(back.errorCode, 'GIF_1_ENCODE');
       expect(back.errorDetail, '转换失败');
     });
+
+    test('图片模式每图控制参数往返一致', () {
+      final imageTask = ExportTask(
+        id: 8,
+        videoPath: '/tmp/a.png',
+        imagePaths: ['/tmp/a.png', '/tmp/b.png'],
+        perImageControls: const [
+          PerImageControl(scaleMultiplier: 2.0, width: 480, height: 360),
+          PerImageControl(width: 320),
+        ],
+        settings: const GifSetting(fps: 15),
+        state: TaskState.queued,
+        createdAt: DateTime(2026, 8, 6),
+      );
+      final back = ExportTaskSchema.fromEntity(imageTask).toEntity();
+      expect(back.imagePaths, imageTask.imagePaths);
+      expect(back.perImageControls, imageTask.perImageControls);
+    });
+
+    test('图片模式无控制 → JSON 列 null(老数据零迁移)', () {
+      final imageTask = ExportTask(
+        id: 9,
+        videoPath: '/tmp/a.png',
+        imagePaths: ['/tmp/a.png'],
+        settings: const GifSetting(),
+        state: TaskState.queued,
+        createdAt: DateTime(2026, 8, 6),
+      );
+      final schema = ExportTaskSchema.fromEntity(imageTask);
+      expect(schema.perImageControlsJson, isNull);
+      expect(schema.toEntity().perImageControls, isNull);
+    });
   });
 
   group('ExportHistorySchema 往返', () {
@@ -125,6 +158,27 @@ void main() {
       expect(back.createdAt, history.createdAt);
       expect(back.sourceDurationMs, history.sourceDurationMs);
       expect(back.outputFrameCount, history.outputFrameCount);
+    });
+
+    test('图片模式每图控制参数往返一致', () {
+      final history = ExportHistory(
+        id: 4,
+        videoPath: '/tmp/a.png',
+        imagePaths: ['/tmp/a.png', '/tmp/b.png'],
+        perImageControls: const [
+          PerImageControl(scaleMultiplier: 1.5),
+          PerImageControl(width: 480, height: 480),
+        ],
+        outputPath: '/tmp/gifforge_4/out.gif',
+        settings: const GifSetting(),
+        durationMs: 1000,
+        outputSizeBytes: 1024,
+        createdAt: DateTime(2026, 8, 6),
+        sourceDurationMs: 2000,
+      );
+      final back = ExportHistorySchema.fromEntity(history).toEntity();
+      expect(back.imagePaths, history.imagePaths);
+      expect(back.perImageControls, history.perImageControls);
     });
 
     group('ExportPresetSchema 往返', () {

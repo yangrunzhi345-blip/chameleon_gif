@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/utils/duration_format.dart';
+import '../../domain/value_objects/per_image_control.dart';
 import '../../features/export/application/scale_multiplier.dart';
 import '../../features/export/presentation/custom_value_dialog.dart';
 import '../../features/export/presentation/export_complete_dialog.dart';
@@ -36,6 +37,10 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
   static const double _outputPanelTopThreshold = 800;
 
   late List<String> _paths = [];
+
+  /// 每图精细化控制(与 [_paths] 索引对齐,null = 该图未操作)。
+  late List<PerImageControl?> _perControls = [];
+
   final _frameDurationCtrl = TextEditingController();
   final _loopCtrl = TextEditingController();
   bool _frameDurationFocused = false;
@@ -81,6 +86,12 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
         return;
       }
       _paths = List.of(paths);
+      // 每图控制列表与图片数对齐(全 null = 未操作;generate 保证可增长,
+      // 后续 removeAt 合法)
+      _perControls = List<PerImageControl?>.generate(
+        _paths.length,
+        (_) => null,
+      );
       final notifier = ref.read(imageGifControllerProvider.notifier);
       notifier.init();
       // 探测首图尺寸(倍数联动/提交展开的源;首路径去重,后续列表
@@ -133,6 +144,11 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
     if (more == null || more.isEmpty || !mounted) return;
     setState(() {
       _paths = [..._paths, ...more];
+      // 追加图默认无控制(保持与 _paths 索引对齐)
+      _perControls = [
+        ..._perControls,
+        ...List<PerImageControl?>.generate(more.length, (_) => null),
+      ];
     });
     _syncSourceSize();
   }
@@ -143,6 +159,10 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
       final tmp = _paths[index - 1];
       _paths[index - 1] = _paths[index];
       _paths[index] = tmp;
+      // 控制随图走:交换相邻控制
+      final ctrl = _perControls[index - 1];
+      _perControls[index - 1] = _perControls[index];
+      _perControls[index] = ctrl;
     });
     _syncSourceSize();
   }
@@ -153,6 +173,9 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
       final tmp = _paths[index + 1];
       _paths[index + 1] = _paths[index];
       _paths[index] = tmp;
+      final ctrl = _perControls[index + 1];
+      _perControls[index + 1] = _perControls[index];
+      _perControls[index] = ctrl;
     });
     _syncSourceSize();
   }
@@ -160,8 +183,29 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
   void _removeAt(int index) {
     setState(() {
       _paths.removeAt(index);
+      _perControls.removeAt(index);
     });
     _syncSourceSize();
+  }
+
+  /// 打开该图精细化控制页(extra 传 JSON 基础类型,go_router 恢复安全);
+  /// 保存(非 null)则写回会话,齿轮左侧信息随之更新。
+  Future<void> _openPerImageControl(int index) async {
+    final canvas = ref.read(imageGifControllerProvider.notifier).canvasSize;
+    final result = await context.push<PerImageControl>(
+      '/image-control',
+      extra: <String, Object?>{
+        'path': _paths[index],
+        'index': index,
+        'canvasW': canvas?.width ?? 0,
+        'canvasH': canvas?.height ?? 0,
+        'control': _perControls[index]?.toJson(),
+      },
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      _perControls[index] = result;
+    });
   }
 
   /// 列表变动后同步首图尺寸探测(控制器按首路径去重,非首项操作零开销)。
@@ -205,7 +249,10 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
 
   Future<void> _startConvert() async {
     final notifier = ref.read(imageGifControllerProvider.notifier);
-    await notifier.submit(List.of(_paths));
+    await notifier.submit(
+      List.of(_paths),
+      perImageControls: List.of(_perControls),
+    );
   }
 
   /// 自定义宽度:弹输入框,1–4096 校验(非法 → formError)。
@@ -311,22 +358,67 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          // 精细控制信息(仅已操作显示;齿轮左方,见 BUG 修复
+                          // 需求:未操作不显示)。maxWidth 120 + ellipsis 防
+                          // 与 4 个按钮挤爆(RenderFlex 溢出由 widget 测试兜底)
+                          if (_perControls[i]?.isDefault == false)
+                            Flexible(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 120,
+                                ),
+                                child: Text(
+                                  _perControls[i]!.summary,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ),
+                            ),
+                          // 精细化控制入口(齿轮;下移左方;转换中禁用)
+                          IconButton(
+                            tooltip: '精细化控制',
+                            icon: const Icon(Icons.settings, size: 20),
+                            visualDensity: VisualDensity.compact,
+                            constraints: const BoxConstraints.tightFor(
+                              width: 36,
+                              height: 36,
+                            ),
+                            onPressed: exporting
+                                ? null
+                                : () => _openPerImageControl(i),
+                          ),
                           // 下移在左、上移在右(末项禁用)
                           IconButton(
                             tooltip: '下移',
-                            icon: const Icon(Icons.arrow_downward),
+                            icon: const Icon(Icons.arrow_downward, size: 20),
+                            visualDensity: VisualDensity.compact,
+                            constraints: const BoxConstraints.tightFor(
+                              width: 36,
+                              height: 36,
+                            ),
                             onPressed: i < _paths.length - 1
                                 ? () => _moveDown(i)
                                 : null,
                           ),
                           IconButton(
                             tooltip: '上移',
-                            icon: const Icon(Icons.arrow_upward),
+                            icon: const Icon(Icons.arrow_upward, size: 20),
+                            visualDensity: VisualDensity.compact,
+                            constraints: const BoxConstraints.tightFor(
+                              width: 36,
+                              height: 36,
+                            ),
                             onPressed: i > 0 ? () => _moveUp(i) : null,
                           ),
                           IconButton(
                             tooltip: '删除',
-                            icon: const Icon(Icons.close),
+                            icon: const Icon(Icons.close, size: 20),
+                            visualDensity: VisualDensity.compact,
+                            constraints: const BoxConstraints.tightFor(
+                              width: 36,
+                              height: 36,
+                            ),
                             onPressed: exporting ? null : () => _removeAt(i),
                           ),
                         ],

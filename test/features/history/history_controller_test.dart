@@ -14,6 +14,7 @@ import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_service.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/history_repository.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/parse_video_port.dart';
 import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/per_image_control.dart';
 import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
 import 'package:chameleon_gif/features/history/application/history_controller.dart';
 import 'package:chameleon_gif/features/history/application/history_providers.dart';
@@ -292,11 +293,16 @@ void main() {
 
   test('retry 图片历史:直接 submitFromImages,不调 ffprobe', () async {
     const paths = ['/img/a.png', '/img/b.png'];
+    const controls = [
+      PerImageControl(scaleMultiplier: 2),
+      PerImageControl(width: 480, height: 480),
+    ];
     final id = await historyRepo.add(
       ExportHistory(
         id: 9,
         videoPath: paths.first,
         imagePaths: paths,
+        perImageControls: controls,
         outputPath: '/tmp/gifforge_9/out.gif',
         settings: const GifSetting(frameDurationMs: 1000),
         durationMs: 1200,
@@ -317,6 +323,11 @@ void main() {
       service.receivedSources.single.paths,
       paths,
       reason: '以历史 imagePaths 重建源',
+    );
+    expect(
+      service.receivedSources.single.perImageControls,
+      controls,
+      reason: '每图控制随历史快照回填,重转完整复现',
     );
     expect(parsePort.parseCalls, isEmpty, reason: '图片重转不调 ffprobe');
   });

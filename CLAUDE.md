@@ -187,7 +187,9 @@ ffmpeg -i in.mp4 -i palette.png -lavfi "fps=15,scale=480:-1:flags=lanczos[x];[x]
 
 - 帧率 `fps`(默认 15)
 - 宽度 `scale`(默认 0 = 原图等比;-1 保持比例)
-- 高度 `scale`(默认 0 = 原图等比;与宽度同时指定时按指定尺寸输出,允许变形)
+- 高度 `scale`(默认 0 = 原图等比;与宽度同时指定时按指定尺寸输出,**图片
+  模式下为"画布"语义:所有图保持自身比例 contain 于画布 + 透明 pad,不再
+  允许变形拉伸**;变形仅发生在精细化控制页用户对单张图显式指定双边宽高时)
 - 起止时间 `-ss` / `-to`
 - 质量模式:标准(单遍) / 高质(调色板两遍)
 
@@ -201,16 +203,25 @@ ffmpeg -i in.mp4 -i palette.png -lavfi "fps=15,scale=480:-1:flags=lanczos[x];[x]
 
 - 输入:多张图片(png/jpg/jpeg/webp)按顺序合成帧动画;每图输入
   `-loop 1 -t <每图时长> -framerate <F> -i img`,filter_complex 逐图
-  `fps=F,scale=...,setsar=1` 后 `concat=n=N`,两遍调色板法与视频一致
-  (palette 遍无 `-progress`,encode 遍带 `-progress pipe:1` 与输出 `-loop`)。
+  `fps=F,scale=...,format=rgba,pad=...透明, setsar=1` 后 `concat=n=N`,
+  两遍调色板法与视频一致(palette 遍无 `-progress`,encode 遍带
+  `-progress pipe:1` 与输出 `-loop`)。
 - 参数:帧率、每图停留时长(毫秒,下限 `ceil(1000/fps)` 防 0 帧图)、
   宽高缩放、循环、质量开关(高质两遍/标准单遍,`GifSetting.usePalette`)。
-- 源模型 `ImageGifSource`(paths/首图尺寸);任务持久化经
-  `ExportTask.imagePaths`(Isar JSON 列),崩溃恢复/历史重转以路径列表
-  重建源,**不依赖 ffprobe**;`GifSetting` 新增 `frameDurationMs`/
-  `usePalette`(均带默认值,老 JSON 兼容)。
-- 未指定宽高时统一到首图尺寸(concat 要求分辨率一致),首图尺寸由
-  UI 解码探测填充;不同宽高比的图经 `setsar=1` 归一(ffmpeg 8 已实证)。
+- **统一画布 + 每图不扭曲**:画布 = 表单宽高(双边)/ 首图尺寸(均 0)/
+  按首图比例推算(单边);未精细控制图一律 `force_original_aspect_ratio=
+  decrease`(保持比例 contain 填满画布)+ `format=rgba` + 透明 pad 居中,
+  **任何尺寸混排不拉伸**;每图精细控制(`PerImageControl`:倍率/宽高,
+  齿轮入口进入全屏控制页)仅作用于该图:双边指定允许变形(用户决定),
+  单边/倍率等比,min 钳制链防超画布,其余图不受影响。
+- 源模型 `ImageGifSource`(paths/首图尺寸/perImageControls);任务持久化经
+  `ExportTask.imagePaths` 与 `perImageControlsJson`(Isar JSON 列,可空
+  String 列无迁移风险),崩溃恢复/历史重转以路径列表 + 控制参数重建源,
+  **不依赖 ffprobe**;`GifSetting` 新增 `frameDurationMs`/`usePalette`
+  (均带默认值,老 JSON 兼容)。
+- 首图尺寸由 UI 解码探测填充(未知时退化:仅控制 scale,无 pad);不同
+  宽高比的图经 `setsar=1` 归一(ffmpeg 8 已实证);pad 前必须
+  `format=rgba` 否则透明色变不透明黑(已实证)。
 
 ## 七、常用命令
 

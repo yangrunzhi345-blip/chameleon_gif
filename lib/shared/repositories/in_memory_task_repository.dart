@@ -35,6 +35,7 @@ class InMemoryTaskRepository implements TaskRepository {
       startedAt: task.startedAt,
       finishedAt: task.finishedAt,
       imagePaths: task.imagePaths,
+      perImageControls: task.perImageControls,
       galleryStatus: task.galleryStatus,
       galleryPath: task.galleryPath,
       galleryUri: task.galleryUri,

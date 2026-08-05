@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chameleon_gif/app/app.dart';
+import 'package:chameleon_gif/app/presentation/image_control_screen.dart';
 import 'package:chameleon_gif/app/presentation/image_gif_screen.dart';
 import 'package:chameleon_gif/app/router.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
@@ -245,6 +246,136 @@ void main() {
         )
         .dx;
     expect(downPos, lessThan(upPos), reason: '下移位于上移左侧');
+  });
+
+  testWidgets('精细化控制入口:每行齿轮存在,位于下移左侧;点击进入控制页', (tester) async {
+    final (app, router, _) = buildApp();
+    await pumpApp(tester, app);
+    await enterScreen(tester, router);
+
+    // 两行各有齿轮入口
+    expect(find.byIcon(Icons.settings), findsNWidgets(2));
+    // 齿轮位于下移按钮左侧(同 ListTile 内比较)
+    final gearPos = tester
+        .getCenter(
+          find.descendant(
+            of: find.widgetWithText(ListTile, 'a.png'),
+            matching: find.byIcon(Icons.settings),
+          ),
+        )
+        .dx;
+    final downPos = tester
+        .getCenter(
+          find.descendant(
+            of: find.widgetWithText(ListTile, 'a.png'),
+            matching: find.byIcon(Icons.arrow_downward),
+          ),
+        )
+        .dx;
+    expect(gearPos, lessThan(downPos), reason: '齿轮位于下移左方');
+
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'a.png'),
+        matching: find.byIcon(Icons.settings),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(ImageControlScreen), findsOneWidget);
+    expect(find.text('精细化控制 · 第 1 张'), findsOneWidget);
+  });
+
+  testWidgets('精细控制未操作:齿轮左侧不显示信息文本', (tester) async {
+    final (app, router, _) = buildApp();
+    await pumpApp(tester, app);
+    await enterScreen(tester, router);
+
+    expect(find.textContaining('缩放倍率'), findsNothing);
+    expect(find.textContaining('宽度:'), findsNothing);
+  });
+
+  testWidgets('精细控制保存后:齿轮左侧显示参数信息,信息随图走', (tester) async {
+    final (app, router, _) = buildApp();
+    await pumpApp(tester, app);
+    await enterScreen(tester, router);
+
+    // 打开 a.png 控制页,选 2 倍 → 保存
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'a.png'),
+        matching: find.byIcon(Icons.settings),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('1 倍'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2 倍').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    // 回到主页面:a.png 行齿轮左侧显示信息,b.png 行不显示
+    expect(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'a.png'),
+        matching: find.textContaining('缩放倍率:2'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'b.png'),
+        matching: find.textContaining('缩放倍率'),
+      ),
+      findsNothing,
+    );
+
+    // 下移 a.png → 信息随图走(第 2 行 a.png 仍带信息)
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'a.png'),
+        matching: find.byIcon(Icons.arrow_downward),
+      ),
+    );
+    await tester.pump();
+    expect(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'a.png'),
+        matching: find.textContaining('缩放倍率:2'),
+      ),
+      findsOneWidget,
+      reason: '控制随图走:移动后 a.png 仍显示其参数',
+    );
+    expect(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'b.png'),
+        matching: find.textContaining('缩放倍率'),
+      ),
+      findsNothing,
+    );
+
+    // 删除 a.png → 信息消失
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'a.png'),
+        matching: find.byIcon(Icons.close),
+      ),
+    );
+    await tester.pump();
+    expect(find.textContaining('缩放倍率'), findsNothing);
+  });
+
+  testWidgets('窄屏布局:齿轮 + 4 按钮无溢出异常', (tester) async {
+    final (app, router, _) = buildApp();
+    tester.view.physicalSize = const Size(500, 700);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app);
+    await tester.pumpAndSettle();
+    await enterScreen(tester, router);
+
+    expect(find.byIcon(Icons.settings), findsNWidgets(2));
+    expect(tester.takeException(), isNull, reason: '窄布局不得 RenderFlex 溢出');
   });
 
   testWidgets('追加图片:pickImages 结果合并进列表', (tester) async {

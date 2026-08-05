@@ -1,4 +1,5 @@
 import '../value_objects/gif_setting.dart';
+import '../value_objects/per_image_control.dart';
 
 /// 转换历史领域实体(不可变快照,字段契约见 docs/07-数据库设计.md §7.3.2)。
 ///
@@ -15,6 +16,7 @@ class ExportHistory {
     required this.sourceDurationMs,
     this.outputFrameCount,
     this.imagePaths,
+    this.perImageControls,
   });
 
   final int id;
@@ -27,6 +29,10 @@ class ExportHistory {
 
   /// 图片模式:有序图片路径列表;null = 视频模式(重转分支依据)。
   final List<String>? imagePaths;
+
+  /// 图片模式:每图精细化控制快照(与 imagePaths 等长对齐,null = 全部默认;
+  /// 重转时回填,保证原参数可复现)。
+  final List<PerImageControl>? perImageControls;
 
   /// 转码耗时(ms)
   final int durationMs;
