@@ -275,10 +275,8 @@ void main() {
 
     expect(find.text('所有的任务已经完成'), findsOneWidget);
     expect(find.textContaining('取消 3 个'), findsOneWidget);
-    final previewBtn = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, '预览'),
-    );
-    expect(previewBtn.onPressed, isNull, reason: '无成功输出,预览禁用');
+    // 预览入口已随"预览完成 GIF"功能整体移除(2026-08 决策)
+    expect(find.text('预览'), findsNothing);
     final openFolderBtn = tester.widget<TextButton>(
       find.widgetWithText(TextButton, '打开文件夹'),
     );

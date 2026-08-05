@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'gif_preview_controller.dart';
 import 'preview_controller.dart';
 import 'preview_state.dart';
 
@@ -13,10 +12,3 @@ final previewControllerProvider =
       PreviewController.new,
     );
 
-/// GIF 逐帧预览状态(完成 GIF 预览专用,autoDispose)。
-/// Android 上 media_kit(mpv)无法播放 GIF(实证,见 gif_preview_controller.dart),
-/// GIF 走 image 包逐帧解码,MP4 预览不受影响。
-final gifPreviewControllerProvider =
-    NotifierProvider.autoDispose<GifPreviewController, PreviewState>(
-      GifPreviewController.new,
-    );

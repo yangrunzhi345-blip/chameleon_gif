@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../domain/entities/video_info.dart';
 import '../../features/history/presentation/history_page.dart';
-import '../../features/preview/presentation/completed_gif_preview_screen.dart';
 import '../../features/task_queue/presentation/queue_page.dart';
 import 'presentation/batch_import_screen.dart';
 import 'presentation/home_page.dart';
@@ -39,19 +38,6 @@ List<RouteBase> buildRoutes() => [
       // (恢复/深链)时设置页自行回退。
       final extra = state.extra;
       return BatchImportScreen(paths: extra is List<String> ? extra : null);
-    },
-  ),
-  GoRoute(
-    path: '/preview-complete',
-    name: 'preview-complete',
-    builder: (context, state) {
-      // List<String> 为 JSON 基础类型,恢复路径安全;过滤空串,
-      // 非 List<String>(恢复/深链)或空 → 页面自行回退。
-      final extra = state.extra;
-      final paths = extra is List<String>
-          ? extra.where((p) => p.isNotEmpty).toList()
-          : null;
-      return CompletedGifPreviewScreen(paths: paths);
     },
   ),
   GoRoute(

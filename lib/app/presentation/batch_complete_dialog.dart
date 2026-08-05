@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../application/batch_session_controller.dart';
 
-/// 批量完成弹窗("所有的任务已经完成"+ 统计 + 打开文件夹 + 四去向)。
+/// 批量完成弹窗("所有的任务已经完成"+ 统计 + 打开文件夹 + 三去向)。
 ///
 /// 动作转发由宿主注入:打开文件夹(打开第一个成功输出所在目录,弹窗
-/// 保持打开)/ 返回批量导入(恢复初始)/ 返回单独导入mp4 / 返回首页 /
-/// 预览完成 GIF(无可预览输出时禁用)。
+/// 保持打开)/ 返回批量导入(恢复初始)/ 返回单独导入mp4 / 返回首页。
 class BatchCompleteDialog extends StatelessWidget {
   const BatchCompleteDialog({
     super.key,
@@ -15,7 +14,6 @@ class BatchCompleteDialog extends StatelessWidget {
     required this.onBackToBatch,
     required this.onSingleImport,
     required this.onBackHome,
-    required this.onPreview,
   });
 
   final BatchStats stats;
@@ -23,7 +21,6 @@ class BatchCompleteDialog extends StatelessWidget {
   final VoidCallback onBackToBatch;
   final VoidCallback onSingleImport;
   final VoidCallback onBackHome;
-  final VoidCallback onPreview;
 
   @override
   Widget build(BuildContext context) {
@@ -64,10 +61,6 @@ class BatchCompleteDialog extends StatelessWidget {
               child: const Text('返回单独导入mp4'),
             ),
             TextButton(onPressed: onBackHome, child: const Text('返回首页')),
-            FilledButton(
-              onPressed: stats.completedGifPaths.isEmpty ? null : onPreview,
-              child: const Text('预览'),
-            ),
           ],
         ),
       ],

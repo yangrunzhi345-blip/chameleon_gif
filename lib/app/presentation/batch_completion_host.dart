@@ -102,14 +102,6 @@ class _BatchCompletionHostState extends ConsumerState<BatchCompletionHost> {
             onBackHome: () => _finish(dialogCtx, () {
               _navigate((ctx) => ctx.go('/'));
             }),
-            onPreview: () => _finish(dialogCtx, () {
-              _navigate(
-                (ctx) => ctx.push(
-                  '/preview-complete',
-                  extra: snapshot.stats.completedGifPaths,
-                ),
-              );
-            }),
           ),
         );
     }

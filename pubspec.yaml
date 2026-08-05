@@ -69,10 +69,6 @@ dependencies:
   file_picker: ^11.0.3
   file_selector: ^1.1.0
 
-  # GIF 逐帧解码(完成 GIF 预览:Android mpv 无法播放 GIF,替代方案,
-  # 见 gif_preview_controller.dart 与 docs/13-风险分析.md R-07 实证)
-  image: ^4.8.0
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
