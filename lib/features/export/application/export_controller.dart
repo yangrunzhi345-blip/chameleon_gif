@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,9 +7,9 @@ import '../../../domain/entities/export_task.dart';
 import '../../../domain/entities/video_info.dart';
 import '../../../domain/value_objects/gif_setting.dart';
 import '../../../domain/value_objects/task_state.dart';
-import '../../../shared/platform/gallery_save_result.dart';
 import '../../../shared/providers/core_providers.dart';
 import '../../task_queue/application/task_queue_providers.dart';
+import '../../task_queue/application/task_session_lifecycle.dart';
 import '../../timeline/application/timeline_providers.dart';
 import 'export_state.dart';
 // 别名:顶层函数与本控制器方法同名,须经别名调用
@@ -22,17 +21,15 @@ import 'output_dir_picker.dart' as output_dir_picker;
 /// (时间轴提交回调)/saveAsDefault/loadDefault/submit(表单装配,start==end
 /// 拒绝,start>end 自动交换)/cancelTask/reset(保留表单值)。
 /// 订阅任务事件流驱动 idle→exporting→done|failed;高频进度不重建状态。
-class ExportController extends Notifier<ExportFormState> {
-  StreamSubscription<ExportTask>? _taskSub;
-  int? _activeTaskId;
-  bool _submitting = false;
+/// 生命周期公共样板(订阅/取消/相册清理/打开/分享)经 [TaskSessionLifecycle]
+/// 抽取,本类只保留状态迁移与表单逻辑。
+class ExportController extends Notifier<ExportFormState>
+    with TaskSessionLifecycle<ExportFormState> {
   Duration? _videoDuration;
 
   @override
   ExportFormState build() {
-    ref.onDispose(() => _taskSub?.cancel());
-    final manager = ref.watch(taskManagerProvider);
-    _taskSub ??= manager.taskEvents.listen(_onTaskEvent);
+    initTaskSubscription();
     return const ExportFormState.idle();
   }
 
@@ -179,8 +176,7 @@ class ExportController extends Notifier<ExportFormState> {
   ///
   /// [setting] 非空时绕过表单(测试/P5 重转直传);重入守卫防连点。
   Future<void> submit({GifSetting? setting, required VideoInfo video}) async {
-    if (_submitting) return;
-    _submitting = true;
+    if (!claimSubmit()) return;
     try {
       final effective = setting ?? assembleSetting();
       final end = effective.end ?? video.duration;
@@ -197,72 +193,20 @@ class ExportController extends Notifier<ExportFormState> {
       final id = await ref
           .read(taskQueueControllerProvider.notifier)
           .submit(effective, video, outputDir: state.outputDir);
-      _activeTaskId = id;
+      trackTask(id);
       state = state.copyWith(
         lifecycle: ExportLifecycle.exporting,
         taskId: id,
         formError: null,
       );
     } finally {
-      _submitting = false;
+      releaseSubmit();
     }
   }
 
-  /// 取消当前导出任务。
-  Future<void> cancelTask() async {
-    final taskId = _activeTaskId;
-    if (taskId == null) return;
-    await ref.read(taskQueueControllerProvider.notifier).cancel(taskId);
-  }
-
-  /// 弹窗/失败提示关闭后回 idle,表单值保留。
-  ///
-  /// 已保存到相册的私有副本在此延迟删除(弹窗期间路径仍有效,供预览/
-  /// 分享);best-effort:删除失败仅日志,系统缓存清理兜底。
-  Future<void> reset() async {
-    final task = state.task;
-    final outputPath = task?.outputPath;
-    if (task?.galleryStatus == GallerySaveStatus.saved && outputPath != null) {
-      try {
-        final f = File(outputPath);
-        if (await f.exists()) await f.delete();
-      } on FileSystemException {
-        // 忽略:缓存目录系统会兜底清理
-      }
-    }
-    _activeTaskId = null;
-    state = state.copyWith(
-      lifecycle: ExportLifecycle.idle,
-      taskId: null,
-      task: null,
-      errorMessage: null,
-    );
-  }
-
-  /// 打开输出位置(done 态动作,UI 层仅转发)。
-  ///
-  /// 已保存到相册(saved)→ 打开相册定位条目;否则打开文件管理器目录
-  /// (桌面);平台路由藏在 PlatformAdapter,UI 无平台分支。
-  Future<void> openOutputFolder() async {
-    final task = state.task;
-    final outputPath = task?.outputPath;
-    if (task == null || outputPath == null) return;
-    if (task.galleryStatus == GallerySaveStatus.saved) {
-      await ref.read(platformAdapterProvider).openGallery(uri: task.galleryUri);
-      return;
-    }
-    // 目录提取在功能层(dart:io 纯路径处理,不触文件系统)
-    await ref
-        .read(platformAdapterProvider)
-        .openFolder(File(outputPath).parent.path);
-  }
-
-  /// 系统分享面板发送输出文件(相册保存失败/低版本系统的兜底)。
-  Future<void> shareGif() async {
-    final outputPath = state.task?.outputPath;
-    if (outputPath == null) return;
-    await ref.read(platformAdapterProvider).shareFile(outputPath);
-  }
+  /// 弹窗/失败提示关闭后回 idle,表单值保留(公共逻辑见
+  /// [TaskSessionLifecycle.resetSession])。
+  Future<void> reset() => resetSession();
 
   (Duration, Duration) _normalized(Duration start, Duration? end) {
     final max = _videoDuration ?? Duration.zero;
@@ -273,23 +217,36 @@ class ExportController extends Notifier<ExportFormState> {
     return normalizeRange(s, e);
   }
 
-  Future<void> _onTaskEvent(ExportTask task) async {
-    final taskId = _activeTaskId;
-    if (taskId == null || task.id != taskId) return;
+  // ---- TaskSessionLifecycle 状态迁移 ----
+
+  @override
+  ExportTask? get sessionTask => state.task;
+
+  @override
+  void goIdle() {
+    state = state.copyWith(
+      lifecycle: ExportLifecycle.idle,
+      taskId: null,
+      task: null,
+      errorMessage: null,
+    );
+  }
+
+  @override
+  void handleTaskEvent(ExportTask task) {
+    if (!isSessionTask(task)) return;
     if (task.state == TaskState.completed) {
       final outputPath = task.outputPath;
       if (outputPath == null) return;
-      // 功能层读文件大小(UI 层禁止 IO)
-      int size = 0;
-      try {
-        size = await File(outputPath).length();
-      } on FileSystemException {
-        // 大小读取失败不阻断完成弹窗
-      }
-      state = state.copyWith(
-        lifecycle: ExportLifecycle.done,
-        task: task,
-        outputSizeBytes: size,
+      // 功能层读文件大小(UI 层禁止 IO;失败不阻断完成弹窗)
+      unawaited(
+        readOutputSizeBytes(outputPath).then((size) {
+          state = state.copyWith(
+            lifecycle: ExportLifecycle.done,
+            task: task,
+            outputSizeBytes: size,
+          );
+        }),
       );
     } else if (task.state == TaskState.failed) {
       state = state.copyWith(

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,7 +10,7 @@ import '../../features/export/application/output_dir_picker.dart'
     as output_dir_picker;
 import '../../features/import/application/import_providers.dart';
 import '../../features/task_queue/application/task_queue_providers.dart';
-import '../../shared/platform/gallery_save_result.dart';
+import '../../features/task_queue/application/task_session_lifecycle.dart';
 import '../../shared/providers/core_providers.dart';
 import 'image_gif_state.dart';
 
@@ -28,16 +27,12 @@ final imageGifControllerProvider =
 /// saveAsDefault/submit(装配 GifSetting + ImageGifSource → 任务队列)/
 /// cancelTask/reset(保留表单值)/openOutputFolder/shareGif。
 /// 订阅任务事件流驱动 idle→exporting→done|failed;高频进度不重建状态。
-class ImageGifController extends Notifier<ImageGifFormState> {
-  StreamSubscription<ExportTask>? _taskSub;
-  int? _activeTaskId;
-  bool _submitting = false;
-
+/// 生命周期公共样板经 [TaskSessionLifecycle] 抽取(与 export 同源)。
+class ImageGifController extends Notifier<ImageGifFormState>
+    with TaskSessionLifecycle<ImageGifFormState> {
   @override
   ImageGifFormState build() {
-    ref.onDispose(() => _taskSub?.cancel());
-    final manager = ref.watch(taskManagerProvider);
-    _taskSub ??= manager.taskEvents.listen(_onTaskEvent);
+    initTaskSubscription();
     return const ImageGifFormState.idle();
   }
 
@@ -173,12 +168,12 @@ class ImageGifController extends Notifier<ImageGifFormState> {
   /// 解码逻辑,可独立单测)。探测失败 → formError 明确拦截(此前为
   /// 静默退化,后续 concat 神秘报错);空列表拒绝;重入守卫防连点。
   Future<void> submit(List<String> paths) async {
-    if (_submitting) return;
+    if (!claimSubmit()) return;
     if (paths.isEmpty) {
+      releaseSubmit();
       state = state.copyWith(formError: '请先选择图片');
       return;
     }
-    _submitting = true;
     try {
       final setting = assembleSetting();
       final size = await _probeFirstImageSize(paths);
@@ -198,14 +193,14 @@ class ImageGifController extends Notifier<ImageGifFormState> {
             outputDir: state.outputDir,
           );
       if (!ref.mounted) return; // autoDispose 会话已销毁(页面离开)
-      _activeTaskId = id;
+      trackTask(id);
       state = state.copyWith(
         lifecycle: ImageGifLifecycle.exporting,
         taskId: id,
         formError: null,
       );
     } finally {
-      _submitting = false;
+      releaseSubmit();
     }
   }
 
@@ -221,26 +216,17 @@ class ImageGifController extends Notifier<ImageGifFormState> {
     }
   }
 
-  /// 取消当前导出任务。
-  Future<void> cancelTask() async {
-    final taskId = _activeTaskId;
-    if (taskId == null) return;
-    await ref.read(taskQueueControllerProvider.notifier).cancel(taskId);
-  }
+  /// 弹窗/失败提示关闭后回 idle,表单值保留(公共逻辑见
+  /// [TaskSessionLifecycle.resetSession])。
+  Future<void> reset() => resetSession();
 
-  /// 弹窗/失败提示关闭后回 idle,表单值保留。
-  Future<void> reset() async {
-    final task = state.task;
-    final outputPath = task?.outputPath;
-    if (task?.galleryStatus == GallerySaveStatus.saved && outputPath != null) {
-      try {
-        final f = File(outputPath);
-        if (await f.exists()) await f.delete();
-      } on FileSystemException {
-        // 忽略:缓存目录系统会兜底清理
-      }
-    }
-    _activeTaskId = null;
+  // ---- TaskSessionLifecycle 状态迁移 ----
+
+  @override
+  ExportTask? get sessionTask => state.task;
+
+  @override
+  void goIdle() {
     state = state.copyWith(
       lifecycle: ImageGifLifecycle.idle,
       taskId: null,
@@ -249,43 +235,21 @@ class ImageGifController extends Notifier<ImageGifFormState> {
     );
   }
 
-  /// 打开输出位置(done 态动作,UI 层仅转发)。
-  Future<void> openOutputFolder() async {
-    final task = state.task;
-    final outputPath = task?.outputPath;
-    if (task == null || outputPath == null) return;
-    if (task.galleryStatus == GallerySaveStatus.saved) {
-      await ref.read(platformAdapterProvider).openGallery(uri: task.galleryUri);
-      return;
-    }
-    await ref
-        .read(platformAdapterProvider)
-        .openFolder(File(outputPath).parent.path);
-  }
-
-  /// 系统分享面板发送输出文件(相册保存失败/低版本系统的兜底)。
-  Future<void> shareGif() async {
-    final outputPath = state.task?.outputPath;
-    if (outputPath == null) return;
-    await ref.read(platformAdapterProvider).shareFile(outputPath);
-  }
-
-  Future<void> _onTaskEvent(ExportTask task) async {
-    final taskId = _activeTaskId;
-    if (taskId == null || task.id != taskId) return;
+  @override
+  void handleTaskEvent(ExportTask task) {
+    if (!isSessionTask(task)) return;
     if (task.state == TaskState.completed) {
       final outputPath = task.outputPath;
       if (outputPath == null) return;
-      int size = 0;
-      try {
-        size = await File(outputPath).length();
-      } on FileSystemException {
-        // 大小读取失败不阻断完成弹窗
-      }
-      state = state.copyWith(
-        lifecycle: ImageGifLifecycle.done,
-        task: task,
-        outputSizeBytes: size,
+      // 功能层读文件大小(UI 层禁止 IO;失败不阻断完成弹窗)
+      unawaited(
+        readOutputSizeBytes(outputPath).then((size) {
+          state = state.copyWith(
+            lifecycle: ImageGifLifecycle.done,
+            task: task,
+            outputSizeBytes: size,
+          );
+        }),
       );
     } else if (task.state == TaskState.failed) {
       state = state.copyWith(
