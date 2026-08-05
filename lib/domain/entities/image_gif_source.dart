@@ -24,7 +24,8 @@ class ImageGifSource {
   final int height;
 
   /// 每图精细化控制(与 [paths] 等长对齐,null = 全部默认)。
-  /// null / 长度不齐时按默认处理;不持久化于本对象,随任务/历史 JSON 列存储。
+  /// 元素恒非空,`isDefault` 表示该图未操作;null 列表 / 长度不齐时按
+  /// 默认处理。不持久化于本对象,随任务/历史 JSON 列存储。
   final List<PerImageControl>? perImageControls;
 
   /// 第 [i] 张图的控制参数(越界或未精细控制返回 null = 默认)。
