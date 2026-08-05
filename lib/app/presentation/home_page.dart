@@ -42,6 +42,8 @@ class HomePage extends ConsumerWidget {
         ],
       ),
       body: Column(
+        // 显式水平居中(品牌区与按钮区均以屏幕中线对齐)
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // 品牌区:Logo + 应用名 + 标语,整体上移(顶部留白 48)
           const SizedBox(height: 48),
@@ -57,10 +59,11 @@ class HomePage extends ConsumerWidget {
           const SizedBox(height: 16),
           const Text(
             'Chameleon Gif',
+            textAlign: TextAlign.center,
             style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          const Text('基础架构就绪'),
+          const Text('基础架构就绪', textAlign: TextAlign.center),
           // 按钮区下沉到底部
           const Spacer(),
           FilledButton.icon(
