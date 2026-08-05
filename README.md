@@ -210,4 +210,6 @@ dart run tool/convert_check.dart         # 真实转码 SHA-256 一致性验证
 
 ## 📄 许可证
 
-本项目为个人开源项目,许可证待定(规划中)。
+本项目采用 [GNU General Public License v3.0](LICENSE)(GPL-3.0)。
+
+> 选型依据:Android 端内置 FFmpegKit 原生库含 GPL-3.0 组件(静态链接),GPL-3.0 与之兼容;桌面端调系统 ffmpeg 二进制(子进程,不构成衍生作品),media_kit 为 MIT 宽松许可。
