@@ -36,9 +36,7 @@ class TaskQueueController extends Notifier<TaskQueueState> {
             if (ref.mounted) _refresh();
           },
           onError: (Object e, StackTrace st) {
-            ref
-                .read(appLoggerProvider)
-                .e('任务恢复启动失败', error: e, stackTrace: st);
+            ref.read(appLoggerProvider).e('任务恢复启动失败', error: e, stackTrace: st);
           },
         ),
       );

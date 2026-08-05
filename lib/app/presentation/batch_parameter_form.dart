@@ -77,9 +77,16 @@ class _BatchParameterFormState extends State<BatchParameterForm> {
   /// 未聚焦时从 state 回填文本(参数变更后文本随之刷新)。
   void _syncTextFields(BatchImportFormState state) {
     if (!_loopFocused) _loopCtrl.text = '${state.loop}';
-    if (!_startFocused) _startCtrl.text = formatMmSs(state.start.inMilliseconds, fractionDigits: 3);
+    if (!_startFocused) {
+      _startCtrl.text = formatMmSs(
+        state.start.inMilliseconds,
+        fractionDigits: 3,
+      );
+    }
     if (!_endFocused) {
-      _endCtrl.text = state.end == null ? '' : formatMmSs(state.end!.inMilliseconds, fractionDigits: 3);
+      _endCtrl.text = state.end == null
+          ? ''
+          : formatMmSs(state.end!.inMilliseconds, fractionDigits: 3);
     }
   }
 

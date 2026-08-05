@@ -190,8 +190,11 @@ void main() {
       if (v.hasError) break;
       await Future<void>.delayed(const Duration(milliseconds: 5));
     }
-    expect(container2.read(historyControllerProvider).hasError, isTrue,
-        reason: '仓储异常应落到 AsyncValue.error');
+    expect(
+      container2.read(historyControllerProvider).hasError,
+      isTrue,
+      reason: '仓储异常应落到 AsyncValue.error',
+    );
     container2.dispose();
     await tempRoot.delete(recursive: true);
   });

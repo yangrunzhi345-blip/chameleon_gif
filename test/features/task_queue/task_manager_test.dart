@@ -646,8 +646,7 @@ void main() {
     gate.complete(); // 放行 saveToGallery(输出已被清理 → 抛异常走容错)
 
     final task = await waitForState(id, TaskState.cancelled);
-    expect(task.state, TaskState.cancelled,
-        reason: '完成收尾前复查到取消,不得落 completed');
+    expect(task.state, TaskState.cancelled, reason: '完成收尾前复查到取消,不得落 completed');
     expect(await historyRepo.list(), isEmpty, reason: '取消不应生成历史');
   });
 
@@ -665,10 +664,16 @@ void main() {
     final task = await waitForState(id, TaskState.failed);
 
     expect(task.errorCode, 'GIF_1_ENCODE');
-    expect(await File('$workDir/palette.png').exists(), isFalse,
-        reason: '失败后调色板应被清理');
-    expect(await File('$workDir/out.gif').exists(), isFalse,
-        reason: '工作目录半成品应被清理');
+    expect(
+      await File('$workDir/palette.png').exists(),
+      isFalse,
+      reason: '失败后调色板应被清理',
+    );
+    expect(
+      await File('$workDir/out.gif').exists(),
+      isFalse,
+      reason: '工作目录半成品应被清理',
+    );
   });
 
   test('退避重试显式构造清空陈旧错误字段(与 start/retry 一致)', () async {
@@ -698,9 +703,7 @@ void main() {
       ffmpegService: service,
       platformAdapter: _TestAdapter(tempRoot.path),
       logger: logger,
-      retryDelay: (_) => Future<void>.delayed(
-        const Duration(milliseconds: 60),
-      ),
+      retryDelay: (_) => Future<void>.delayed(const Duration(milliseconds: 60)),
     );
     await manager.retry(7);
 
@@ -711,8 +714,11 @@ void main() {
       if (t?.state == TaskState.queued && t?.retryCount == 1) {
         expect(t!.errorDetail, isNull, reason: '重排队清除陈旧 errorDetail');
         expect(t.finishedAt, isNull, reason: '重排队清除陈旧 finishedAt');
-        expect(t.galleryStatus, GallerySaveStatus.unsupported,
-            reason: '重排队清除陈旧相册状态');
+        expect(
+          t.galleryStatus,
+          GallerySaveStatus.unsupported,
+          reason: '重排队清除陈旧相册状态',
+        );
         checked = true;
         break;
       }

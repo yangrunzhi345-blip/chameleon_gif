@@ -69,6 +69,9 @@ git push
 | 文件选择 | `file_selector` | `^1.1.0` | 官方方案,保存 GIF 对话框 |
 | 代码生成 | `build_runner` | `2.15.1`(精确,见注) | 运行 freezed/isar/riverpod 生成器 |
 | 分析 | `flutter_lints` | `^6.0.0` | 官方 lint(riverpod_lint 暂缓引入) |
+| 工具 | `meta` | `^1.18.0` | 注解(visibleForTesting 等) |
+| 文件路径 | `path_provider` | `^2.1.6` | 系统目录获取(临时/文档目录) |
+| 测试 | `fake_async` | `^1.3.3` | 节流/定时器测试 |
 | 转码引擎(iOS 预留) | `ffmpeg_kit_flutter` | `6.0.3`(固定,已停维护) | iOS 端 FFmpeg(预留评估) |
 | 转码引擎(Web 预留) | `ffmpeg.wasm` | 以 pub.dev 最新为准 | Web 端 WASM 转码(预留) |
 
@@ -93,31 +96,40 @@ lib/
 ├── main.dart                  # 入口:初始化(Isar、Logger、ProviderScope 注入组合装配)
 ├── app/                       # 组合根
 │   ├── app.dart               # MaterialApp + GoRouter(主题枚举 → ThemeMode 映射)
-│   ├── router.dart            # 路由表定义
-│   ├── application/           # providers.dart(纯应用态)、theme_controller.dart
-│   ├── presentation/          # home_page.dart、preview_screen.dart(跨模块 UI 组合壳)
-│   └── theme/                 # app_theme.dart
-├── core/
+│   ├── router.dart            # 路由表定义(/、/preview、/batch-import、/image-gif、/history、/queue、/settings)
+│   ├── application/           # 跨模块组合:会话控制器(batch_import/batch_session/image_gif/settings/
+│   │                          #   theme)+ 批量表单混入/用例 + 组合 providers
+│   ├── presentation/          # 页面壳(批量导入/图片制作/预览/设置/首页)+ 跨模块 UI 组件
+│   │                          #   (batch_parameter_form 等)+ 入口动作(import_actions)
+│   └── theme/                 # app_theme.dart(M3 主题,品牌色种子)
+├── core/                      # 框架无关工具(纯 Dart)
 │   ├── logger/                # AppLogger 初始化与封装
-│   └── utils/                 # 通用工具(formatFfmpegTime/formatHumanDuration/formatFileSize/throttleStream)
+│   └── utils/                 # formatFfmpegTime/formatMmSs/parseFfmpegTime/formatHumanDuration/
+│                              #   formatFileSize/normalizeRange/throttleStream/startup_tracer
 ├── domain/                    # 零 Flutter 依赖(纯 Dart)
-│   ├── entities/              # video_info、export_task、export_history、export_preset
+│   ├── entities/              # video_info、export_task、export_history、export_preset、image_gif_source
 │   ├── value_objects/         # gif_setting、task_state、task_progress、app_theme_mode
-│   ├── exceptions/            # 领域异常层级(FilePick/Conversion 两族)
-│   └── repository_interfaces/ # 端口(parse_video/player/task/history/settings/ffmpeg_engine/ffmpeg_service)
-├── features/                  # 模块内部:application(纯 Dart)→ infrastructure → presentation
-│   ├── converter/             # 命令构造/进度解析/错误映射(application)+ ffprobe 端口(infrastructure)
-│   ├── import/                # 文件选择 + 导入用例
+│   ├── exceptions/            # 领域异常层级(FilePick/Conversion 两族,错误码规则见基类注释)
+│   └── repository_interfaces/ # 端口(parse_video/player/task/history/settings/ffmpeg_engine/
+│                              #   ffmpeg_service/file_pick/directory_pick/image_probe)
+├── features/                  # 模块内部:application(纯 Dart,禁 Flutter)→ infrastructure → presentation
+│   ├── converter/             # 命令构造/进度解析/错误映射/服务编排(application)+ ffprobe 端口(infrastructure)
+│   ├── import/                # 导入用例 + 文件选择/图片探测端口(infrastructure)
 │   ├── preview/               # 视频预览(播放器端口/控制器/面板/控制条)
-│   ├── task_queue/            # 任务调度状态机(application)
-│   ├── export/                # 导出会话控制器 + 参数面板/进度/完成弹窗
-│   └── history/               # 历史列表/详情/重转(P5;缩略图经 FFmpegEngine 端口)
+│   ├── task_queue/            # 任务调度状态机 + 会话生命周期混入(application)+ 队列页(presentation)
+│   ├── export/                # 导出会话控制器 + 参数面板/进度/完成弹窗 + 目录选择公共动作
+│   ├── history/               # 历史列表/详情/重转 + 缩略图提取(infrastructure)
+│   └── timeline/              # 起止选区状态机(application)+ 时间轴条(presentation,预览经控制器转发)
 └── shared/                    # 被所有层依赖,禁止反向依赖 features
-    ├── platform/              # PlatformAdapter + ffprobe/ffmpeg 执行器 + 引擎 + 取消管理器
+    ├── platform/              # PlatformAdapter + ffprobe/ffmpeg 执行器 + 引擎 + 取消管理器 + 相册结果
     ├── providers/             # core_providers.dart(共享 provider 注册表,实现由 main 注入)
-    ├── repositories/          # 内存过渡仓储 + Isar schema + settings 实现
-    └── widgets/               # 跨功能复用组件(进度条、按钮等)
+    └── repositories/          # Isar 仓储 + schema + settings 实现(内存版仅供测试注入)
 ```
+
+> **跨模块协作口径(B-3 批准)**:features 各模块 **application 层 controller 间直接 `ref.read`**
+> (如 export → task_queue/timeline、timeline → preview/export)为已批准协作模式;UI 层
+> (presentation)禁止跨模块 import,跨模块 UI 组合收敛于 `app/presentation` 壳。
+> 共享跨功能组件(如 `param_dropdown_field`)驻留所属模块 presentation,由 app 壳复用。
 
 ## 五、代码质量规范
 

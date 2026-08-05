@@ -76,10 +76,15 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
   void _syncTextFields(ExportFormState state) {
     if (!_loopFocused) _loopCtrl.text = '${state.loop}';
     if (!_startFocused) {
-      _startCtrl.text = formatMmSs(state.start.inMilliseconds, fractionDigits: 3);
+      _startCtrl.text = formatMmSs(
+        state.start.inMilliseconds,
+        fractionDigits: 3,
+      );
     }
     if (!_endFocused) {
-      _endCtrl.text = state.end == null ? '' : formatMmSs(state.end!.inMilliseconds, fractionDigits: 3);
+      _endCtrl.text = state.end == null
+          ? ''
+          : formatMmSs(state.end!.inMilliseconds, fractionDigits: 3);
     }
   }
 

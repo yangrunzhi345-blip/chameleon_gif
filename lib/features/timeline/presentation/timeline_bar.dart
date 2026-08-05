@@ -107,7 +107,9 @@ class _TimelineBarState extends ConsumerState<TimelineBar> {
                   children: [
                     Row(
                       children: [
-                        Text(formatMmSs(values.start.round(), fractionDigits: 1)),
+                        Text(
+                          formatMmSs(values.start.round(), fractionDigits: 1),
+                        ),
                         Expanded(
                           child: SizedBox(
                             height: 32,
@@ -121,8 +123,14 @@ class _TimelineBarState extends ConsumerState<TimelineBar> {
                                       max: maxMs,
                                       values: values,
                                       labels: RangeLabels(
-                                        formatMmSs(values.start.round(), fractionDigits: 1),
-                                        formatMmSs(values.end.round(), fractionDigits: 1),
+                                        formatMmSs(
+                                          values.start.round(),
+                                          fractionDigits: 1,
+                                        ),
+                                        formatMmSs(
+                                          values.end.round(),
+                                          fractionDigits: 1,
+                                        ),
                                       ),
                                       onChanged: canDrag
                                           ? (v) {
