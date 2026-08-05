@@ -4,6 +4,7 @@ import 'package:isar_community/isar.dart';
 
 import '../../../domain/entities/export_task.dart';
 import '../../../domain/value_objects/gif_setting.dart';
+import '../../../domain/value_objects/per_image_control.dart';
 import '../../../domain/value_objects/task_state.dart';
 import '../../platform/gallery_save_result.dart';
 
@@ -57,6 +58,10 @@ class ExportTaskSchema {
   /// Isar 3.x 无原生 List 列,仿 settingsJson 用 JSON 字符串列。
   String? imagePathsJson;
 
+  /// 图片模式每图精细化控制的 JSON 编码(null = 全部默认)。
+  /// 可空 String 列,新增无迁移风险(参考 imagePathsJson 模式)。
+  String? perImageControlsJson;
+
   /// 领域实体 → 集合
   static ExportTaskSchema fromEntity(ExportTask task) {
     final schema = ExportTaskSchema()
@@ -78,7 +83,10 @@ class ExportTaskSchema {
       ..galleryMessage = task.galleryMessage
       ..imagePathsJson = task.imagePaths == null
           ? null
-          : jsonEncode(task.imagePaths);
+          : jsonEncode(task.imagePaths)
+      ..perImageControlsJson = task.perImageControls == null
+          ? null
+          : jsonEncode([for (final c in task.perImageControls!) c.toJson()]);
     return schema;
   }
 
@@ -112,7 +120,17 @@ class ExportTaskSchema {
           ? null
           : (const JsonDecoder().convert(imagePathsJson!) as List)
                 .cast<String>(),
+      perImageControls: _decodeControls(perImageControlsJson),
     );
+  }
+
+  /// 每图控制 JSON → 实体列表(解析失败抛由仓储层处理;null = 全部默认)。
+  static List<PerImageControl>? _decodeControls(String? json) {
+    if (json == null) return null;
+    return [
+      for (final item in const JsonDecoder().convert(json) as List)
+        PerImageControl.fromJson(Map<String, dynamic>.from(item as Map)),
+    ];
   }
 
   /// 枚举索引越界容错(迁移遗留值/手改库场景 → 桌面默认 unsupported)。

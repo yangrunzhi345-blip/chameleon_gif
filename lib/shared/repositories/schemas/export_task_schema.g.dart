@@ -67,29 +67,34 @@ const ExportTaskSchemaSchema = CollectionSchema(
       name: r'outputPath',
       type: IsarType.string,
     ),
-    r'progress': PropertySchema(
+    r'perImageControlsJson': PropertySchema(
       id: 10,
+      name: r'perImageControlsJson',
+      type: IsarType.string,
+    ),
+    r'progress': PropertySchema(
+      id: 11,
       name: r'progress',
       type: IsarType.double,
     ),
     r'retryCount': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'retryCount',
       type: IsarType.long,
     ),
     r'settingsJson': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'settingsJson',
       type: IsarType.string,
     ),
     r'startedAt': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'startedAt',
       type: IsarType.dateTime,
     ),
-    r'state': PropertySchema(id: 14, name: r'state', type: IsarType.long),
+    r'state': PropertySchema(id: 15, name: r'state', type: IsarType.long),
     r'videoPath': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'videoPath',
       type: IsarType.string,
     ),
@@ -185,6 +190,12 @@ int _exportTaskSchemaEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  {
+    final value = object.perImageControlsJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.settingsJson.length * 3;
   bytesCount += 3 + object.videoPath.length * 3;
   return bytesCount;
@@ -206,12 +217,13 @@ void _exportTaskSchemaSerialize(
   writer.writeString(offsets[7], object.galleryUri);
   writer.writeString(offsets[8], object.imagePathsJson);
   writer.writeString(offsets[9], object.outputPath);
-  writer.writeDouble(offsets[10], object.progress);
-  writer.writeLong(offsets[11], object.retryCount);
-  writer.writeString(offsets[12], object.settingsJson);
-  writer.writeDateTime(offsets[13], object.startedAt);
-  writer.writeLong(offsets[14], object.state);
-  writer.writeString(offsets[15], object.videoPath);
+  writer.writeString(offsets[10], object.perImageControlsJson);
+  writer.writeDouble(offsets[11], object.progress);
+  writer.writeLong(offsets[12], object.retryCount);
+  writer.writeString(offsets[13], object.settingsJson);
+  writer.writeDateTime(offsets[14], object.startedAt);
+  writer.writeLong(offsets[15], object.state);
+  writer.writeString(offsets[16], object.videoPath);
 }
 
 ExportTaskSchema _exportTaskSchemaDeserialize(
@@ -232,12 +244,13 @@ ExportTaskSchema _exportTaskSchemaDeserialize(
   object.id = id;
   object.imagePathsJson = reader.readStringOrNull(offsets[8]);
   object.outputPath = reader.readStringOrNull(offsets[9]);
-  object.progress = reader.readDouble(offsets[10]);
-  object.retryCount = reader.readLong(offsets[11]);
-  object.settingsJson = reader.readString(offsets[12]);
-  object.startedAt = reader.readDateTimeOrNull(offsets[13]);
-  object.state = reader.readLong(offsets[14]);
-  object.videoPath = reader.readString(offsets[15]);
+  object.perImageControlsJson = reader.readStringOrNull(offsets[10]);
+  object.progress = reader.readDouble(offsets[11]);
+  object.retryCount = reader.readLong(offsets[12]);
+  object.settingsJson = reader.readString(offsets[13]);
+  object.startedAt = reader.readDateTimeOrNull(offsets[14]);
+  object.state = reader.readLong(offsets[15]);
+  object.videoPath = reader.readString(offsets[16]);
   return object;
 }
 
@@ -269,16 +282,18 @@ P _exportTaskSchemaDeserializeProp<P>(
     case 9:
       return (reader.readStringOrNull(offset)) as P;
     case 10:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 11:
-      return (reader.readLong(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 12:
-      return (reader.readString(offset)) as P;
-    case 13:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 14:
       return (reader.readLong(offset)) as P;
+    case 13:
+      return (reader.readString(offset)) as P;
+    case 14:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 15:
+      return (reader.readLong(offset)) as P;
+    case 16:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1950,6 +1965,168 @@ extension ExportTaskSchemaQueryFilter
   }
 
   QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterFilterCondition>
+  perImageControlsJsonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'perImageControlsJson'),
+      );
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterFilterCondition>
+  perImageControlsJsonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'perImageControlsJson'),
+      );
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterFilterCondition>
+  perImageControlsJsonEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'perImageControlsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterFilterCondition>
+  perImageControlsJsonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'perImageControlsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterFilterCondition>
+  perImageControlsJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'perImageControlsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterFilterCondition>
+  perImageControlsJsonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'perImageControlsJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterFilterCondition>
+  perImageControlsJsonStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'perImageControlsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterFilterCondition>
+  perImageControlsJsonEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'perImageControlsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterFilterCondition>
+  perImageControlsJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'perImageControlsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterFilterCondition>
+  perImageControlsJsonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'perImageControlsJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterFilterCondition>
+  perImageControlsJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'perImageControlsJson', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterFilterCondition>
+  perImageControlsJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'perImageControlsJson',
+          value: '',
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterFilterCondition>
   progressEqualTo(double value, {double epsilon = Query.epsilon}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
@@ -2639,6 +2816,20 @@ extension ExportTaskSchemaQuerySortBy
   }
 
   QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterSortBy>
+  sortByPerImageControlsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'perImageControlsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterSortBy>
+  sortByPerImageControlsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'perImageControlsJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterSortBy>
   sortByProgress() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'progress', Sort.asc);
@@ -2878,6 +3069,20 @@ extension ExportTaskSchemaQuerySortThenBy
   }
 
   QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterSortBy>
+  thenByPerImageControlsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'perImageControlsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterSortBy>
+  thenByPerImageControlsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'perImageControlsJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, ExportTaskSchema, QAfterSortBy>
   thenByProgress() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'progress', Sort.asc);
@@ -3040,6 +3245,16 @@ extension ExportTaskSchemaQueryWhereDistinct
   }
 
   QueryBuilder<ExportTaskSchema, ExportTaskSchema, QDistinct>
+  distinctByPerImageControlsJson({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(
+        r'perImageControlsJson',
+        caseSensitive: caseSensitive,
+      );
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, ExportTaskSchema, QDistinct>
   distinctByProgress() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'progress');
@@ -3157,6 +3372,13 @@ extension ExportTaskSchemaQueryProperty
   outputPathProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'outputPath');
+    });
+  }
+
+  QueryBuilder<ExportTaskSchema, String?, QQueryOperations>
+  perImageControlsJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'perImageControlsJson');
     });
   }
 
