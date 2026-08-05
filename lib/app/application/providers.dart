@@ -1,10 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../domain/value_objects/app_theme_mode.dart';
 import '../../features/import/application/import_providers.dart';
 import '../../features/task_queue/application/task_queue_providers.dart';
 import '../../shared/providers/core_providers.dart';
+import '../router.dart';
 import 'batch_import_use_case.dart';
+import 'capture_import_use_case.dart';
 import 'theme_controller.dart';
 
 /// 应用级 Provider(组合根)。
@@ -24,6 +27,21 @@ final batchImportUseCaseProvider = Provider<BatchImportUseCase>((ref) {
     submit: (setting, video, {String? outputDir}) => ref
         .read(taskQueueControllerProvider.notifier)
         .submit(setting, video, outputDir: outputDir),
+    logger: ref.watch(appLoggerProvider),
+  );
+});
+
+/// 采集自动导入编排(拍摄/录屏共用;docs/20 阶段 A-WP2)。
+///
+/// onImported 经 rootNavigatorKey 推 `/preview`(go_router extra 接收
+/// VideoInfo,router.dart 已有);App 未挂载时 currentContext 为 null
+/// 静默 no-op;页面壳亦可自行 push,本用例是公共兜底路径。
+final captureImportUseCaseProvider = Provider<CaptureImportUseCase>((ref) {
+  return CaptureImportUseCase(
+    importVideoUseCase: ref.watch(importVideoUseCaseProvider),
+    onImported: (video) async {
+      rootNavigatorKey.currentContext?.push('/preview', extra: video);
+    },
     logger: ref.watch(appLoggerProvider),
   );
 });

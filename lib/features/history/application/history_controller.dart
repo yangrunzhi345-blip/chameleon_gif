@@ -7,6 +7,7 @@ import '../../../domain/entities/export_task.dart';
 import '../../../domain/entities/image_gif_source.dart';
 import '../../../domain/entities/video_info.dart';
 import '../../../domain/exceptions/file_pick_exception.dart';
+import '../../../domain/exceptions/source_missing_exception.dart';
 import '../../../domain/value_objects/task_state.dart';
 import '../../../shared/providers/core_providers.dart';
 import '../../task_queue/application/task_queue_providers.dart';
@@ -89,6 +90,16 @@ class HistoryController extends Notifier<AsyncValue<List<ExportHistory>>> {
         throw const FilePickException(
           errorCode: 'GIF_RETRY_INVALID',
           userMessage: '历史参数无效,无法重转',
+        );
+      }
+      // 素材存在性预检(采集素材可能被用户在相册删除;docs/20 阶段 A):
+      // 桌面 File.exists / Android content URI 经原生桥,无法判定一律放行,
+      // 交由 ffprobe 分类器兜底 —— 预检不因自身故障挡住本可重转的任务
+      if (!await ref
+          .read(platformAdapterProvider)
+          .sourceExists(history.videoPath)) {
+        throw const SourceMissingException(
+          errorCode: 'GIF_RETRY_SOURCE_MISSING',
         );
       }
       final VideoInfo video;

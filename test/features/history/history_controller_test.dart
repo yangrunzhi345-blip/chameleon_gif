@@ -42,6 +42,7 @@ void main() {
   late InMemoryHistoryRepository historyRepo;
   late FakeParseVideoPort parsePort;
   late _FakeService service;
+  late _TestAdapter adapter;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -50,11 +51,12 @@ void main() {
     service = _FakeService();
     parsePort = FakeParseVideoPort();
     final tempRoot = await Directory.systemTemp.createTemp('gifforge_hc_');
+    adapter = _TestAdapter(tempRoot.path);
     container = ProviderContainer(
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
         appLoggerProvider.overrideWithValue(AppLogger()),
-        platformAdapterProvider.overrideWithValue(_TestAdapter(tempRoot.path)),
+        platformAdapterProvider.overrideWithValue(adapter),
         taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
         historyRepositoryProvider.overrideWithValue(historyRepo),
         parseVideoPortProvider.overrideWithValue(parsePort),
@@ -221,6 +223,8 @@ void main() {
   });
 
   test('retry 源文件缺失:透传 SourceMissingException,任务未创建', () async {
+    // 预检放行(sourceExists 基线 true)+ ffprobe 侧报缺失 → 仍透传
+    // (预检不吞下游错误,由分类器兜底判定)
     parsePort.error = const SourceMissingException(
       errorCode: 'GIF_1_SOURCE_MISSING',
     );
@@ -233,6 +237,28 @@ void main() {
     );
     expect(service.convertCalls, isEmpty);
   });
+
+  test(
+    'retry 素材不存在预检:sourceExists=false → GIF_RETRY_SOURCE_MISSING,不解析不入队',
+    () async {
+      adapter.sourceExistsResult = false;
+      final id = await historyRepo.add(history(1));
+      await ctl().reload();
+
+      expect(
+        () async => ctl().retry((await historyRepo.byId(id))!),
+        throwsA(
+          isA<SourceMissingException>().having(
+            (e) => e.errorCode,
+            'errorCode',
+            'GIF_RETRY_SOURCE_MISSING',
+          ),
+        ),
+      );
+      expect(parsePort.parseCalls, isEmpty, reason: '预检拦截后不触发 ffprobe');
+      expect(service.convertCalls, isEmpty, reason: '任务未创建');
+    },
+  );
 
   test('retry 重复点击防护:阻塞解析期间二次调用返回 null', () async {
     final blocker = Completer<VideoInfo>();
@@ -423,8 +449,15 @@ class _TestAdapter extends PlatformAdapter {
 
   final String tempRoot;
 
+  /// 素材存在性预检结果(默认 true 放行,保持既有用例语义;
+  /// 预检用例注入 false 验证拦截)。
+  bool sourceExistsResult = true;
+
   @override
   String get systemTempDir => tempRoot;
+
+  @override
+  Future<bool> sourceExists(String path) async => sourceExistsResult;
 }
 
 /// 列表恒抛错的仓储(reload 容错测试)。
