@@ -69,4 +69,29 @@ void main() {
       source.close();
     });
   });
+
+  test('取消时释放源订阅(防常驻监听泄漏,P7)', () {
+    fakeAsync((async) {
+      var sourceOnCancel = 0;
+      final source = StreamController<int>.broadcast(
+        onCancel: () {
+          sourceOnCancel++;
+        },
+      );
+      final sub = throttleStream(
+        source.stream,
+        const Duration(milliseconds: 200),
+      ).listen((_) {});
+
+      source.add(1);
+      expect(sourceOnCancel, 0, reason: '未取消前源监听存活');
+      sub.cancel();
+      expect(sourceOnCancel, 1, reason: '取消 throttle 订阅必须释放源监听');
+      // 释放后源事件不再驱动定时器/发射
+      source.add(2);
+      async.elapse(const Duration(milliseconds: 250));
+      expect(sourceOnCancel, 1);
+      source.close();
+    });
+  });
 }

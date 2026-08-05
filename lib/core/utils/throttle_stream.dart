@@ -8,6 +8,10 @@ Stream<T> throttleStream<T>(Stream<T> source, Duration minInterval) {
   Timer? timer;
   T? pending;
   var hasPending = false;
+  // 源订阅(P7 修复):不保存则取消时只停定时器,源(broadcast 常驻流如
+  // media_kit position / TaskManager progress)上的监听永不回收,每次
+  // 预览/导出交互累积一条常驻监听 + 定时唤醒(内存/CPU 持续增长)。
+  StreamSubscription<T>? sourceSub;
 
   void flush() {
     timer = null;
@@ -19,7 +23,7 @@ Stream<T> throttleStream<T>(Stream<T> source, Duration minInterval) {
 
   controller = StreamController<T>(
     onListen: () {
-      source.listen(
+      sourceSub = source.listen(
         (event) {
           pending = event;
           hasPending = true;
@@ -42,6 +46,10 @@ Stream<T> throttleStream<T>(Stream<T> source, Duration minInterval) {
     onCancel: () {
       timer?.cancel();
       timer = null;
+      // 取消源订阅(与取消定时器配对),未发射的尾缘事件一并丢弃
+      sourceSub?.cancel();
+      sourceSub = null;
+      hasPending = false;
     },
   );
   return controller.stream;
