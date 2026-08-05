@@ -4,12 +4,55 @@ import 'package:chameleon_gif/domain/entities/export_preset.dart';
 import 'package:chameleon_gif/domain/entities/export_task.dart';
 import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
 import 'package:chameleon_gif/domain/value_objects/task_state.dart';
+import 'package:chameleon_gif/shared/platform/gallery_save_result.dart';
 import 'package:chameleon_gif/shared/repositories/schemas/export_history_schema.dart';
 import 'package:chameleon_gif/shared/repositories/schemas/export_preset_schema.dart';
 import 'package:chameleon_gif/shared/repositories/schemas/export_task_schema.dart';
 
 /// Isar 集合 fromEntity/toEntity 往返(docs/14 §14.2 模型序列化,P5 仓储前置)。
 void main() {
+  group('ExportTaskSchema 迁移容错', () {
+    test('galleryStatus 越界(Int64.min,迁移遗留)→ 回退 unsupported,整行可读', () {
+      final schema = ExportTaskSchema.fromEntity(
+        ExportTask(
+          id: 1,
+          videoPath: '/tmp/videos/demo.mp4',
+          settings: const GifSetting(),
+          state: TaskState.completed,
+          createdAt: DateTime(2026, 8, 5),
+        ),
+      );
+      // 模拟 isar_community 3.3.2 迁移 bug:新增非空 long 列旧行读到 Int64.min
+      schema.galleryStatus = -9223372036854775808;
+
+      final entity = schema.toEntity();
+      expect(
+        entity.galleryStatus,
+        GallerySaveStatus.unsupported,
+        reason: '越界索引回退桌面默认,不抛 RangeError 保住整行',
+      );
+      expect(entity.videoPath, '/tmp/videos/demo.mp4');
+      expect(entity.state, TaskState.completed);
+    });
+
+    test('galleryStatus 正常索引不受影响', () {
+      final schema = ExportTaskSchema.fromEntity(
+        ExportTask(
+          id: 1,
+          videoPath: '/tmp/videos/demo.mp4',
+          settings: const GifSetting(),
+          state: TaskState.queued,
+          createdAt: DateTime(2026, 8, 5),
+          galleryStatus: GallerySaveStatus.saved,
+          galleryPath: 'Pictures/GIFForge/demo.gif',
+        ),
+      );
+      final entity = schema.toEntity();
+      expect(entity.galleryStatus, GallerySaveStatus.saved);
+      expect(entity.galleryPath, 'Pictures/GIFForge/demo.gif');
+    });
+  });
+
   group('ExportTaskSchema 往返', () {
     final task = ExportTask(
       id: 7,

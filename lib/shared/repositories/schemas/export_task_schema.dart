@@ -101,7 +101,10 @@ class ExportTaskSchema {
       createdAt: createdAt,
       startedAt: startedAt,
       finishedAt: finishedAt,
-      galleryStatus: GallerySaveStatus.values[galleryStatus],
+      // 越界容错:isar_community 3.3.2 的自动迁移对"新增非空 long 列"不填
+      // 默认值(旧行读到 Int64.min,已实证),回退 unsupported 保住整行数据;
+      // 该 fork 迁移限制对未来新增非空 long/枚举列依然适用,新增时注意
+      galleryStatus: _safeGalleryStatus(galleryStatus),
       galleryPath: galleryPath,
       galleryUri: galleryUri,
       galleryMessage: galleryMessage,
@@ -110,5 +113,13 @@ class ExportTaskSchema {
           : (const JsonDecoder().convert(imagePathsJson!) as List)
                 .cast<String>(),
     );
+  }
+
+  /// 枚举索引越界容错(迁移遗留值/手改库场景 → 桌面默认 unsupported)。
+  static GallerySaveStatus _safeGalleryStatus(int index) {
+    if (index >= 0 && index < GallerySaveStatus.values.length) {
+      return GallerySaveStatus.values[index];
+    }
+    return GallerySaveStatus.unsupported;
   }
 }

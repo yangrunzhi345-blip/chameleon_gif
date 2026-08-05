@@ -22,7 +22,14 @@ class HomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chameleon Gif'),
+        // ellipsis:窄窗口下标题截断,避免与 3 个快捷入口 IconButton
+        // 叠加溢出(真机实测窄窗口溢出 119px;AppBar title slot 非 Flex,
+        // 不能用 Flexible 包裹)
+        title: const Text(
+          'Chameleon Gif',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           IconButton(
             tooltip: '队列',
