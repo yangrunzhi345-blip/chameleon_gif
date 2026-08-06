@@ -143,6 +143,7 @@ void main() {
             width: 640,
             start: Duration(seconds: 3),
             end: Duration(seconds: 9),
+            playbackSpeed: 2,
           ),
         ),
       ],
@@ -154,6 +155,7 @@ void main() {
     expect(find.byType(HistoryDetailDialog), findsOneWidget);
     expect(find.text('24.0 fps'), findsOneWidget);
     expect(find.text('640 px'), findsOneWidget);
+    expect(find.text('2 倍'), findsOneWidget, reason: '播放速度行');
     expect(find.textContaining('00:00:03.000'), findsOneWidget);
   });
 

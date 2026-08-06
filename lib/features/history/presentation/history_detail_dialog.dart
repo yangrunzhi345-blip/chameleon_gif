@@ -53,6 +53,10 @@ class HistoryDetailDialog extends ConsumerWidget {
             _row('宽度', s.width == 0 ? '原图等比' : '${s.width} px'),
             _row('循环', s.loop == 0 ? '无限' : '${s.loop} 次'),
             _row(
+              '播放速度',
+              '${s.playbackSpeed == s.playbackSpeed.roundToDouble() ? s.playbackSpeed.toInt() : s.playbackSpeed} 倍',
+            ),
+            _row(
               '起止',
               '${formatFfmpegTime(s.start)} — '
                   '${formatFfmpegTime(s.end ?? Duration.zero)}',
