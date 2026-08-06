@@ -24,4 +24,16 @@ abstract interface class CameraPort {
     required CaptureParams params,
     CancelToken? cancelToken,
   });
+
+  /// 是否支持实时取景预览(Android 取景框;桌面盲拍 → false,
+  /// 录完在工作台回放确认,docs/18 D4)。同步 getter,零副作用:
+  /// 拍摄页取景形态是端口级恒定属性,不应付 queryCapabilities
+  /// 的会话初始化代价(Android 该探测会建立相机会话)。
+  bool get previewSupported;
+
+  /// 手动停止当前录制(保存;录制中由页面停止按钮调用)。
+  ///
+  /// 与 [capture] 的 [cancelToken] 取消语义对立:停止 = 正常保存结束,
+  /// 取消 = 清理临时产物不落位。
+  Future<void> requestStop();
 }

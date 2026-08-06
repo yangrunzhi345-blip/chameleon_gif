@@ -15,6 +15,7 @@ class FakeCameraPort implements CameraPort {
     this.capabilities = const CameraCapabilities(),
     this.onCapture,
     this.error,
+    this.previewSupported = true,
   });
 
   /// 枚举返回的设备列表。
@@ -34,7 +35,12 @@ class FakeCameraPort implements CameraPort {
   /// 常错注入(模拟授权拒绝等);非空时 capture 直接抛。
   Object? error;
 
+  /// 取景能力(盲拍测试注入 false)。
+  @override
+  final bool previewSupported;
+
   final captureCalls = <CaptureParams>[];
+  final requestStopCalls = <int>[];
   final applyParamsCalls = <CaptureParams>[];
   final enumerateDevicesCalls = <int>[];
   final queryCapabilitiesCalls = <String>[];
@@ -69,5 +75,10 @@ class FakeCameraPort implements CameraPort {
   Future<CameraCapabilities> queryCapabilities(String deviceId) async {
     queryCapabilitiesCalls.add(deviceId);
     return capabilities;
+  }
+
+  @override
+  Future<void> requestStop() async {
+    requestStopCalls.add(1);
   }
 }

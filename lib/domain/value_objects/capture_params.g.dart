@@ -24,6 +24,11 @@ _CaptureParams _$CaptureParamsFromJson(Map<String, dynamic> json) =>
       zoom: (json['zoom'] as num?)?.toDouble(),
       flashOn: json['flashOn'] as bool? ?? false,
       outputDir: json['outputDir'] as String?,
+      v4l2Controls:
+          (json['v4l2Controls'] as Map<String, dynamic>?)?.map(
+            (k, e) => MapEntry(k, (e as num).toInt()),
+          ) ??
+          const <String, int>{},
     );
 
 Map<String, dynamic> _$CaptureParamsToJson(_CaptureParams instance) =>
@@ -42,6 +47,7 @@ Map<String, dynamic> _$CaptureParamsToJson(_CaptureParams instance) =>
       'zoom': instance.zoom,
       'flashOn': instance.flashOn,
       'outputDir': instance.outputDir,
+      'v4l2Controls': instance.v4l2Controls,
     };
 
 const _$FocusModeEnumMap = {

@@ -19,4 +19,9 @@ abstract interface class ScreenRecorderPort {
     required RecordParams params,
     CancelToken? cancelToken,
   });
+
+  /// 手动停止当前录制(保存;录制中由页面停止按钮调用)。
+  ///
+  /// 与 [capture] 的 [cancelToken] 取消语义对立(同 [CameraPort.requestStop])。
+  Future<void> requestStop();
 }

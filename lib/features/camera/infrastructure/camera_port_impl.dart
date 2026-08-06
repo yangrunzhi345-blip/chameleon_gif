@@ -130,6 +130,12 @@ class CameraPortImpl implements CameraPort {
     _stopCompleter?.complete();
   }
 
+  @override
+  bool get previewSupported => true; // Android 插件取景框
+
+  @override
+  Future<void> requestStop() => stopCapture();
+
   bool _devicePortrait = true;
 
   /// 记录拍摄时设备方向(拍摄页 MediaQuery 提供,陀螺仪语义;

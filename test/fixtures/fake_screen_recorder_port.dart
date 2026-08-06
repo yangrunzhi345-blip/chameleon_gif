@@ -33,6 +33,7 @@ class FakeScreenRecorderPort implements ScreenRecorderPort {
   final recordCalls = <RecordParams>[];
   final enumerateTargetsCalls = <int>[];
   final queryCapabilitiesCalls = <int>[];
+  final requestStopCalls = <int>[];
   CancelToken? lastCancelToken;
 
   @override
@@ -59,5 +60,10 @@ class FakeScreenRecorderPort implements ScreenRecorderPort {
   Future<RecordCapabilities> queryCapabilities() async {
     queryCapabilitiesCalls.add(1);
     return capabilities;
+  }
+
+  @override
+  Future<void> requestStop() async {
+    requestStopCalls.add(1);
   }
 }
