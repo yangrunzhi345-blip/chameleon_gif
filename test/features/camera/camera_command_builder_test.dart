@@ -143,4 +143,121 @@ void main() {
       }
     });
   });
+
+  group('buildPreview(纯推流预览)', () {
+    const url = 'udp://127.0.0.1:5567?pkt_size=1316';
+
+    test('v4l2:采集 → libx264 + 强制关键帧 → mpegts/UDP', () {
+      expect(
+        builder.buildPreview(
+          params: base,
+          kind: CameraInputKind.v4l2,
+          input: '/dev/video0',
+          previewUrl: url,
+        ),
+        [
+          '-f',
+          'v4l2',
+          '-input_format',
+          'mjpeg',
+          '-framerate',
+          '15',
+          '-i',
+          '/dev/video0',
+          '-an',
+          '-c:v',
+          'libx264',
+          '-preset',
+          'veryfast',
+          '-g',
+          '30',
+          '-keyint_min',
+          '30',
+          '-sc_threshold',
+          '0',
+          '-force_key_frames',
+          'expr:gte(t,n_forced*2)',
+          '-pix_fmt',
+          'yuv420p',
+          '-f',
+          'mpegts',
+          url,
+        ],
+      );
+    });
+
+    test('无 -t(恒运行,生命周期由端口层控制)', () {
+      final args = builder.buildPreview(
+        params: base,
+        kind: CameraInputKind.v4l2,
+        input: '/dev/video0',
+        previewUrl: url,
+      );
+      expect(args, isNot(contains('-t')));
+    });
+
+    test('dshow:设备名整串 + 同尾链', () {
+      final args = builder.buildPreview(
+        params: base,
+        kind: CameraInputKind.dshow,
+        input: 'HD Pro Webcam C920',
+        previewUrl: url,
+      );
+      expect(args, containsAllInOrder(['-i', 'video="HD Pro Webcam C920"']));
+      expect(args.last, url);
+      expect(
+        args[args.lastIndexOf('-f') + 1],
+        'mpegts',
+        reason: '末端封装 mpegts(首个 -f 是输入类型)',
+      );
+    });
+  });
+
+  group('buildWithPreview(录制 + 同流推流)', () {
+    const url = 'udp://127.0.0.1:5567?pkt_size=1316';
+
+    test('v4l2:单编码流双 muxer(mp4 文件 + mpegts/UDP)', () {
+      final args = builder.buildWithPreview(
+        params: base,
+        kind: CameraInputKind.v4l2,
+        input: '/dev/video0',
+        outputPath: '/tmp/out.mp4',
+        previewUrl: url,
+      );
+      // 关键帧参数 + -t 限时 + 双 -map 0:v
+      expect(
+        args,
+        containsAllInOrder(['-force_key_frames', 'expr:gte(t,n_forced*2)']),
+      );
+      expect(args, containsAllInOrder(['-t', '00:00:30.000']));
+      final mapCount = args.where((a) => a == '-map').length;
+      expect(mapCount, 2, reason: '双 muxer 各 -map 0:v');
+      expect(args, containsAllInOrder(['-f', 'mp4', '-y', '/tmp/out.mp4']));
+      expect(args, containsAllInOrder(['-f', 'mpegts', url]));
+    });
+
+    test('缺分辨率:省略 -video_size(与 build 同语义)', () {
+      final args = builder.buildWithPreview(
+        params: base,
+        kind: CameraInputKind.v4l2,
+        input: '/dev/video0',
+        outputPath: '/tmp/out.mp4',
+        previewUrl: url,
+      );
+      expect(args, isNot(contains('-video_size')));
+    });
+
+    test('dshow:设备名整串 + 双 muxer', () {
+      final args = builder.buildWithPreview(
+        params: base.copyWith(resolutionWidth: 1280, resolutionHeight: 720),
+        kind: CameraInputKind.dshow,
+        input: 'Integrated Camera',
+        outputPath: r'C:\tmp\out.mp4',
+        previewUrl: url,
+      );
+      expect(args, containsAllInOrder(['-video_size', '1280x720']));
+      expect(args, containsAllInOrder(['-f', 'mp4', '-y', r'C:\tmp\out.mp4']));
+      expect(args, containsAllInOrder(['-f', 'mpegts', url]));
+    });
+  });
 }
