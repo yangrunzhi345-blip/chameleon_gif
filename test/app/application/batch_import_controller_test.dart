@@ -398,4 +398,17 @@ class _FakeImportUseCase implements ImportVideoUseCase {
     fps: 30,
     codec: 'h264',
   );
+
+  // 用例扩展的 pick/probe 方法:本替身场景不涉及,no-op 保持接口完整
+  @override
+  Future<String?> pickVideoFile() async => null;
+
+  @override
+  Future<List<String>?> pickVideoFiles() async => null;
+
+  @override
+  Future<List<String>?> pickImages() async => null;
+
+  @override
+  Future<({int width, int height})?> probeImageSize(String path) async => null;
 }

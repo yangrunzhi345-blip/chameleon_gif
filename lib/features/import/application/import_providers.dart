@@ -17,10 +17,13 @@ final imageProbePortProvider = Provider<ImageProbePort>(
   (ref) => const ImageProbePortImpl(),
 );
 
-/// 导入视频解析用例(P1 能力接线)。
+/// 导入用例(P1 能力接线;pick 与 probe 端口经 watch 注入 —— 测试保持
+/// override filePickPortProvider/imageProbePortProvider 即自动传播)。
 final importVideoUseCaseProvider = Provider<ImportVideoUseCase>(
   (ref) => ImportVideoUseCase(
     parseVideoPort: ref.watch(parseVideoPortProvider),
     logger: ref.watch(appLoggerProvider),
+    filePickPort: ref.watch(filePickPortProvider),
+    imageProbePort: ref.watch(imageProbePortProvider),
   ),
 );
