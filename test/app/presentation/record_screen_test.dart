@@ -16,6 +16,8 @@ import 'package:chameleon_gif/domain/value_objects/capture_result.dart';
 import 'package:chameleon_gif/domain/value_objects/record_params.dart';
 import 'package:chameleon_gif/domain/value_objects/record_types.dart';
 import 'package:chameleon_gif/features/preview/application/preview_controller.dart';
+import 'package:chameleon_gif/features/screen_record/application/region_picker.dart'
+    show RegionGeometry, RegionPicker, screenRegionPickerProvider;
 import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_queue_providers.dart';
 import 'package:chameleon_gif/shared/platform/platform_adapter.dart';
@@ -38,12 +40,14 @@ import '../../fixtures/fake_settings_repository.dart';
 void main() {
   late Directory tempRoot;
   late FakeScreenRecorderPort recorderPort;
+  late _MutableFakeRegionPicker regionPicker;
   late ProviderContainer container;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     tempRoot = await Directory.systemTemp.createTemp('record_screen_');
     recorderPort = FakeScreenRecorderPort();
+    regionPicker = _MutableFakeRegionPicker();
     final adapter = _TestAdapter(tempRoot.path);
     container = ProviderContainer(
       overrides: [
@@ -55,6 +59,8 @@ void main() {
         screenRecorderPortProvider.overrideWithValue(recorderPort),
         cameraPortProvider.overrideWithValue(FakeCameraPort()),
         parseVideoPortProvider.overrideWithValue(_FakeParseVideoPort()),
+        // 可变几何 fake 框选器(其余测试不点击框选按钮;回填用例改几何)
+        screenRegionPickerProvider.overrideWithValue(regionPicker),
         previewPlayerPortProvider.overrideWithValue(FakePlayerPort()),
         platformAdapterProvider.overrideWithValue(adapter),
         taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
@@ -191,6 +197,56 @@ void main() {
     expect(xField.controller?.text, isEmpty, reason: '上次框选不残留');
   });
 
+  testWidgets('拖拽框选成功 → 起点/宽高数值回填输入框', (tester) async {
+    recorderPort.capabilities = const RecordCapabilities(
+      screenCaptureAvailable: true,
+      supportsRegions: true,
+    );
+    // 更新 fake 框选器几何(可变实例,override 不变)
+    regionPicker.geometry = const RegionGeometry(
+      x: 100,
+      y: 200,
+      width: 300,
+      height: 400,
+    );
+    await pumpRecord(tester);
+
+    await tester.tap(find.text('自定义区域'));
+    await tester.pump();
+    await tester.tap(find.text('框选录制范围'));
+    await tester.pumpAndSettle();
+
+    // 拖拽回填:输入框显示选区数值
+    expect(
+      tester
+          .widget<TextField>(find.widgetWithText(TextField, '起点 X'))
+          .controller
+          ?.text,
+      '100',
+    );
+    expect(
+      tester
+          .widget<TextField>(find.widgetWithText(TextField, '起点 Y'))
+          .controller
+          ?.text,
+      '200',
+    );
+    expect(
+      tester
+          .widget<TextField>(find.widgetWithText(TextField, '宽度'))
+          .controller
+          ?.text,
+      '300',
+    );
+    expect(
+      tester
+          .widget<TextField>(find.widgetWithText(TextField, '高度'))
+          .controller
+          ?.text,
+      '400',
+    );
+  });
+
   testWidgets('录屏不可用 → 开始按钮禁用 + hint 文案', (tester) async {
     recorderPort.capabilities = const RecordCapabilities(
       screenCaptureAvailable: false,
@@ -285,6 +341,22 @@ void main() {
 
     expect(find.byType(SnackBar), findsNothing);
   });
+}
+
+/// 可变几何的 fake 框选器(拖拽回填测试:测试内改 geometry)。
+class _MutableFakeRegionPicker implements RegionPicker {
+  RegionGeometry geometry = const RegionGeometry(
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  );
+
+  @override
+  bool get isAvailable => true;
+
+  @override
+  Future<RegionGeometry?> pick() async => geometry;
 }
 
 class _FakeParseVideoPort implements ParseVideoPort {

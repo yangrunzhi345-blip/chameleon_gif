@@ -404,6 +404,16 @@ class _NumberFieldState extends State<_NumberField> {
   }
 
   @override
+  void didUpdateWidget(_NumberField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 外部值变化(拖拽回填/归零清空)同步到 controller;用户输入时
+    // 值即时同步(无变化),不重置,保留光标位置。
+    if (widget.value != oldWidget.value) {
+      _controller.text = widget.value?.toString() ?? '';
+    }
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -76,13 +77,22 @@ class ScreenRegionPicker implements RegionPicker {
     Future<Process> Function(List<String> args)? startProcess,
     String? sessionType,
     bool Function(String name)? toolExists,
+    this.timeout = const Duration(seconds: 60),
+    void Function()? staleCleanup,
   }) : _startProcess = startProcess ?? _run,
        _sessionType = sessionType ?? Platform.environment['XDG_SESSION_TYPE'],
-       _toolExists = toolExists ?? _which;
+       _toolExists = toolExists ?? _which,
+       _staleCleanup = staleCleanup ?? _cleanupStaleSlurp;
 
   final Future<Process> Function(List<String> args) _startProcess;
   final String? _sessionType;
   final bool Function(String name) _toolExists;
+
+  /// 框选等待超时(用户长时间无操作;超时终止进程防单实例锁残留)。
+  final Duration timeout;
+
+  /// 启动前残留 slurp 清理(测试注入 no-op)。
+  final void Function() _staleCleanup;
 
   /// slurp 可用:Wayland 会话且二进制存在。
   @override
@@ -98,19 +108,41 @@ class ScreenRegionPicker implements RegionPicker {
   /// 启动 slurp 交互框选,返回选区几何;取消/失败 → null。
   @override
   Future<RegionGeometry?> pick() async {
+    // 清理残留 slurp(孤儿进程:超时未终止/应用被强杀)。slurp 单实例
+    // 锁(flock $XDG_RUNTIME_DIR/slurp-$WAYLAND_DISPLAY.lock,非阻塞)
+    // 被残留进程占用时新实例立即退出 → 遮罩不出现(实测间歇现象)。
+    _staleCleanup();
     final process = await _startProcess(['slurp', '-f', '%wx%h+%x+%y']);
     // slurp 的 stdin 非 TTY 时进入"预定义框读取"模式(main.c 的
     // getline 循环阻塞读框,见 `-r` 选择框功能);应用内启动 stdin 为
     // 管道 → 立即关闭令 EOF,否则 slurp 挂起在读取、遮罩永不显示
     // (实测:niri 终端 TTY 正常、管道挂起、EOF 恢复显示)。
     process.stdin.close();
-    final output = await process.stdout
-        .transform(utf8.decoder)
-        .join()
-        .timeout(const Duration(seconds: 60));
+    String output;
+    try {
+      output = await process.stdout
+          .transform(utf8.decoder)
+          .join()
+          .timeout(timeout);
+    } on TimeoutException {
+      // 超时(用户长时间无操作):终止进程释放单实例锁,防下次框选
+      // 遮罩不出现(残留 slurp 占锁)
+      process.kill(ProcessSignal.sigkill);
+      await process.exitCode;
+      return null;
+    }
     final code = await process.exitCode;
     if (code != 0 || output.trim().isEmpty) return null;
     return parseSlurpGeometry(output);
+  }
+
+  /// 清理残留 slurp 进程(`pkill -x` 精确匹配进程名,不动其他工具)。
+  static void _cleanupStaleSlurp() {
+    try {
+      Process.runSync('pkill', ['-x', 'slurp']);
+    } on ProcessException {
+      // pkill 缺失/失败:忽略(锁未被占用时不影响本次框选)
+    }
   }
 
   static Future<Process> _run(List<String> args) =>

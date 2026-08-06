@@ -75,6 +75,35 @@ void main() {
       );
       expect(await picker.pick(), isNull);
     });
+
+    test('启动前清理残留 slurp(单实例锁防遮罩消失)', () async {
+      var cleaned = false;
+      final picker = ScreenRegionPicker(
+        sessionType: 'wayland',
+        toolExists: (_) => true,
+        staleCleanup: () => cleaned = true,
+        startProcess: (args) async =>
+            _FakeProc(stdoutText: '800x600+200+150\n', exitCode: 0),
+      );
+      await picker.pick();
+      expect(cleaned, isTrue, reason: '每次框选前清理残留进程');
+    });
+
+    test('超时(用户无操作)→ SIGKILL 终止 + null(防锁残留)', () async {
+      late _FakeProc proc;
+      final picker = ScreenRegionPicker(
+        sessionType: 'wayland',
+        toolExists: (_) => true,
+        timeout: const Duration(milliseconds: 50),
+        startProcess: (args) async {
+          // stdout 永不完成:模拟用户一直不操作
+          proc = _FakeProc(stdoutText: '', exitCode: 0, hangStdout: true);
+          return proc;
+        },
+      );
+      expect(await picker.pick(), isNull);
+      expect(proc.killSignals, [ProcessSignal.sigkill]);
+    });
   });
 
   group('CompositeRegionPicker', () {
@@ -150,17 +179,27 @@ class _FakeRegionPicker implements RegionPicker {
 late List<String> args;
 
 class _FakeProc implements Process {
-  _FakeProc({required this.stdoutText, required int exitCode})
-    : exitCodeValue = exitCode;
+  _FakeProc({
+    required this.stdoutText,
+    required int exitCode,
+    this.hangStdout = false,
+  }) : exitCodeValue = exitCode;
 
   final String stdoutText;
   final int exitCodeValue;
+
+  /// true = stdout 永不完成(模拟用户长时间无操作)。
+  final bool hangStdout;
+
+  final List<ProcessSignal> killSignals = [];
 
   @override
   Future<int> get exitCode async => exitCodeValue;
 
   @override
-  Stream<List<int>> get stdout => Stream.value(utf8.encode(stdoutText));
+  Stream<List<int>> get stdout => hangStdout
+      ? StreamController<List<int>>().stream
+      : Stream.value(utf8.encode(stdoutText));
 
   @override
   Stream<List<int>> get stderr => const Stream.empty();
@@ -172,7 +211,10 @@ class _FakeProc implements Process {
   int get pid => 1;
 
   @override
-  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) => true;
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
+    killSignals.add(signal);
+    return true;
+  }
 }
 
 /// 空操作 IOSink(pick() 关闭 slurp stdin 用;EOF 语义)。
