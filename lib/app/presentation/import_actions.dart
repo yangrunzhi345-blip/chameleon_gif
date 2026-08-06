@@ -10,7 +10,7 @@ import '../../features/import/application/import_providers.dart';
 ///
 /// 取消选择静默;解析失败以 SnackBar 展示用户可读中文文案。
 Future<void> pickMp4AndPreview(BuildContext context, WidgetRef ref) async {
-  final path = await ref.read(filePickPortProvider).pickMp4();
+  final path = await ref.read(importVideoUseCaseProvider).pickVideoFile();
   if (path == null || !context.mounted) return;
   try {
     final info = await ref.read(importVideoUseCaseProvider).execute(path);
@@ -28,7 +28,7 @@ Future<void> pickMp4AndPreview(BuildContext context, WidgetRef ref) async {
 ///
 /// 取消选择静默;路径列表(JSON 基础类型)经路由 extra 传递,恢复安全。
 Future<void> pickImagesAndBuild(BuildContext context, WidgetRef ref) async {
-  final paths = await ref.read(filePickPortProvider).pickImages();
+  final paths = await ref.read(importVideoUseCaseProvider).pickImages();
   if (paths == null || paths.isEmpty || !context.mounted) return;
   context.push('/image-gif', extra: paths);
 }

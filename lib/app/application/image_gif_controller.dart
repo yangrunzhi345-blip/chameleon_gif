@@ -447,16 +447,18 @@ class ImageGifController extends Notifier<ImageGifFormState>
     }
   }
 
-  /// 探测首图尺寸(失败静默返回 0,由 submit 侧拦截)。
+  /// 探测首图尺寸(失败静默返回 0,由 submit 侧拦截;经导入用例收敛)。
   Future<({int width, int height})> _probeFirstImageSize(
     List<String> paths,
   ) async {
-    try {
-      return await ref.read(imageProbePortProvider).probe(paths.first);
-    } catch (e) {
-      ref.read(appLoggerProvider).w('首图尺寸探测失败: ${paths.first}', error: e);
+    final size = await ref
+        .read(importVideoUseCaseProvider)
+        .probeImageSize(paths.first);
+    if (size == null) {
+      ref.read(appLoggerProvider).w('首图尺寸探测失败: ${paths.first}');
       return (width: 0, height: 0);
     }
+    return size;
   }
 
   /// 每图控制归一化:null 元素 → 默认值对象;长度与图片数对齐(截断/

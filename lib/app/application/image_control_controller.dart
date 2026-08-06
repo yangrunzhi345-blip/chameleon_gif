@@ -88,14 +88,15 @@ class ImageControlController extends Notifier<ImageControlFormState> {
       canvasH: canvasH,
     );
     if (path.isEmpty) return;
-    try {
-      final size = await ref.read(imageProbePortProvider).probe(path);
-      if (!ref.mounted) return;
-      state = state.copyWith(sourceSize: size);
-    } catch (_) {
-      if (!ref.mounted) return;
+    final size = await ref
+        .read(importVideoUseCaseProvider)
+        .probeImageSize(path);
+    if (!ref.mounted) return;
+    if (size == null) {
       state = state.copyWith(probeFailed: true);
+      return;
     }
+    state = state.copyWith(sourceSize: size);
   }
 
   /// 自定义缩放倍数文本(0.1–4):非法返回错误文案,成功应用返回 null。

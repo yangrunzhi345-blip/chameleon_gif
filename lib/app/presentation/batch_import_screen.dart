@@ -59,7 +59,7 @@ class _BatchImportScreenState extends ConsumerState<BatchImportScreen> {
 
   /// 重新选择/追加视频文件(空态下的唯一入口,恢复初始后可继续导入)。
   Future<void> _pickMore() async {
-    final picked = await ref.read(filePickPortProvider).pickMp4s();
+    final picked = await ref.read(importVideoUseCaseProvider).pickVideoFiles();
     if (picked == null || picked.isEmpty || !mounted) return;
     setState(() => _paths = [..._paths, ...picked]);
   }

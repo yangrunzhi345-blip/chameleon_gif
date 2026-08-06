@@ -14,7 +14,7 @@ class HomePage extends ConsumerWidget {
 
   /// 批量导入(P6-WP1):多选 → 跳批量导入设置页(无预览,参数装配后入队)。
   Future<void> _batchImport(BuildContext context, WidgetRef ref) async {
-    final paths = await ref.read(filePickPortProvider).pickMp4s();
+    final paths = await ref.read(importVideoUseCaseProvider).pickVideoFiles();
     if (paths == null || paths.isEmpty || !context.mounted) return;
     context.push('/batch-import', extra: paths);
   }

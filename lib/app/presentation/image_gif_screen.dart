@@ -162,7 +162,7 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
   }
 
   Future<void> _appendImages() async {
-    final more = await ref.read(filePickPortProvider).pickImages();
+    final more = await ref.read(importVideoUseCaseProvider).pickImages();
     if (more == null || more.isEmpty || !mounted) return;
     setState(() {
       _paths = [..._paths, ...more];

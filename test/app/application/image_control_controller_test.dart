@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chameleon_gif/app/application/image_control_controller.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/entities/video_info.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/parse_video_port.dart';
 import 'package:chameleon_gif/domain/value_objects/per_image_control.dart';
 import 'package:chameleon_gif/features/import/application/import_providers.dart';
 import 'package:chameleon_gif/shared/providers/core_providers.dart';
@@ -16,6 +18,8 @@ void main() {
     return ProviderContainer(
       overrides: [
         appLoggerProvider.overrideWithValue(AppLogger()),
+        // 用例 provider 依赖 parseVideoPort(导入用例 watch 链),补注入
+        parseVideoPortProvider.overrideWithValue(_FakeParseVideoPort()),
         imageProbePortProvider.overrideWithValue(
           probe ?? FakeImageProbePort(width: 64, height: 64),
         ),
@@ -149,4 +153,18 @@ void main() {
     notifier2.updateWidth(320);
     expect(notifier2.validateSave(), isNull);
   });
+}
+
+/// 解析端口替身(用例 provider watch 链需要,本测试不触发解析)。
+class _FakeParseVideoPort implements ParseVideoPort {
+  @override
+  Future<VideoInfo> parse(String path) async => VideoInfo(
+    path: path,
+    formatName: 'mp4',
+    duration: const Duration(seconds: 1),
+    width: 64,
+    height: 64,
+    fps: 15,
+    codec: 'h264',
+  );
 }
