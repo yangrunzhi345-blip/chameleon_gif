@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:camera/camera.dart' show CameraPreview;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:chameleon_gif/domain/exceptions/capture_exception.dart';
 import 'package:chameleon_gif/domain/exceptions/file_pick_exception.dart';
@@ -116,75 +118,108 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   @override
   Widget build(BuildContext context) {
     final preview = ref.watch(cameraControllerProvider);
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
+    final recording = _phase == _CapturePhase.recording;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      // 黑色取景底:状态栏图标恒浅色(自绘顶栏,无 Scaffold.appBar 托管)
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
         backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: const Text('相机拍摄'),
-      ),
-      body: Stack(
-        children: [
-          // 取景区:controller 就绪 → CameraPreview;否则占位三态。
-          // 渲染 activeController ?? provider 值:会话重建(release→new)
-          // 期间 activeController 为 null → 占位,永不渲染已 dispose
-          // controller(真机实测 disposed CameraController 崩溃修复)
-          Positioned.fill(
-            child: preview.when(
-              data: (controller) {
-                final port = ref.read(cameraPortProvider);
-                final active = port is CameraPortImpl
-                    ? port.activeController
-                    : null;
-                final effective = active ?? controller;
-                return effective == null
-                    ? const _Placeholder(text: '未检测到摄像头,请检查相机权限')
-                    // cover 填满:9:16 画面在 20:9 屏幕 letterbox 上下黑边
-                    // 过宽(真机反馈),裁剪左右填满全屏(相机 app 惯例)
-                    : SizedBox.expand(
-                        child: FittedBox(
-                          fit: BoxFit.cover,
-                          clipBehavior: Clip.hardEdge,
-                          child: SizedBox(
-                            width: 720,
-                            height: 1280,
-                            child: CameraPreview(effective),
+        body: Stack(
+          children: [
+            // 取景区:controller 就绪 → CameraPreview;否则占位三态。
+            // 渲染 activeController ?? provider 值:会话重建(release→new)
+            // 期间 activeController 为 null → 占位,永不渲染已 dispose
+            // controller(真机实测 disposed CameraController 崩溃修复)
+            Positioned.fill(
+              child: preview.when(
+                data: (controller) {
+                  final port = ref.read(cameraPortProvider);
+                  final active = port is CameraPortImpl
+                      ? port.activeController
+                      : null;
+                  final effective = active ?? controller;
+                  return effective == null
+                      ? const _Placeholder(text: '未检测到摄像头,请检查相机权限')
+                      // cover 填满:9:16 画面在 20:9 屏幕 letterbox 上下黑边
+                      // 过宽(真机反馈),裁剪左右填满全屏(相机 app 惯例)
+                      : SizedBox.expand(
+                          child: FittedBox(
+                            fit: BoxFit.cover,
+                            clipBehavior: Clip.hardEdge,
+                            child: SizedBox(
+                              width: 720,
+                              height: 1280,
+                              child: CameraPreview(effective),
+                            ),
                           ),
-                        ),
-                      );
-              },
-              loading: () => const _Placeholder(text: '相机启动中…'),
-              error: (_, _) => _Placeholder(
-                text: '相机启动失败',
-                onRetry: () => ref.invalidate(cameraControllerProvider),
+                        );
+                },
+                loading: () => const _Placeholder(text: '相机启动中…'),
+                error: (_, _) => _Placeholder(
+                  text: '相机启动失败',
+                  onRetry: () => ref.invalidate(cameraControllerProvider),
+                ),
               ),
             ),
-          ),
-          // 顶部倒计时(仅录制中)
-          if (_phase == _CapturePhase.recording)
-            SafeArea(
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(
-                    _countdown,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontFeatures: [FontFeature.tabularFigures()],
+            // 顶部栏(标题 + 返回):录制中淡出,全屏拍摄;结束淡入恢复
+            AnimatedOpacity(
+              opacity: recording ? 0 : 1,
+              duration: const Duration(milliseconds: 300),
+              child: IgnorePointer(
+                ignoring: recording,
+                child: SafeArea(
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 4),
+                      IconButton(
+                        tooltip: '返回',
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () => context.pop(),
+                      ),
+                      const Text(
+                        '相机拍摄',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // 顶部倒计时(仅录制中,淡入;与顶栏互斥显隐)
+            AnimatedOpacity(
+              opacity: recording ? 1 : 0,
+              duration: const Duration(milliseconds: 300),
+              child: IgnorePointer(
+                ignoring: !recording,
+                child: SafeArea(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text(
+                        _countdown,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          // 底部录制按钮
-          SafeArea(
-            child: Align(
+            // 底部录制按钮:固定位置不随横竖屏/SafeArea 变化
+            // (真机反馈按钮位置漂移;固定偏移避开竖屏手势条)
+            Align(
               alignment: Alignment.bottomCenter,
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 32),
-                child: _phase == _CapturePhase.recording
+                padding: const EdgeInsets.only(bottom: 48),
+                child: recording
                     ? _RecordButton(recording: true, onPressed: _stop)
                     : _RecordButton(
                         recording: false,
@@ -194,8 +229,8 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
                       ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
