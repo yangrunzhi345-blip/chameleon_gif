@@ -9,6 +9,7 @@ import 'package:chameleon_gif/app/router.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
 import 'package:chameleon_gif/core/utils/capture_paths.dart';
 import 'package:chameleon_gif/domain/value_objects/capture_params.dart';
+import 'package:chameleon_gif/domain/value_objects/capture_source.dart';
 import 'package:chameleon_gif/domain/value_objects/capture_result.dart';
 import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
 import 'package:chameleon_gif/domain/value_objects/record_params.dart';
@@ -170,7 +171,7 @@ void main() {
       // 2. 自动导入:真实 ffprobe 解析 → onImported push /preview
       final video = await container
           .read(captureImportUseCaseProvider)
-          .execute(result.finalPath);
+          .execute(result.finalPath, source: CaptureSource.camera);
       await waitFor(
         tester,
         () async => find.byType(PreviewScreen).evaluate().isNotEmpty,
@@ -225,7 +226,7 @@ void main() {
       // 2. 自动导入(与拍摄共用同一用例链路)
       final video = await container
           .read(captureImportUseCaseProvider)
-          .execute(result.finalPath);
+          .execute(result.finalPath, source: CaptureSource.camera);
       await waitFor(
         tester,
         () async => find.byType(PreviewScreen).evaluate().isNotEmpty,

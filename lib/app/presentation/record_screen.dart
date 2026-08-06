@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:chameleon_gif/domain/exceptions/capture_exception.dart';
 import 'package:chameleon_gif/domain/exceptions/file_pick_exception.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
+import 'package:chameleon_gif/domain/value_objects/capture_source.dart';
 import 'package:chameleon_gif/domain/value_objects/record_params.dart';
 import 'package:chameleon_gif/features/screen_record/infrastructure/screen_recorder_port_impl.dart';
 import 'package:chameleon_gif/shared/providers/core_providers.dart';
@@ -55,7 +56,9 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
       );
       if (!mounted) return;
       // 自动导入:素材 → ffprobe 解析 → /preview(预览返回回录制页)
-      await ref.read(captureImportUseCaseProvider).execute(result.finalPath);
+      await ref
+          .read(captureImportUseCaseProvider)
+          .execute(result.finalPath, source: CaptureSource.screenRecord);
     } on CaptureCancelledException {
       // 静默:取消不提示
     } on CaptureException catch (e) {

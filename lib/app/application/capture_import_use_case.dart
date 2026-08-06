@@ -1,5 +1,6 @@
 import '../../core/logger/app_logger.dart';
 import '../../domain/entities/video_info.dart';
+import '../../domain/value_objects/capture_source.dart';
 import '../../features/import/application/import_video_use_case.dart';
 
 /// 采集自动导入用例(拍摄/录屏共用,docs/20 阶段 A-WP2)。
@@ -16,8 +17,9 @@ class CaptureImportUseCase {
 
   final ImportVideoUseCase importVideoUseCase;
 
-  /// 导入成功后的衔接动作(provider 装配为 push `/preview`)。
-  final Future<void> Function(VideoInfo video) onImported;
+  /// 导入成功后的衔接动作(provider 装配为 push `/preview`);
+  /// [source] 供预览页按来源显示「重新拍摄/重新录屏」入口。
+  final Future<void> Function(VideoInfo video, CaptureSource source) onImported;
 
   final AppLogger logger;
 
@@ -25,10 +27,13 @@ class CaptureImportUseCase {
   ///
   /// [FilePickException] 家族(源缺失/损坏等)透传,由 UI 展示中文文案;
   /// 未知异常由 [ImportVideoUseCase] 包装为 parseUnknown。
-  Future<VideoInfo> execute(String path) async {
-    logger.i('自动导入采集素材: $path');
+  Future<VideoInfo> execute(
+    String path, {
+    required CaptureSource source,
+  }) async {
+    logger.i('自动导入采集素材: $path (source=$source)');
     final video = await importVideoUseCase.execute(path);
-    await onImported(video);
+    await onImported(video, source);
     return video;
   }
 }

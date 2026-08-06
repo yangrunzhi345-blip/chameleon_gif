@@ -33,14 +33,18 @@ final batchImportUseCaseProvider = Provider<BatchImportUseCase>((ref) {
 
 /// 采集自动导入编排(拍摄/录屏共用;docs/20 阶段 A-WP2)。
 ///
-/// onImported 经 rootNavigatorKey 推 `/preview`(go_router extra 接收
-/// VideoInfo,router.dart 已有);App 未挂载时 currentContext 为 null
+/// onImported 经 rootNavigatorKey 推 `/preview?from=<source>`(go_router
+/// extra 接收 VideoInfo,router.dart 已有;from query 供预览页按来源显示
+/// 「重新拍摄/重新录屏」入口);App 未挂载时 currentContext 为 null
 /// 静默 no-op;页面壳亦可自行 push,本用例是公共兜底路径。
 final captureImportUseCaseProvider = Provider<CaptureImportUseCase>((ref) {
   return CaptureImportUseCase(
     importVideoUseCase: ref.watch(importVideoUseCaseProvider),
-    onImported: (video) async {
-      rootNavigatorKey.currentContext?.push('/preview', extra: video);
+    onImported: (video, source) async {
+      rootNavigatorKey.currentContext?.push(
+        '/preview?from=${source.routeFrom}',
+        extra: video,
+      );
     },
     logger: ref.watch(appLoggerProvider),
   );

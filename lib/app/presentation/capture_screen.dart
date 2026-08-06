@@ -8,6 +8,7 @@ import 'package:chameleon_gif/domain/exceptions/capture_exception.dart';
 import 'package:chameleon_gif/domain/exceptions/file_pick_exception.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
 import 'package:chameleon_gif/domain/value_objects/capture_params.dart';
+import 'package:chameleon_gif/domain/value_objects/capture_source.dart';
 import 'package:chameleon_gif/features/camera/infrastructure/camera_port_impl.dart';
 import 'package:chameleon_gif/features/camera/infrastructure/camera_preview_providers.dart';
 import 'package:chameleon_gif/shared/providers/core_providers.dart';
@@ -70,7 +71,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
       );
       if (!mounted) return;
       // 自动导入:素材 → ffprobe 解析 → /preview(预览返回回拍摄页)
-      await ref.read(captureImportUseCaseProvider).execute(result.finalPath);
+      await ref
+          .read(captureImportUseCaseProvider)
+          .execute(result.finalPath, source: CaptureSource.camera);
     } on CaptureCancelledException {
       // 静默:取消不提示
     } on CaptureException catch (e) {
@@ -136,7 +139,19 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
                 final effective = active ?? controller;
                 return effective == null
                     ? const _Placeholder(text: '未检测到摄像头,请检查相机权限')
-                    : CameraPreview(effective);
+                    // cover 填满:9:16 画面在 20:9 屏幕 letterbox 上下黑边
+                    // 过宽(真机反馈),裁剪左右填满全屏(相机 app 惯例)
+                    : SizedBox.expand(
+                        child: FittedBox(
+                          fit: BoxFit.cover,
+                          clipBehavior: Clip.hardEdge,
+                          child: SizedBox(
+                            width: 720,
+                            height: 1280,
+                            child: CameraPreview(effective),
+                          ),
+                        ),
+                      );
               },
               loading: () => const _Placeholder(text: '相机启动中…'),
               error: (_, _) => _Placeholder(

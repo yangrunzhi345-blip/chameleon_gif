@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:chameleon_gif/app/application/capture_import_use_case.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
 import 'package:chameleon_gif/domain/entities/video_info.dart';
+import 'package:chameleon_gif/domain/value_objects/capture_source.dart';
 import 'package:chameleon_gif/domain/exceptions/file_pick_exception.dart';
 import 'package:chameleon_gif/domain/exceptions/source_broken_exception.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/parse_video_port.dart';
@@ -44,7 +45,7 @@ void main() {
         parseVideoPort: port,
         logger: logger,
       ),
-      onImported: (video) async => onImported(video),
+      onImported: (video, source) async => onImported(video),
       logger: logger,
     );
   }
@@ -56,7 +57,10 @@ void main() {
       onImported: (v) => imported = v,
     );
 
-    final info = await useCase.execute('/tmp/captures/capture_1.mp4');
+    final info = await useCase.execute(
+      '/tmp/captures/capture_1.mp4',
+      source: CaptureSource.camera,
+    );
 
     expect(info.path, '/tmp/captures/capture_1.mp4');
     expect(imported, same(info), reason: '回调收到解析结果同一实例');
@@ -73,7 +77,7 @@ void main() {
     );
 
     expect(
-      () => useCase.execute('/tmp/broken.mp4'),
+      () => useCase.execute('/tmp/broken.mp4', source: CaptureSource.camera),
       throwsA(
         isA<SourceBrokenException>().having(
           (e) => e.errorCode,
@@ -92,7 +96,7 @@ void main() {
     );
 
     try {
-      await useCase.execute('/tmp/a.mp4');
+      await useCase.execute('/tmp/a.mp4', source: CaptureSource.camera);
       fail('应当抛 FilePickException');
     } on FilePickException catch (e) {
       expect(e.errorCode, 'GIF_PARSE_UNKNOWN');

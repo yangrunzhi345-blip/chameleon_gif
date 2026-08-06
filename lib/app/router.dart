@@ -32,7 +32,12 @@ List<RouteBase> buildRoutes() => [
       // 安全 cast:go_router 17 在 Router 恢复路径会对 extra 做 JSON 编解码
       // (复杂对象会还原为 Map),非 VideoInfo(恢复/深链)时预览页自行回退。
       final video = state.extra;
-      return PreviewScreen(video: video is VideoInfo ? video : null);
+      // from query:采集来源(capture/record),预览页按来源显示
+      // 「重新拍摄/重新录屏」入口;普通导入无此参数不显示。
+      return PreviewScreen(
+        video: video is VideoInfo ? video : null,
+        source: state.uri.queryParameters['from'],
+      );
     },
   ),
   GoRoute(

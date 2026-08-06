@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,9 +21,13 @@ import '../../features/timeline/presentation/timeline_bar.dart';
 /// 依赖;壳只做组装与生命周期转发(load / 导出终态弹窗),无业务逻辑。
 /// 经路由 extra 接收 [VideoInfo];extra 为空(回退/深链)立即返回主页。
 class PreviewScreen extends ConsumerStatefulWidget {
-  const PreviewScreen({super.key, required this.video});
+  const PreviewScreen({super.key, required this.video, this.source});
 
   final VideoInfo? video;
+
+  /// 采集来源(`capture`/`record`;路由 from query,普通导入为 null)。
+  /// 决定 AppBar「重新拍摄/重新录屏」入口显示(来源专属,不混显)。
+  final String? source;
 
   @override
   ConsumerState<PreviewScreen> createState() => _PreviewScreenState();
@@ -114,21 +117,21 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
         // Windows 反斜杠路径兼容(纯字符串处理,不触 IO)
         title: Text(video.path.split(RegExp(r'[\\/]')).last),
         leading: BackButton(onPressed: () => context.pop()),
-        // 重新拍摄/重新录屏(仅 Android 采集能力;pushReplacement 直达,
-        // 不保留工作台栈;桌面无采集能力不显示)
+        // 来源专属入口:拍摄来的仅「重新拍摄」,录屏来的仅「重新录屏」,
+        // 普通导入(无 from)不显示;pushReplacement 直达不保留工作台栈
         actions: [
-          if (defaultTargetPlatform == TargetPlatform.android) ...[
+          if (widget.source == 'capture')
             IconButton(
               tooltip: '重新拍摄',
               icon: const Icon(Icons.photo_camera_outlined),
               onPressed: () => context.pushReplacement('/capture'),
             ),
+          if (widget.source == 'record')
             IconButton(
               tooltip: '重新录屏',
               icon: const Icon(Icons.screen_share_outlined),
               onPressed: () => context.pushReplacement('/record'),
             ),
-          ],
         ],
         shape: largeWindow
             ? RoundedRectangleBorder(
