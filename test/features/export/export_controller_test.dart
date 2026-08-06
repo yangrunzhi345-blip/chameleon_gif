@@ -307,6 +307,23 @@ void main() {
     expect(state.outputSizeBytes, 123);
   });
 
+  test('reset:完成弹窗关闭后回收临时工作目录(输出在系统临时目录时)', () async {
+    container = build();
+    final ctl = container.read(exportControllerProvider.notifier);
+    await ctl.submit(setting: const GifSetting(), video: video);
+    final state = await waitForLifecycle(ExportLifecycle.done);
+    final outputPath = state.task!.outputPath!;
+    expect(outputPath, startsWith(tempRoot.path), reason: '临时目录输出');
+
+    await ctl.reset();
+
+    expect(
+      Directory(File(outputPath).parent.path).existsSync(),
+      isFalse,
+      reason: 'reset(弹窗关闭)后回收临时工作目录',
+    );
+  });
+
   test('转换失败 → failed 态(用户可读错误,不含原始路径)', () async {
     container = build(
       serviceError: const EncodeException(errorCode: 'GIF_1_ENCODE'),
@@ -355,7 +372,7 @@ void main() {
     await ctl.submit(setting: const GifSetting(), video: video);
     await waitForLifecycle(ExportLifecycle.done);
 
-    ctl.reset();
+    await ctl.reset();
     expect(
       container.read(exportControllerProvider).lifecycle,
       ExportLifecycle.idle,
@@ -435,14 +452,15 @@ void main() {
     await ctl2.reset();
     expect(File(outputPath).existsSync(), isFalse, reason: 'reset 后私有副本删除');
 
-    // 未保存(unsupported)→ 保留
+    // 未保存(unsupported)且输出在系统临时目录 → reset 后回收整个工作目录
     container = build();
     final ctl3 = container.read(exportControllerProvider.notifier);
     await ctl3.submit(setting: const GifSetting(), video: video);
     final done2 = await waitForLifecycle(ExportLifecycle.done);
     final kept = done2.task!.outputPath!;
+    expect(kept, startsWith(tempRoot.path), reason: '临时目录输出');
     await ctl3.reset();
-    expect(File(kept).existsSync(), isTrue, reason: '桌面/unsupported 不删');
+    expect(File(kept).existsSync(), isFalse, reason: '临时目录产物在 reset 时回收');
   });
 
   test('pickOutputDir:成功 → 表单回填 + 默认目录持久化', () async {

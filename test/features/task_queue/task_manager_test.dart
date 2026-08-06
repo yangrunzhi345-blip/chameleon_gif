@@ -89,6 +89,33 @@ void main() {
     expect(h.outputFrameCount, 150); // 15fps × 10s
   });
 
+  test('工作目录上限:超出 kMaxWorkDirs 时回收最旧,保留最近', () async {
+    // 预置 11 个旧工作目录
+    for (var i = 0; i < 11; i++) {
+      Directory('${tempRoot.path}/gifforge_${100 + i}').createSync();
+    }
+
+    final id = await manager.submit(const GifSetting(), video);
+    await waitForState(id, TaskState.completed);
+
+    // 12 个(11 预置 + 1 新)超出上限 → 回收至上限内(新目录 mtime 最新,必保留)
+    final remaining = Directory(tempRoot.path)
+        .listSync()
+        .whereType<Directory>()
+        .where(
+          (d) => RegExp(
+            r'^gifforge_\d+$',
+          ).hasMatch(d.path.split(RegExp(r'[\\/]')).last),
+        )
+        .length;
+    expect(remaining, lessThanOrEqualTo(TaskManager.kMaxWorkDirs));
+    expect(
+      Directory('${tempRoot.path}/gifforge_$id').existsSync(),
+      isTrue,
+      reason: '新任务工作目录不受上限回收影响',
+    );
+  });
+
   test('FIFO 单槽:第二个任务排队,第一个完成后才执行', () async {
     // 用阻塞服务占住槽位,确定检查时刻 id2 必在排队
     final slow = FakeFfmpegService(blockFirstConvert: true);

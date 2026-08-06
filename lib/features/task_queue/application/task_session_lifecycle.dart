@@ -69,7 +69,9 @@ mixin TaskSessionLifecycle<S> on Notifier<S> {
   /// 弹窗/失败提示关闭后回 idle,表单值保留。
   ///
   /// 已保存到相册的私有副本在此延迟删除(弹窗期间路径仍有效,供预览/
-  /// 分享);best-effort:删除失败仅日志,系统缓存清理兜底。
+  /// 分享);输出在系统临时目录(gifforge_$id)时回收整个工作目录
+  /// (弹窗内的"打开文件夹/分享"先于本方法消费;用户自选目录不受影响,
+  /// 历史缩略图从源视频提取不依赖 outputPath)。best-effort:失败仅日志。
   Future<void> resetSession() async {
     final task = sessionTask;
     final outputPath = task?.outputPath;
@@ -79,6 +81,19 @@ mixin TaskSessionLifecycle<S> on Notifier<S> {
         if (await f.exists()) await f.delete();
       } on FileSystemException {
         // 忽略:缓存目录系统会兜底清理
+      }
+    }
+    // 临时目录产物:弹窗关闭后回收 gifforge_$id(目录下含 palette.png
+    // 已清理、out.gif 或半成品;任务管理器另有按上限兜底清理)
+    if (outputPath != null &&
+        outputPath.startsWith(
+          ref.read(platformAdapterProvider).systemTempDir,
+        )) {
+      try {
+        final dir = File(outputPath).parent;
+        if (await dir.exists()) await dir.delete(recursive: true);
+      } on FileSystemException {
+        // 忽略:系统临时目录缓存策略兜底
       }
     }
     _activeTaskId = null;

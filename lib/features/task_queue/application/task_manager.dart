@@ -50,6 +50,9 @@ class TaskManager {
   /// 默认并发槽数(§8.3.7:P6 提至 2)。
   static const kConcurrency = 2;
 
+  /// 临时工作目录保留上限(超出时回收最旧,兜崩溃/弹窗未关闭场景)。
+  static const kMaxWorkDirs = 10;
+
   final TaskRepository _taskRepository;
   final HistoryRepository _historyRepository;
   final FFmpegService _ffmpegService;
@@ -370,6 +373,9 @@ class TaskManager {
         workDir: workDir,
       );
       await Directory(workDir).create(recursive: true);
+      // 上限兜底:回收最旧的 gifforge_* 工作目录(崩溃/完成弹窗永不关闭
+      // 等 resetSession 未覆盖的场景;保留最近 kMaxWorkDirs 个,best-effort)
+      await _cleanupOldWorkDirs();
       // 启动窗口竞态守卫:标记 running 前 cancel 已标记令牌([cancel] 不再
       // 要求 running),此处直接落 cancelled,转换不进入执行
       if (token.isCancelled) {
@@ -625,6 +631,36 @@ class TaskManager {
     final palette = File('$workDir/palette.png');
     if (await palette.exists()) {
       await palette.delete();
+    }
+  }
+
+  /// 回收最旧的 `gifforge_<id>` 工作目录,保留最近 [kMaxWorkDirs] 个。
+  ///
+  /// 兜底场景:应用崩溃 / 完成弹窗永不关闭导致 resetSession 未回收;
+  /// 双并发槽下新任务目录最后创建,上限只删更旧者。best-effort:
+  /// 删除失败仅日志,不阻断任务执行。
+  Future<void> _cleanupOldWorkDirs() async {
+    final root = Directory(_platformAdapter.systemTempDir);
+    if (!await root.exists()) return;
+    final workDirs = <Directory>[];
+    await for (final entry in root.list()) {
+      if (entry is Directory &&
+          RegExp(
+            r'^gifforge_\d+$',
+          ).hasMatch(entry.path.split(RegExp(r'[\\/]')).last)) {
+        workDirs.add(entry);
+      }
+    }
+    if (workDirs.length <= kMaxWorkDirs) return;
+    workDirs.sort(
+      (a, b) => a.statSync().modified.compareTo(b.statSync().modified),
+    );
+    for (final dir in workDirs.take(workDirs.length - kMaxWorkDirs)) {
+      try {
+        if (await dir.exists()) await dir.delete(recursive: true);
+      } on FileSystemException {
+        // 忽略:正在被占用等场景,下次转换时再兜底
+      }
     }
   }
 
