@@ -34,9 +34,11 @@ void main() {
       markTestSkipped('非 Wayland 会话');
       return;
     }
+    final tmpDir = Directory('${tempRoot.path}/tmp')
+      ..createSync(recursive: true);
     final recorder = FfmpegScreenRecorder(
       capturesDir: capturesDir,
-      tempDir: Directory('${tempRoot.path}/tmp'),
+      tempDir: tmpDir,
       adapter: PlatformAdapter(),
       logger: AppLogger(),
     );
