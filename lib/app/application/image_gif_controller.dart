@@ -227,6 +227,86 @@ class ImageGifController extends Notifier<ImageGifFormState>
     state = state.copyWith(loop: loop.clamp(0, 100), formError: null);
   }
 
+  // ---- 文本输入解析+校验(UI 文本 → 状态,短路语义) ----
+  // UI 层只调 try* 系列(解析/范围校验/错误文案下沉控制器,去除 UI 层
+  // 重复实现)。**短路契约**:任一失败立即设 formError 并返回 false,调用方
+  // 应逐字段调用、任一失败即停 —— 后项成功(update* 会清 formError)不会
+  // 清掉前项错误(修复"越界时长被 updateLoop 清错后静默用旧值转换"BUG)。
+
+  /// 每图时长文本:非数字/越界 [minFrameDurationMs, 60000] → formError
+  /// 返回 false;成功应用清错返回 true。
+  bool tryUpdateFrameDurationMs(String text) {
+    if (state.locked) return false;
+    final v = int.tryParse(text.trim());
+    if (v == null) {
+      state = state.copyWith(formError: '每张图片停留时长须为数字(毫秒)');
+      return false;
+    }
+    final min = state.minFrameDurationMs;
+    if (v < min || v > 60000) {
+      state = state.copyWith(formError: '每张图片停留时长需在 $min–60000 毫秒');
+      return false;
+    }
+    state = state.copyWith(frameDurationMs: v, formError: null);
+    return true;
+  }
+
+  /// 循环次数文本(非数字 → formError;成功应用清错返回 true)。
+  bool tryUpdateLoop(String text) {
+    if (state.locked) return false;
+    final v = int.tryParse(text.trim());
+    if (v == null) {
+      state = state.copyWith(formError: '循环次数须为数字');
+      return false;
+    }
+    state = state.copyWith(loop: v.clamp(0, 100), formError: null);
+    return true;
+  }
+
+  /// 自定义宽度文本(1–4096;成功时联动倍数回显,同短路语义)。
+  bool tryUpdateCustomWidth(String text) {
+    if (state.locked) return false;
+    final v = int.tryParse(text.trim());
+    if (v == null || v < 1 || v > 4096) {
+      state = state.copyWith(formError: '宽度须为 1–4096 的数字');
+      return false;
+    }
+    state = state.copyWith(
+      width: v,
+      scaleMultiplier: _echoMultiplier(width: v, height: state.height),
+      formError: null,
+    );
+    return true;
+  }
+
+  /// 自定义高度文本(1–4096;成功时联动倍数回显,同短路语义)。
+  bool tryUpdateCustomHeight(String text) {
+    if (state.locked) return false;
+    final v = int.tryParse(text.trim());
+    if (v == null || v < 1 || v > 4096) {
+      state = state.copyWith(formError: '高度须为 1–4096 的数字');
+      return false;
+    }
+    state = state.copyWith(
+      height: v,
+      scaleMultiplier: _echoMultiplier(width: state.width, height: v),
+      formError: null,
+    );
+    return true;
+  }
+
+  /// 自定义缩放倍数文本(0.1–4;成功落成宽高联动,同短路语义)。
+  bool tryUpdateCustomScaleMultiplier(String text) {
+    if (state.locked) return false;
+    final v = double.tryParse(text.trim());
+    if (v == null || v <= 0 || v > 4) {
+      state = state.copyWith(formError: '缩放倍数须为 0.1–4 的数字');
+      return false;
+    }
+    updateScaleMultiplier(v);
+    return true;
+  }
+
   /// 播放速度(钳制 0.25–4:<1 慢放,>1 加速;命令侧 setpts)。
   void updatePlaybackSpeed(double speed) {
     if (state.locked) return;

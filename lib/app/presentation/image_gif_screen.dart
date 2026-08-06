@@ -249,51 +249,31 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
 
   void _submitFrameDuration(String text) {
     _frameDurationFocused = false;
-    final v = int.tryParse(text.trim());
-    if (v == null) {
-      ref
-          .read(imageGifControllerProvider.notifier)
-          .updateFormError('每张图片停留时长须为数字(毫秒)');
-      return;
-    }
-    ref.read(imageGifControllerProvider.notifier).updateFrameDurationMs(v);
+    ref
+        .read(imageGifControllerProvider.notifier)
+        .tryUpdateFrameDurationMs(text);
   }
 
   void _submitLoop(String text) {
     _loopFocused = false;
-    final v = int.tryParse(text.trim());
-    if (v == null) {
-      ref.read(imageGifControllerProvider.notifier).updateFormError('循环次数须为数字');
-      return;
-    }
-    ref.read(imageGifControllerProvider.notifier).updateLoop(v);
+    ref.read(imageGifControllerProvider.notifier).tryUpdateLoop(text);
   }
 
   /// 提交未回车的文本字段(每图时长/循环)到控制器。
   ///
-  /// 先对全部字段做纯解析校验(任一非法 → formError 并返回 false),再
-  /// 逐项提交(update* 内部钳制失败同样中止)。**必须先全量校验再提交**:
-  /// 各 update* 成功后都会清 formError,顺序逐项提交会让前项错误被后项
-  /// 成功清除。调用方(转换入口)在返回 false 时中止动作。
+  /// 短路语义:逐字段调控制器 try*(解析/范围校验/错误文案都在控制器),
+  /// **任一失败立即返回 false** —— 后项成功(update* 清 formError)不会
+  /// 清掉前项错误(修复"越界时长被循环提交清错后静默用旧值转换"BUG)。
+  /// 调用方(转换入口)在返回 false 时中止动作。
   bool _flushTextFields() {
-    final frame = int.tryParse(_frameDurationCtrl.text.trim());
-    final loop = int.tryParse(_loopCtrl.text.trim());
-    if (frame == null) {
-      ref
-          .read(imageGifControllerProvider.notifier)
-          .updateFormError('每张图片停留时长须为数字(毫秒)');
-      return false;
-    }
-    if (loop == null) {
-      ref.read(imageGifControllerProvider.notifier).updateFormError('循环次数须为数字');
-      return false;
-    }
     _frameDurationFocused = false;
     _loopFocused = false;
     final notifier = ref.read(imageGifControllerProvider.notifier);
-    notifier.updateFrameDurationMs(frame);
-    notifier.updateLoop(loop);
-    return ref.read(imageGifControllerProvider).formError == null;
+    if (!notifier.tryUpdateFrameDurationMs(_frameDurationCtrl.text)) {
+      return false;
+    }
+    if (!notifier.tryUpdateLoop(_loopCtrl.text)) return false;
+    return true; // 逐字段成功即无错误,不再回读 formError
   }
 
   Future<void> _startConvert() async {
@@ -315,14 +295,7 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
       hintText: '1–4096',
     );
     if (text == null) return;
-    final v = int.tryParse(text.trim());
-    if (v == null || v < 1 || v > 4096) {
-      ref
-          .read(imageGifControllerProvider.notifier)
-          .updateFormError('宽度须为 1–4096 的数字');
-      return;
-    }
-    ref.read(imageGifControllerProvider.notifier).updateWidth(v);
+    ref.read(imageGifControllerProvider.notifier).tryUpdateCustomWidth(text);
   }
 
   /// 自定义高度:弹输入框,1–4096 校验(非法 → formError)。
@@ -334,14 +307,7 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
       hintText: '1–4096',
     );
     if (text == null) return;
-    final v = int.tryParse(text.trim());
-    if (v == null || v < 1 || v > 4096) {
-      ref
-          .read(imageGifControllerProvider.notifier)
-          .updateFormError('高度须为 1–4096 的数字');
-      return;
-    }
-    ref.read(imageGifControllerProvider.notifier).updateHeight(v);
+    ref.read(imageGifControllerProvider.notifier).tryUpdateCustomHeight(text);
   }
 
   /// 自定义缩放倍数:弹输入框,0.1–4 校验(非法 → formError)。
@@ -354,14 +320,9 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
       hintText: '0.1–4',
     );
     if (text == null) return;
-    final v = double.tryParse(text.trim());
-    if (v == null || v <= 0 || v > 4) {
-      ref
-          .read(imageGifControllerProvider.notifier)
-          .updateFormError('缩放倍数须为 0.1–4 的数字');
-      return;
-    }
-    ref.read(imageGifControllerProvider.notifier).updateScaleMultiplier(v);
+    ref
+        .read(imageGifControllerProvider.notifier)
+        .tryUpdateCustomScaleMultiplier(text);
   }
 
   @override

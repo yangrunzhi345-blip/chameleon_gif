@@ -473,6 +473,24 @@ void main() {
     expect(find.text('每张图片停留时长须为数字(毫秒)'), findsOneWidget);
   });
 
+  testWidgets('每图时长越界(99999)不回车 → 转换中止并提示,不得静默用旧值', (tester) async {
+    final svc = FakeFfmpegService(writeOutput: false);
+    final (app, router, _) = buildApp(service: svc);
+    await pumpApp(tester, app);
+    await enterScreen(tester, router);
+
+    // 旧 bug:越界值 updateFrameDurationMs 只设 formError,随后 updateLoop
+    // 成功清错 → 转换静默用默认 1000ms
+    await tester.enterText(find.byType(TextField).first, '99999');
+    await tester.pump();
+
+    await tester.tap(find.text('开始转换'));
+    await tester.pumpAndSettle();
+
+    expect(svc.convertImagesCalls, isEmpty, reason: '越界输入不得启动转换');
+    expect(find.textContaining('每张图片停留时长需在'), findsOneWidget);
+  });
+
   testWidgets('播放速度:选 2 倍 → 转换携带 playbackSpeed=2', (tester) async {
     final svc = FakeFfmpegService(writeOutput: false);
     final (app, router, _) = buildApp(service: svc);

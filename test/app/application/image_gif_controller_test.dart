@@ -285,6 +285,68 @@ void main() {
     expect(state().formError, isNull);
   });
 
+  test('tryUpdateFrameDurationMs:非数字/越界 → 错误并返回 false,合法 → true', () {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+
+    expect(notifier.tryUpdateFrameDurationMs('abc'), isFalse);
+    expect(state().formError, contains('须为数字'));
+
+    expect(notifier.tryUpdateFrameDurationMs('99999'), isFalse);
+    expect(state().formError, contains('需在'));
+
+    expect(notifier.tryUpdateFrameDurationMs('500'), isTrue);
+    expect(state().frameDurationMs, 500);
+    expect(state().formError, isNull);
+  });
+
+  test('tryUpdateLoop:非数字 → 错误并返回 false;合法 → true', () {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+
+    expect(notifier.tryUpdateLoop('abc'), isFalse);
+    expect(state().formError, contains('循环次数'));
+
+    expect(notifier.tryUpdateLoop('5'), isTrue);
+    expect(state().loop, 5);
+    expect(state().formError, isNull);
+  });
+
+  test('短路契约:try* 失败返回 false 且错误保留,调用方必须失败即停', () {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+
+    final ok = notifier.tryUpdateFrameDurationMs('99999');
+    expect(ok, isFalse);
+    expect(state().formError, isNotNull);
+    // try* 成功后照常清错(单字段输入修正);批处理(fetch flush)的"前错
+    // 不清"由调用方短路保证:任一 false 立即停,不得继续调后项 ——
+    // image_gif_screen._flushTextFields 已实现,越界场景由 widget 测试
+    // 「越界 99999 不回车」覆盖(旧 bug:updateLoop 成功清掉越界错误 →
+    // 静默用旧值转换)
+  });
+
+  test('tryUpdateCustomWidth/Height/ScaleMultiplier:越界 → false,合法 → true', () {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+
+    expect(notifier.tryUpdateCustomWidth('0'), isFalse);
+    expect(notifier.tryUpdateCustomWidth('150'), isTrue);
+    expect(state().width, 150);
+
+    expect(notifier.tryUpdateCustomHeight('9999'), isFalse);
+    expect(notifier.tryUpdateCustomHeight('100'), isTrue);
+    expect(state().height, 100);
+
+    expect(notifier.tryUpdateCustomScaleMultiplier('0'), isFalse);
+    expect(notifier.tryUpdateCustomScaleMultiplier('2'), isTrue);
+    expect(state().scaleMultiplier, 2);
+  });
+
   test('updateFps 联动每图时长下限自动抬升', () {
     container = build();
     final notifier = container.read(imageGifControllerProvider.notifier);
