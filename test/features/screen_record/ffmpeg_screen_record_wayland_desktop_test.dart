@@ -74,7 +74,10 @@ void main() {
       reason: '实际录制时长',
     );
 
-    // 3. 取消:清理无残留
+    // 3. 取消:无新产物(目录内容数与录制后一致,不含本次取消的半成品)
+    final filesAfterRecord = capturesDir.existsSync()
+        ? capturesDir.listSync().length
+        : 0;
     final token = CancelToken();
     final future2 = recorder.record(
       params: const RecordParams(fps: 15, maxDurationMs: 30000),
@@ -84,9 +87,9 @@ void main() {
     token.cancel();
     await expectLater(future2, throwsA(isA<CaptureCancelledException>()));
     expect(
-      capturesDir.existsSync() ? capturesDir.listSync() : const [],
-      isEmpty,
-      reason: '取消不落位',
+      capturesDir.existsSync() ? capturesDir.listSync().length : 0,
+      filesAfterRecord,
+      reason: '取消不产生新产物',
     );
   });
 }
