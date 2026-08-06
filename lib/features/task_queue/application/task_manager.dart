@@ -374,8 +374,9 @@ class TaskManager {
       );
       await Directory(workDir).create(recursive: true);
       // 上限兜底:回收最旧的 gifforge_* 工作目录(崩溃/完成弹窗永不关闭
-      // 等 resetSession 未覆盖的场景;保留最近 kMaxWorkDirs 个,best-effort)
-      await _cleanupOldWorkDirs();
+      // 等 resetSession 未覆盖的场景;保留最近 kMaxWorkDirs 个,best-effort;
+      // 同步实现:目录集小且避免异步遍历在测试/低配环境挂起)
+      _cleanupOldWorkDirs();
       // 启动窗口竞态守卫:标记 running 前 cancel 已标记令牌([cancel] 不再
       // 要求 running),此处直接落 cancelled,转换不进入执行
       if (token.isCancelled) {
@@ -637,19 +638,24 @@ class TaskManager {
   /// 回收最旧的 `gifforge_<id>` 工作目录,保留最近 [kMaxWorkDirs] 个。
   ///
   /// 兜底场景:应用崩溃 / 完成弹窗永不关闭导致 resetSession 未回收;
-  /// 双并发槽下新任务目录最后创建,上限只删更旧者。best-effort:
-  /// 删除失败仅日志,不阻断任务执行。
-  Future<void> _cleanupOldWorkDirs() async {
+  /// 双并发槽下新任务目录最后创建,上限只删更旧者。**同步实现**:
+  /// 目录集小、调用频率低(每任务一次),且避免异步遍历在受限事件循环
+  /// (widget 测试 fake zone)中挂起。best-effort:失败仅忽略,不阻断任务。
+  void _cleanupOldWorkDirs() {
     final root = Directory(_platformAdapter.systemTempDir);
-    if (!await root.exists()) return;
+    if (!root.existsSync()) return;
     final workDirs = <Directory>[];
-    await for (final entry in root.list()) {
-      if (entry is Directory &&
-          RegExp(
-            r'^gifforge_\d+$',
-          ).hasMatch(entry.path.split(RegExp(r'[\\/]')).last)) {
-        workDirs.add(entry);
+    try {
+      for (final entry in root.listSync()) {
+        if (entry is Directory &&
+            RegExp(
+              r'^gifforge_\d+$',
+            ).hasMatch(entry.path.split(RegExp(r'[\\/]')).last)) {
+          workDirs.add(entry);
+        }
       }
+    } on FileSystemException {
+      return; // 遍历失败(目录被并发删除等)不阻断任务
     }
     if (workDirs.length <= kMaxWorkDirs) return;
     workDirs.sort(
@@ -657,7 +663,7 @@ class TaskManager {
     );
     for (final dir in workDirs.take(workDirs.length - kMaxWorkDirs)) {
       try {
-        if (await dir.exists()) await dir.delete(recursive: true);
+        if (dir.existsSync()) dir.deleteSync(recursive: true);
       } on FileSystemException {
         // 忽略:正在被占用等场景,下次转换时再兜底
       }
