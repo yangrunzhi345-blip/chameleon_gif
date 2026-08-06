@@ -66,6 +66,7 @@ git push
 | 原生库 | `media_kit_libs_video` | `^1.0.7` | 内置 FFmpeg 原生库(播放用) |
 | **转码引擎** | `ffmpeg_kit_flutter_minimal` | `^6.0.8` | FFmpeg CLI 封装(**GIF 转换核心**) |
 | 文件选择 | `file_picker` | `^11.0.3` | 选择 MP4 源文件 |
+| **相机拍摄** | `camera` | `^0.12.0` | Android 拍摄(CameraX 后端,自动带 camera_android_camerax;白平衡/ISO 无 API,自动白平衡) |
 | 文件选择 | `file_selector` | `^1.1.0` | 官方方案,保存 GIF 对话框 |
 | 代码生成 | `build_runner` | `2.15.1`(精确,见注) | 运行 freezed/isar/riverpod 生成器 |
 | 分析 | `flutter_lints` | `^6.0.0` | 官方 lint(riverpod_lint 暂缓引入) |
