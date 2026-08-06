@@ -20,6 +20,7 @@ _GifSetting _$GifSettingFromJson(Map<String, dynamic> json) => _GifSetting(
   frameDurationMs: (json['frameDurationMs'] as num?)?.toInt(),
   usePalette: json['usePalette'] as bool? ?? true,
   scaleMultiplier: (json['scaleMultiplier'] as num?)?.toDouble() ?? 1.0,
+  playbackSpeed: (json['playbackSpeed'] as num?)?.toDouble() ?? 1.0,
 );
 
 Map<String, dynamic> _$GifSettingToJson(_GifSetting instance) =>
@@ -33,4 +34,5 @@ Map<String, dynamic> _$GifSettingToJson(_GifSetting instance) =>
       'frameDurationMs': instance.frameDurationMs,
       'usePalette': instance.usePalette,
       'scaleMultiplier': instance.scaleMultiplier,
+      'playbackSpeed': instance.playbackSpeed,
     };

@@ -43,6 +43,7 @@ class SettingsController extends Notifier<BatchImportFormState>
       outputDir: outputDir.isEmpty ? null : outputDir,
       // 宽高全 0(原图等比)才继承倍数偏好;手动指定过宽高 → null
       scaleMultiplier: (w == 0 && h == 0) ? saved.scaleMultiplier : null,
+      playbackSpeed: saved.playbackSpeed.clamp(0.25, 4),
       formError: null,
     );
   }

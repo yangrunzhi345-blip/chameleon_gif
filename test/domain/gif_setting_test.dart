@@ -36,6 +36,8 @@ void main() {
       expect(s.usePalette, isTrue);
       // 缩放倍数:老 JSON 无此字段 → 默认 1.0(不缩放)
       expect(s.scaleMultiplier, 1.0);
+      // 播放速度:老 JSON 无此字段 → 默认 1.0(正常速度)
+      expect(s.playbackSpeed, 1.0);
     });
 
     test('老 JSON 无 scaleMultiplier 键 → 1.0;带键 → 原样往返', () {
@@ -46,6 +48,16 @@ void main() {
       final roundTrip = GifSetting.fromJson(scaled.toJson());
       expect(roundTrip.scaleMultiplier, 2.0);
       expect(roundTrip, scaled);
+    });
+
+    test('老 JSON 无 playbackSpeed 键 → 1.0;带键 → 原样往返', () {
+      final legacy = GifSetting.fromJson(const {'fps': 24});
+      expect(legacy.playbackSpeed, 1.0);
+
+      const sped = GifSetting(playbackSpeed: 2.0);
+      final roundTrip = GifSetting.fromJson(sped.toJson());
+      expect(roundTrip.playbackSpeed, 2.0);
+      expect(roundTrip, sped);
     });
 
     test('end 显式 null 容错', () {

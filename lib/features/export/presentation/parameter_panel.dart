@@ -33,9 +33,36 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
   final _loopCtrl = TextEditingController();
   final _startCtrl = TextEditingController();
   final _endCtrl = TextEditingController();
+  final _loopFocusNode = FocusNode();
+  final _startFocusNode = FocusNode();
+  final _endFocusNode = FocusNode();
   bool _loopFocused = false;
   bool _startFocused = false;
   bool _endFocused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 失焦即提交(状态即时同步;导出前另有 flush 兜底)
+    _loopFocusNode.addListener(_onLoopBlur);
+    _startFocusNode.addListener(_onStartBlur);
+    _endFocusNode.addListener(_onEndBlur);
+  }
+
+  /// 循环输入框失焦 → 提交(不回车也生效)。
+  void _onLoopBlur() {
+    if (!_loopFocusNode.hasFocus) _submitLoopText(_loopCtrl.text);
+  }
+
+  /// 开始时间输入框失焦 → 提交(不回车也生效)。
+  void _onStartBlur() {
+    if (!_startFocusNode.hasFocus) _submitStart(_startCtrl.text);
+  }
+
+  /// 结束时间输入框失焦 → 提交(不回车也生效)。
+  void _onEndBlur() {
+    if (!_endFocusNode.hasFocus) _submitEnd(_endCtrl.text);
+  }
 
   static const _fpsOptions = [
     8.0,
@@ -60,6 +87,7 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
     1280,
     1920,
   ];
+  static const _speedOptions = [0.25, 0.5, 1.0, 2.0, 3.0, 4.0];
 
   /// 面板输入控件统一边框(与 ParamDropdownField 收起态一致)。
   static const _panelInputBorder = OutlineInputBorder(
@@ -68,10 +96,26 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
 
   @override
   void dispose() {
+    _loopFocusNode.removeListener(_onLoopBlur);
+    _startFocusNode.removeListener(_onStartBlur);
+    _endFocusNode.removeListener(_onEndBlur);
     _loopCtrl.dispose();
     _startCtrl.dispose();
     _endCtrl.dispose();
+    _loopFocusNode.dispose();
+    _startFocusNode.dispose();
+    _endFocusNode.dispose();
     super.dispose();
+  }
+
+  /// 循环文本提交(解析失败 → formError)。
+  void _submitLoopText(String text) {
+    final v = int.tryParse(text.trim());
+    if (v == null) {
+      ref.read(exportControllerProvider.notifier).updateFormError('循环次数须为数字');
+    } else {
+      ref.read(exportControllerProvider.notifier).updateLoop(v);
+    }
   }
 
   /// 未聚焦时从 state 回填文本(时间轴拖动提交后文本随之刷新)。
@@ -114,6 +158,43 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
       return;
     }
     ref.read(exportControllerProvider.notifier).updateEnd(parsed);
+  }
+
+  /// 提交未回车的文本字段(循环/开始/结束)到控制器。
+  ///
+  /// 先对全部字段做纯解析校验(任一非法 → formError 并返回 false),再
+  /// 逐项提交(update* 内部钳制失败同样中止)。**必须先全量校验再提交**:
+  /// 各 update* 成功后都会清 formError,顺序逐项提交会让前项错误被后项
+  /// 成功清除。调用方(导出入口)在返回 false 时中止动作。
+  bool flushPendingInputs() {
+    final loop = int.tryParse(_loopCtrl.text.trim());
+    final start = parseFfmpegTime(_startCtrl.text);
+    final endText = _endCtrl.text.trim();
+    final end = endText.isEmpty ? null : parseFfmpegTime(endText);
+    if (loop == null) {
+      ref.read(exportControllerProvider.notifier).updateFormError('循环次数须为数字');
+      return false;
+    }
+    if (start == null) {
+      ref
+          .read(exportControllerProvider.notifier)
+          .updateFormError('开始时间格式非法(示例 00:03.200)');
+      return false;
+    }
+    if (endText.isNotEmpty && end == null) {
+      ref
+          .read(exportControllerProvider.notifier)
+          .updateFormError('结束时间格式非法(示例 00:09.500)');
+      return false;
+    }
+    _loopFocused = false;
+    _startFocused = false;
+    _endFocused = false;
+    final controller = ref.read(exportControllerProvider.notifier);
+    controller.updateLoop(loop);
+    controller.updateStart(start);
+    controller.updateEnd(end);
+    return ref.read(exportControllerProvider).formError == null;
   }
 
   /// 自定义宽度:弹输入框,1–4096 校验(非法 → formError)。
@@ -275,6 +356,7 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
             label: '循环',
             child: TextField(
               controller: _loopCtrl,
+              focusNode: _loopFocusNode,
               enabled: enabled,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
@@ -285,13 +367,24 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
               onTap: () => _loopFocused = true,
               onSubmitted: (text) {
                 _loopFocused = false;
-                final v = int.tryParse(text.trim());
-                if (v == null) {
-                  controller.updateFormError('循环次数须为数字');
-                } else {
-                  controller.updateLoop(v);
-                }
+                _submitLoopText(text);
               },
+            ),
+          ),
+          _ParamRow(
+            label: '速度',
+            child: ParamDropdownField<double>(
+              value: state.playbackSpeed,
+              enabled: enabled,
+              items: [
+                // 0.25/0.5 慢放、1 正常、≥2 加速
+                for (final s in _speedOptions)
+                  ParamDropdownItem(
+                    s,
+                    '${s == s.roundToDouble() ? s.toInt() : s} 倍',
+                  ),
+              ],
+              onChanged: controller.updatePlaybackSpeed,
             ),
           ),
           const SizedBox(height: 12),
@@ -300,6 +393,7 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
             label: '开始',
             child: TextField(
               controller: _startCtrl,
+              focusNode: _startFocusNode,
               enabled: enabled,
               decoration: const InputDecoration(
                 hintText: '00:00.000',
@@ -317,6 +411,7 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
             label: '结束',
             child: TextField(
               controller: _endCtrl,
+              focusNode: _endFocusNode,
               enabled: enabled,
               decoration: const InputDecoration(
                 hintText: '留空 = 到结尾',
@@ -391,7 +486,12 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
             ],
           ),
           const SizedBox(height: 8),
-          ExportActionArea(video: video, enabled: enabled),
+          ExportActionArea(
+            video: video,
+            enabled: enabled,
+            // 导出前 flush 未回车的文本字段(循环/开始/结束)
+            onBeforeSubmit: flushPendingInputs,
+          ),
         ],
       ),
     );

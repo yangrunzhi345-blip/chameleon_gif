@@ -28,6 +28,7 @@ class ExportFormState {
     this.outputDir,
     this.formError,
     this.scaleMultiplier,
+    this.playbackSpeed = 1.0,
   });
 
   const ExportFormState.idle() : this._(lifecycle: ExportLifecycle.idle);
@@ -89,6 +90,9 @@ class ExportFormState {
   /// 源尺寸已知则联动落成具体宽高,未知则仅存偏好)。
   final double? scaleMultiplier;
 
+  /// 播放速度(0.25–4;1.0 = 正常,<1 慢放,>1 加速;命令侧 setpts)。
+  final double playbackSpeed;
+
   /// 未传标记(允许显式置 null:end/errorMessage/formError/scaleMultiplier)。
   static const _unset = Object();
 
@@ -107,6 +111,7 @@ class ExportFormState {
     Object? outputDir = _unset,
     Object? formError = _unset,
     Object? scaleMultiplier = _unset,
+    double? playbackSpeed,
   }) {
     return ExportFormState._(
       lifecycle: lifecycle ?? this.lifecycle,
@@ -133,6 +138,7 @@ class ExportFormState {
       scaleMultiplier: identical(scaleMultiplier, _unset)
           ? this.scaleMultiplier
           : scaleMultiplier as double?,
+      playbackSpeed: playbackSpeed ?? this.playbackSpeed,
     );
   }
 

@@ -512,4 +512,71 @@ void main() {
       );
     });
   });
+
+  group('播放速度(慢放/加速)', () {
+    test('speed=2 → concat 后整体 setpts,输出标签沿用 [vout]', () {
+      const setting = GifSetting(frameDurationMs: 1000, playbackSpeed: 2);
+      final commands = builder.buildFromImages(
+        setting: setting,
+        source: source,
+        workDir: '/tmp/work',
+        outputPath: '/tmp/work/out.gif',
+      );
+      // palette 遍:concat 链尾 ',setpts=PTS/2[vout]' 再 palettegen
+      expect(
+        filterOf(commands[0].args),
+        '${stages3(defaultChain)},setpts=PTS/2[vout];'
+        '[vout]palettegen=max_colors=256[pal]',
+      );
+      // encode 遍:setpts 后 [vout][3:v]paletteuse
+      expect(
+        filterOf(commands[1].args),
+        '${stages3(defaultChain)},setpts=PTS/2[vout];'
+        '[vout][3:v]paletteuse=dither=bayer:bayer_scale=5[gif]',
+      );
+      // 逐图输入 -t 不变(每图 1s,不因加速改输入)
+      expect(commands[0].args, containsAllInOrder(['-t', '00:00:01.000']));
+    });
+
+    test('慢放 0.25 → setpts=PTS/0.25', () {
+      const setting = GifSetting(frameDurationMs: 1000, playbackSpeed: 0.25);
+      final commands = builder.buildFromImages(
+        setting: setting,
+        source: source,
+        workDir: '/tmp/work',
+        outputPath: '/tmp/work/out.gif',
+      );
+      expect(filterOf(commands[0].args), contains(',setpts=PTS/0.25[vout]'));
+    });
+
+    test('speed=1(默认)→ 不注入 setpts(默认快照测试已锁定)', () {
+      const setting = GifSetting(frameDurationMs: 1000);
+      final commands = builder.buildFromImages(
+        setting: setting,
+        source: source,
+        workDir: '/tmp/work',
+        outputPath: '/tmp/work/out.gif',
+      );
+      expect(filterOf(commands[0].args), contains('[vout]'));
+      expect(filterOf(commands[0].args), isNot(contains('setpts')));
+    });
+
+    test('进度分母 = N × 每图时长 ÷ speed', () {
+      const setting = GifSetting(frameDurationMs: 1000, playbackSpeed: 2);
+      // 3 图 × 1s ÷ 2 = 1.5s
+      expect(
+        builder.progressDenominatorImages(setting, source),
+        const Duration(milliseconds: 1500),
+      );
+    });
+
+    test('慢放 0.25 → 进度分母 ×4', () {
+      const setting = GifSetting(frameDurationMs: 1000, playbackSpeed: 0.25);
+      // 3 图 × 1s ÷ 0.25 = 12s
+      expect(
+        builder.progressDenominatorImages(setting, source),
+        const Duration(seconds: 12),
+      );
+    });
+  });
 }

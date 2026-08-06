@@ -14,6 +14,7 @@ class BatchImportFormState {
     this.outputDir,
     this.formError,
     this.scaleMultiplier,
+    this.playbackSpeed = 1.0,
   });
 
   /// 初始态(内置默认:15fps、原图等比、全长、临时目录)。
@@ -47,6 +48,9 @@ class BatchImportFormState {
   /// 无源尺寸语义,选倍数只存偏好,入队时按各文件自身尺寸展开)。
   final double? scaleMultiplier;
 
+  /// 播放速度(0.25–4;1.0 = 正常,<1 慢放,>1 加速;命令侧 setpts)。
+  final double playbackSpeed;
+
   /// 未传标记(允许显式置 null:end/outputDir/formError/scaleMultiplier)。
   static const _unset = Object();
 
@@ -60,6 +64,7 @@ class BatchImportFormState {
     Object? outputDir = _unset,
     Object? formError = _unset,
     Object? scaleMultiplier = _unset,
+    double? playbackSpeed,
   }) {
     return BatchImportFormState._(
       fps: fps ?? this.fps,
@@ -77,6 +82,7 @@ class BatchImportFormState {
       scaleMultiplier: identical(scaleMultiplier, _unset)
           ? this.scaleMultiplier
           : scaleMultiplier as double?,
+      playbackSpeed: playbackSpeed ?? this.playbackSpeed,
     );
   }
 }

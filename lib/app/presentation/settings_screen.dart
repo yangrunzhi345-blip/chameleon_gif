@@ -86,6 +86,9 @@ class _CapturesStorageGroup extends ConsumerWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  /// 批量参数表单 key(保存前 flush 未回车的文本字段)。
+  final _formKey = GlobalKey<BatchParameterFormState>();
+
   @override
   void initState() {
     super.initState();
@@ -99,6 +102,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _save() async {
+    // 先提交未回车的文本字段(循环/开始/结束);解析失败 → formError 中止
+    if (_formKey.currentState?.flushPendingInputs() == false) return;
     await ref.read(settingsControllerProvider.notifier).save();
     await ref.read(cameraSettingsControllerProvider.notifier).save();
     await ref.read(recordSettingsControllerProvider.notifier).save();
@@ -158,7 +163,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
-            BatchParameterForm(state: formState, actions: controller),
+            BatchParameterForm(
+              key: _formKey,
+              state: formState,
+              actions: controller,
+            ),
             const SizedBox(height: 24),
             const Divider(height: 1),
             const SizedBox(height: 16),

@@ -233,12 +233,13 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
                             ),
                           );
                         }
-                        // 半屏/小窗口:保持原有布局(仅面板,不加 Spacer)
+                        // 半屏/小窗口:保持原有布局(仅面板,不加 Spacer;
+                        // Flexible 保证面板内容超高时可滚动,不 RenderFlex 溢出)
                         return ColoredBox(
                           color: Theme.of(
                             context,
                           ).colorScheme.surfaceContainerLow,
-                          child: Column(children: [panel]),
+                          child: Column(children: [Flexible(child: panel)]),
                         );
                       },
                     ),

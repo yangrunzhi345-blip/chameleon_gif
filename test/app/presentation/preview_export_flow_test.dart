@@ -104,6 +104,34 @@ void main() {
     expect(find.text('大小:123 B'), findsOneWidget);
   });
 
+  testWidgets('回归:开始时间输入不回车,导出仍生效(flush 兜底)', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final (app, svc) = buildApp();
+    svc.result = const _FlowResult.success();
+    await tester.pumpWidget(app);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('导入 MP4'));
+    await tester.pumpAndSettle();
+
+    // 开始时间框 = 第 2 个 TextField(循环/开始/结束),输入不回车
+    // (旧 bug:不按回车直接导出,裁剪不生效)
+    await tester.enterText(find.byType(TextField).at(1), '00:02.000');
+    await tester.pump();
+
+    await tester.runAsync(() async {
+      await tester.tap(find.text('导出 GIF'));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await tester.pumpAndSettle();
+
+    expect(
+      svc.lastSetting!.start,
+      const Duration(seconds: 2),
+      reason: '未回车输入也必须生效',
+    );
+  });
+
   testWidgets('导出失败 → SnackBar 展示用户文案,无弹窗', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1280, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -213,6 +241,7 @@ class _FlowFakeService implements FFmpegService {
   }
 
   _FlowResult result = const _FlowResult.success();
+  GifSetting? lastSetting;
 
   @override
   Future<ConvertResult> convert({
@@ -225,6 +254,7 @@ class _FlowFakeService implements FFmpegService {
     void Function(TaskProgress)? onProgress,
     void Function(String line)? onLog,
   }) async {
+    lastSetting = setting;
     onProgress?.call(
       TaskProgress(taskId: taskId, percent: 1.0, elapsed: Duration.zero),
     );

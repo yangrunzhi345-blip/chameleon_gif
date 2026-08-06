@@ -86,11 +86,13 @@ class GifCommandBuilder {
     ];
   }
 
-  /// 进度百分比分母 = 裁剪时长 `(end ?? video.duration) - start`,
+  /// 进度百分比分母 = 输出时长 `(裁剪时长) / 播放速度`
+  /// (setpts 压缩/拉伸输出时间轴,encode 遍 out_time_us 沿输出轴增长),
   /// 供 [ProgressParser] 计算百分比(§8.3.3);负值钳制为 0。
   Duration progressDenominator(GifSetting setting, VideoInfo video) {
     final d = (setting.end ?? video.duration) - setting.start;
-    return d.isNegative ? Duration.zero : d;
+    if (d.isNegative) return Duration.zero;
+    return _scaledDuration(d, setting.playbackSpeed);
   }
 
   /// 构造多图片合成 GIF 的命令列表(图片模式,docs/08-FFmpeg设计.md 图片节)。
@@ -120,7 +122,12 @@ class GifCommandBuilder {
         '[$i:v]${_perImageChain(setting, source, i, canvas: canvas)}[s$i]',
     ].join(';');
     final labels = [for (var i = 0; i < n; i++) '[s$i]'].join();
-    final concatChain = '$stages;${labels}concat=n=$n:v=1:a=0[vout]';
+    // 播放速度在 concat 后整体 setpts(帧数不变、时间轴缩放,逐图输入
+    // `-t` 不动 → 无掉帧);speed=1.0 无后缀,链内 [vout] 保持原名
+    final speed = _speedFilterArgs(setting);
+    final concatChain =
+        '$stages;${labels}concat=n=$n:v=1:a=0[vout]'
+        '${speed.isEmpty ? '' : '$speed[vout]'}';
     final tail = ['-y', '-loop', '${setting.loop}', outputPath];
 
     if (!usePalette) {
@@ -174,8 +181,8 @@ class GifCommandBuilder {
     ];
   }
 
-  /// 图片模式进度百分比分母 = 总输出时长 `N × 每图时长`
-  /// (encode 遍 out_time_us 沿 concat 时间轴 0 → ΣD)。
+  /// 图片模式进度百分比分母 = 总输出时长 `N × 每图时长 ÷ 播放速度`
+  /// (encode 遍 out_time_us 沿 concat → setpts 后的输出时间轴增长)。
   Duration progressDenominatorImages(
     GifSetting setting,
     ImageGifSource source,
@@ -297,14 +304,28 @@ class GifCommandBuilder {
   /// 滤镜链前缀(`fps` 恒在,`scale` 按宽高组合追加,§8.3.2 顺序契约)。
   ///
   /// 组合语义:宽高都 0 = 原图(无 scale);单边指定 = 另一边 -1 等比;
-  /// 双边指定 = 精确尺寸(允许变形)。
+  /// 双边指定 = 精确尺寸(允许变形)。播放速度在链尾追加 setpts。
   String _filterChain(GifSetting setting) {
     final fps = _formatFps(setting.fps);
     final scale = (setting.width > 0 || setting.height > 0)
         ? ',scale=${setting.width > 0 ? setting.width : -1}:'
               '${setting.height > 0 ? setting.height : -1}:flags=lanczos'
         : '';
-    return 'fps=$fps$scale';
+    return 'fps=$fps$scale${_speedFilterArgs(setting)}';
+  }
+
+  /// 播放速度滤镜参数:非 1.0 时返回 `,setpts=PTS/<speed>`(帧数不变、
+  /// 输出时间轴等比缩放;加速 → 总时长缩短,慢放 → 拉长);1.0(默认)
+  /// 返回空串不注入,既有命令快照保持不变。
+  String _speedFilterArgs(GifSetting setting) {
+    final speed = setting.playbackSpeed;
+    if ((speed - 1.0).abs() < 1e-9) return '';
+    return ',setpts=PTS/${_formatFps(speed)}';
+  }
+
+  /// 时长按播放速度缩放(输出时间轴 = 源时长 / speed)。
+  Duration _scaledDuration(Duration d, double speed) {
+    return Duration(microseconds: (d.inMicroseconds / speed).round());
   }
 
   /// 整数值 fps 不带小数点(15.0 → "15"),非整数原样(29.97 → "29.97")。

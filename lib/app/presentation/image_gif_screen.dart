@@ -43,6 +43,8 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
 
   final _frameDurationCtrl = TextEditingController();
   final _loopCtrl = TextEditingController();
+  final _frameDurationFocusNode = FocusNode();
+  final _loopFocusNode = FocusNode();
   bool _frameDurationFocused = false;
   bool _loopFocused = false;
 
@@ -69,6 +71,7 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
     1280,
     1920,
   ];
+  static const _speedOptions = [0.25, 0.5, 1.0, 2.0, 3.0, 4.0];
 
   static const _inputBorder = OutlineInputBorder(
     borderRadius: BorderRadius.all(Radius.circular(8)),
@@ -77,6 +80,9 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
   @override
   void initState() {
     super.initState();
+    // 失焦即提交(状态与总时长显示即时同步;转换前另有 flush 兜底)
+    _frameDurationFocusNode.addListener(_onFrameDurationBlur);
+    _loopFocusNode.addListener(_onLoopBlur);
     // 延迟到首帧后初始化:避免 initState 内触发 Notifier 状态写入
     Future.microtask(() {
       if (!mounted) return;
@@ -134,9 +140,25 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
 
   @override
   void dispose() {
+    _frameDurationFocusNode.removeListener(_onFrameDurationBlur);
+    _loopFocusNode.removeListener(_onLoopBlur);
     _frameDurationCtrl.dispose();
     _loopCtrl.dispose();
+    _frameDurationFocusNode.dispose();
+    _loopFocusNode.dispose();
     super.dispose();
+  }
+
+  /// 每图时长输入框失焦 → 提交(不回车也生效)。
+  void _onFrameDurationBlur() {
+    if (!_frameDurationFocusNode.hasFocus) {
+      _submitFrameDuration(_frameDurationCtrl.text);
+    }
+  }
+
+  /// 循环输入框失焦 → 提交(不回车也生效)。
+  void _onLoopBlur() {
+    if (!_loopFocusNode.hasFocus) _submitLoop(_loopCtrl.text);
   }
 
   Future<void> _appendImages() async {
@@ -247,7 +269,36 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
     ref.read(imageGifControllerProvider.notifier).updateLoop(v);
   }
 
+  /// 提交未回车的文本字段(每图时长/循环)到控制器。
+  ///
+  /// 先对全部字段做纯解析校验(任一非法 → formError 并返回 false),再
+  /// 逐项提交(update* 内部钳制失败同样中止)。**必须先全量校验再提交**:
+  /// 各 update* 成功后都会清 formError,顺序逐项提交会让前项错误被后项
+  /// 成功清除。调用方(转换入口)在返回 false 时中止动作。
+  bool _flushTextFields() {
+    final frame = int.tryParse(_frameDurationCtrl.text.trim());
+    final loop = int.tryParse(_loopCtrl.text.trim());
+    if (frame == null) {
+      ref
+          .read(imageGifControllerProvider.notifier)
+          .updateFormError('每张图片停留时长须为数字(毫秒)');
+      return false;
+    }
+    if (loop == null) {
+      ref.read(imageGifControllerProvider.notifier).updateFormError('循环次数须为数字');
+      return false;
+    }
+    _frameDurationFocused = false;
+    _loopFocused = false;
+    final notifier = ref.read(imageGifControllerProvider.notifier);
+    notifier.updateFrameDurationMs(frame);
+    notifier.updateLoop(loop);
+    return ref.read(imageGifControllerProvider).formError == null;
+  }
+
   Future<void> _startConvert() async {
+    // 先提交未回车的文本字段(每图时长/循环);解析/钳制失败 → formError 中止
+    if (!_flushTextFields()) return;
     final notifier = ref.read(imageGifControllerProvider.notifier);
     await notifier.submit(
       List.of(_paths),
@@ -319,7 +370,11 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
     final notifier = ref.read(imageGifControllerProvider.notifier);
     _syncTextFields(state);
     final exporting = state.locked;
-    final total = Duration(milliseconds: state.frameDurationMs * _paths.length);
+    // 总输出时长 = 每图时长 × 图片数 ÷ 播放速度(setpts 输出时间轴)
+    final total = Duration(
+      milliseconds:
+          (state.frameDurationMs * _paths.length / state.playbackSpeed).round(),
+    );
 
     final listPanel = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -466,6 +521,7 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
             label: '每图时长',
             child: TextField(
               controller: _frameDurationCtrl,
+              focusNode: _frameDurationFocusNode,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 // 常显单位(默认 1000 是毫秒,无单位提示易误读为秒)
@@ -553,6 +609,7 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
             label: '循环',
             child: TextField(
               controller: _loopCtrl,
+              focusNode: _loopFocusNode,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 hintText: '0 = 无限循环',
@@ -561,6 +618,22 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
               onChanged: (_) => _loopFocused = true,
               onTap: () => _loopFocused = true,
               onSubmitted: _submitLoop,
+            ),
+          ),
+          ParamRow(
+            label: '速度',
+            child: ParamDropdownField<double>(
+              value: state.playbackSpeed,
+              items: [
+                // 0.25/0.5 慢放、1 正常、≥2 加速
+                for (final s in _speedOptions)
+                  ParamDropdownItem(
+                    s,
+                    '${s == s.roundToDouble() ? s.toInt() : s} 倍',
+                  ),
+              ],
+              onChanged: notifier.updatePlaybackSpeed,
+              enabled: !exporting,
             ),
           ),
           SwitchListTile(
@@ -694,12 +767,13 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
                             ),
                           );
                         }
-                        // 半屏/小窗口:保持原有布局(仅面板,不加 Spacer)
+                        // 半屏/小窗口:保持原有布局(仅面板,不加 Spacer;
+                        // Flexible 保证面板内容超高时可滚动,不 RenderFlex 溢出)
                         return Material(
                           color: Theme.of(
                             context,
                           ).colorScheme.surfaceContainerLow,
-                          child: Column(children: [panel]),
+                          child: Column(children: [Flexible(child: panel)]),
                         );
                       },
                     ),

@@ -13,6 +13,7 @@ import 'package:chameleon_gif/domain/entities/video_info.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/file_pick_port.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/parse_video_port.dart';
 import 'package:chameleon_gif/features/export/presentation/export_complete_dialog.dart';
+import 'package:chameleon_gif/features/export/presentation/param_dropdown_field.dart';
 import 'package:chameleon_gif/features/import/application/import_providers.dart';
 import 'package:chameleon_gif/features/preview/application/preview_controller.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
@@ -130,8 +131,9 @@ void main() {
     await pumpApp(tester, app);
     await enterScreen(tester, router);
 
-    // 默认 1 倍收起;展开菜单选 2 倍
-    await tester.tap(find.text('1 倍'));
+    // 默认 1 倍收起;展开菜单选 2 倍(缩放倍数经 <double?> 泛型定位,
+    // 与帧率/速度的 <double> 区分,避免与速度行"1 倍"歧义)
+    await tester.tap(find.byType(ParamDropdownField<double?>).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('2 倍').last);
     await tester.pumpAndSettle();
@@ -428,6 +430,70 @@ void main() {
     expect(svc.receivedSources.single.paths, ['/img/a.png', '/img/b.png']);
     expect(find.byType(ExportCompleteDialog), findsOneWidget);
     expect(find.text('导出完成'), findsOneWidget);
+  });
+
+  testWidgets('回归:每图时长输入 100 不回车,直接转换生效', (tester) async {
+    final svc = FakeFfmpegService(writeOutput: false);
+    final (app, router, _) = buildApp(service: svc);
+    await pumpApp(tester, app);
+    await enterScreen(tester, router);
+
+    // 每图时长框 = 第 1 个 TextField;输入 100 不按回车
+    // (旧 bug:直接转换会用默认 1000ms,20 张图导出 20 秒)
+    await tester.enterText(find.byType(TextField).first, '100');
+    await tester.pump();
+
+    await tester.runAsync(() async {
+      await tester.tap(find.text('开始转换'));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await settleRealAsync(tester);
+
+    expect(svc.convertImagesCalls, hasLength(1));
+    expect(
+      svc.lastSetting!.frameDurationMs,
+      100,
+      reason: '未回车输入也必须生效(不得回退默认 1000ms)',
+    );
+  });
+
+  testWidgets('每图时长非法输入不回车 → 转换中止并提示', (tester) async {
+    final svc = FakeFfmpegService(writeOutput: false);
+    final (app, router, _) = buildApp(service: svc);
+    await pumpApp(tester, app);
+    await enterScreen(tester, router);
+
+    await tester.enterText(find.byType(TextField).first, 'abc');
+    await tester.pump();
+
+    await tester.tap(find.text('开始转换'));
+    await tester.pumpAndSettle();
+
+    expect(svc.convertImagesCalls, isEmpty, reason: '非法输入不得启动转换');
+    expect(find.text('每张图片停留时长须为数字(毫秒)'), findsOneWidget);
+  });
+
+  testWidgets('播放速度:选 2 倍 → 转换携带 playbackSpeed=2', (tester) async {
+    final svc = FakeFfmpegService(writeOutput: false);
+    final (app, router, _) = buildApp(service: svc);
+    await pumpApp(tester, app);
+    await enterScreen(tester, router);
+
+    // 速度行默认 1 倍;展开菜单选 2 倍(速度 = 第 2 个 <double> 下拉,
+    // 第 1 个是帧率;缩放倍数行同显示"1 倍"不影响泛型定位)
+    await tester.tap(find.byType(ParamDropdownField<double>).at(1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2 倍').last);
+    await tester.pumpAndSettle();
+
+    await tester.runAsync(() async {
+      await tester.tap(find.text('开始转换'));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await settleRealAsync(tester);
+
+    expect(svc.convertImagesCalls, hasLength(1));
+    expect(svc.lastSetting!.playbackSpeed, 2.0, reason: '2 倍速随任务传递');
   });
 }
 

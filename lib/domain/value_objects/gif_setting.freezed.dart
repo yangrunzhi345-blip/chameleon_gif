@@ -30,7 +30,12 @@ mixin _$GifSetting {
 /// 源尺寸已知时选倍数会联动落成具体 width/height;本字段是
 /// "偏好/展开语义":批量入队时若 width==height==0 且 m!=1.0,
 /// 按各视频自身尺寸 × m 展开(见 scale_multiplier.dart)。
- double get scaleMultiplier;
+ double get scaleMultiplier;/// 播放速度(0.25–4:0.25/0.5 慢放,1.0 正常,≥2 加速;默认 1.0)。
+///
+/// 命令侧经滤镜链 `setpts=PTS/<speed>` 实现:帧数不变、输出时间轴
+/// 等比缩放(加速 → 总时长缩短,慢放 → 拉长);视频模式裁剪
+/// `-ss`/`-to` 作用于源时间轴,不受速度影响;1.0 不注入滤镜(快照不变)。
+ double get playbackSpeed;
 /// Create a copy of GifSetting
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -43,16 +48,16 @@ $GifSettingCopyWith<GifSetting> get copyWith => _$GifSettingCopyWithImpl<GifSett
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is GifSetting&&(identical(other.fps, fps) || other.fps == fps)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.start, start) || other.start == start)&&(identical(other.end, end) || other.end == end)&&(identical(other.loop, loop) || other.loop == loop)&&(identical(other.frameDurationMs, frameDurationMs) || other.frameDurationMs == frameDurationMs)&&(identical(other.usePalette, usePalette) || other.usePalette == usePalette)&&(identical(other.scaleMultiplier, scaleMultiplier) || other.scaleMultiplier == scaleMultiplier));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is GifSetting&&(identical(other.fps, fps) || other.fps == fps)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.start, start) || other.start == start)&&(identical(other.end, end) || other.end == end)&&(identical(other.loop, loop) || other.loop == loop)&&(identical(other.frameDurationMs, frameDurationMs) || other.frameDurationMs == frameDurationMs)&&(identical(other.usePalette, usePalette) || other.usePalette == usePalette)&&(identical(other.scaleMultiplier, scaleMultiplier) || other.scaleMultiplier == scaleMultiplier)&&(identical(other.playbackSpeed, playbackSpeed) || other.playbackSpeed == playbackSpeed));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,fps,width,height,start,end,loop,frameDurationMs,usePalette,scaleMultiplier);
+int get hashCode => Object.hash(runtimeType,fps,width,height,start,end,loop,frameDurationMs,usePalette,scaleMultiplier,playbackSpeed);
 
 @override
 String toString() {
-  return 'GifSetting(fps: $fps, width: $width, height: $height, start: $start, end: $end, loop: $loop, frameDurationMs: $frameDurationMs, usePalette: $usePalette, scaleMultiplier: $scaleMultiplier)';
+  return 'GifSetting(fps: $fps, width: $width, height: $height, start: $start, end: $end, loop: $loop, frameDurationMs: $frameDurationMs, usePalette: $usePalette, scaleMultiplier: $scaleMultiplier, playbackSpeed: $playbackSpeed)';
 }
 
 
@@ -63,7 +68,7 @@ abstract mixin class $GifSettingCopyWith<$Res>  {
   factory $GifSettingCopyWith(GifSetting value, $Res Function(GifSetting) _then) = _$GifSettingCopyWithImpl;
 @useResult
 $Res call({
- double fps, int width, int height, Duration start, Duration? end, int loop, int? frameDurationMs, bool usePalette, double scaleMultiplier
+ double fps, int width, int height, Duration start, Duration? end, int loop, int? frameDurationMs, bool usePalette, double scaleMultiplier, double playbackSpeed
 });
 
 
@@ -80,7 +85,7 @@ class _$GifSettingCopyWithImpl<$Res>
 
 /// Create a copy of GifSetting
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? fps = null,Object? width = null,Object? height = null,Object? start = null,Object? end = freezed,Object? loop = null,Object? frameDurationMs = freezed,Object? usePalette = null,Object? scaleMultiplier = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? fps = null,Object? width = null,Object? height = null,Object? start = null,Object? end = freezed,Object? loop = null,Object? frameDurationMs = freezed,Object? usePalette = null,Object? scaleMultiplier = null,Object? playbackSpeed = null,}) {
   return _then(_self.copyWith(
 fps: null == fps ? _self.fps : fps // ignore: cast_nullable_to_non_nullable
 as double,width: null == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
@@ -91,6 +96,7 @@ as Duration?,loop: null == loop ? _self.loop : loop // ignore: cast_nullable_to_
 as int,frameDurationMs: freezed == frameDurationMs ? _self.frameDurationMs : frameDurationMs // ignore: cast_nullable_to_non_nullable
 as int?,usePalette: null == usePalette ? _self.usePalette : usePalette // ignore: cast_nullable_to_non_nullable
 as bool,scaleMultiplier: null == scaleMultiplier ? _self.scaleMultiplier : scaleMultiplier // ignore: cast_nullable_to_non_nullable
+as double,playbackSpeed: null == playbackSpeed ? _self.playbackSpeed : playbackSpeed // ignore: cast_nullable_to_non_nullable
 as double,
   ));
 }
@@ -176,10 +182,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double fps,  int width,  int height,  Duration start,  Duration? end,  int loop,  int? frameDurationMs,  bool usePalette,  double scaleMultiplier)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double fps,  int width,  int height,  Duration start,  Duration? end,  int loop,  int? frameDurationMs,  bool usePalette,  double scaleMultiplier,  double playbackSpeed)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _GifSetting() when $default != null:
-return $default(_that.fps,_that.width,_that.height,_that.start,_that.end,_that.loop,_that.frameDurationMs,_that.usePalette,_that.scaleMultiplier);case _:
+return $default(_that.fps,_that.width,_that.height,_that.start,_that.end,_that.loop,_that.frameDurationMs,_that.usePalette,_that.scaleMultiplier,_that.playbackSpeed);case _:
   return orElse();
 
 }
@@ -197,10 +203,10 @@ return $default(_that.fps,_that.width,_that.height,_that.start,_that.end,_that.l
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double fps,  int width,  int height,  Duration start,  Duration? end,  int loop,  int? frameDurationMs,  bool usePalette,  double scaleMultiplier)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double fps,  int width,  int height,  Duration start,  Duration? end,  int loop,  int? frameDurationMs,  bool usePalette,  double scaleMultiplier,  double playbackSpeed)  $default,) {final _that = this;
 switch (_that) {
 case _GifSetting():
-return $default(_that.fps,_that.width,_that.height,_that.start,_that.end,_that.loop,_that.frameDurationMs,_that.usePalette,_that.scaleMultiplier);case _:
+return $default(_that.fps,_that.width,_that.height,_that.start,_that.end,_that.loop,_that.frameDurationMs,_that.usePalette,_that.scaleMultiplier,_that.playbackSpeed);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -217,10 +223,10 @@ return $default(_that.fps,_that.width,_that.height,_that.start,_that.end,_that.l
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double fps,  int width,  int height,  Duration start,  Duration? end,  int loop,  int? frameDurationMs,  bool usePalette,  double scaleMultiplier)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double fps,  int width,  int height,  Duration start,  Duration? end,  int loop,  int? frameDurationMs,  bool usePalette,  double scaleMultiplier,  double playbackSpeed)?  $default,) {final _that = this;
 switch (_that) {
 case _GifSetting() when $default != null:
-return $default(_that.fps,_that.width,_that.height,_that.start,_that.end,_that.loop,_that.frameDurationMs,_that.usePalette,_that.scaleMultiplier);case _:
+return $default(_that.fps,_that.width,_that.height,_that.start,_that.end,_that.loop,_that.frameDurationMs,_that.usePalette,_that.scaleMultiplier,_that.playbackSpeed);case _:
   return null;
 
 }
@@ -232,7 +238,7 @@ return $default(_that.fps,_that.width,_that.height,_that.start,_that.end,_that.l
 @JsonSerializable()
 
 class _GifSetting extends GifSetting {
-  const _GifSetting({this.fps = 15.0, this.width = 0, this.height = 0, this.start = Duration.zero, this.end, this.loop = 0, this.frameDurationMs, this.usePalette = true, this.scaleMultiplier = 1.0}): super._();
+  const _GifSetting({this.fps = 15.0, this.width = 0, this.height = 0, this.start = Duration.zero, this.end, this.loop = 0, this.frameDurationMs, this.usePalette = true, this.scaleMultiplier = 1.0, this.playbackSpeed = 1.0}): super._();
   factory _GifSetting.fromJson(Map<String, dynamic> json) => _$GifSettingFromJson(json);
 
 /// 输出帧率(1–60)
@@ -259,6 +265,12 @@ class _GifSetting extends GifSetting {
 /// "偏好/展开语义":批量入队时若 width==height==0 且 m!=1.0,
 /// 按各视频自身尺寸 × m 展开(见 scale_multiplier.dart)。
 @override@JsonKey() final  double scaleMultiplier;
+/// 播放速度(0.25–4:0.25/0.5 慢放,1.0 正常,≥2 加速;默认 1.0)。
+///
+/// 命令侧经滤镜链 `setpts=PTS/<speed>` 实现:帧数不变、输出时间轴
+/// 等比缩放(加速 → 总时长缩短,慢放 → 拉长);视频模式裁剪
+/// `-ss`/`-to` 作用于源时间轴,不受速度影响;1.0 不注入滤镜(快照不变)。
+@override@JsonKey() final  double playbackSpeed;
 
 /// Create a copy of GifSetting
 /// with the given fields replaced by the non-null parameter values.
@@ -273,16 +285,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _GifSetting&&(identical(other.fps, fps) || other.fps == fps)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.start, start) || other.start == start)&&(identical(other.end, end) || other.end == end)&&(identical(other.loop, loop) || other.loop == loop)&&(identical(other.frameDurationMs, frameDurationMs) || other.frameDurationMs == frameDurationMs)&&(identical(other.usePalette, usePalette) || other.usePalette == usePalette)&&(identical(other.scaleMultiplier, scaleMultiplier) || other.scaleMultiplier == scaleMultiplier));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _GifSetting&&(identical(other.fps, fps) || other.fps == fps)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.start, start) || other.start == start)&&(identical(other.end, end) || other.end == end)&&(identical(other.loop, loop) || other.loop == loop)&&(identical(other.frameDurationMs, frameDurationMs) || other.frameDurationMs == frameDurationMs)&&(identical(other.usePalette, usePalette) || other.usePalette == usePalette)&&(identical(other.scaleMultiplier, scaleMultiplier) || other.scaleMultiplier == scaleMultiplier)&&(identical(other.playbackSpeed, playbackSpeed) || other.playbackSpeed == playbackSpeed));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,fps,width,height,start,end,loop,frameDurationMs,usePalette,scaleMultiplier);
+int get hashCode => Object.hash(runtimeType,fps,width,height,start,end,loop,frameDurationMs,usePalette,scaleMultiplier,playbackSpeed);
 
 @override
 String toString() {
-  return 'GifSetting(fps: $fps, width: $width, height: $height, start: $start, end: $end, loop: $loop, frameDurationMs: $frameDurationMs, usePalette: $usePalette, scaleMultiplier: $scaleMultiplier)';
+  return 'GifSetting(fps: $fps, width: $width, height: $height, start: $start, end: $end, loop: $loop, frameDurationMs: $frameDurationMs, usePalette: $usePalette, scaleMultiplier: $scaleMultiplier, playbackSpeed: $playbackSpeed)';
 }
 
 
@@ -293,7 +305,7 @@ abstract mixin class _$GifSettingCopyWith<$Res> implements $GifSettingCopyWith<$
   factory _$GifSettingCopyWith(_GifSetting value, $Res Function(_GifSetting) _then) = __$GifSettingCopyWithImpl;
 @override @useResult
 $Res call({
- double fps, int width, int height, Duration start, Duration? end, int loop, int? frameDurationMs, bool usePalette, double scaleMultiplier
+ double fps, int width, int height, Duration start, Duration? end, int loop, int? frameDurationMs, bool usePalette, double scaleMultiplier, double playbackSpeed
 });
 
 
@@ -310,7 +322,7 @@ class __$GifSettingCopyWithImpl<$Res>
 
 /// Create a copy of GifSetting
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? fps = null,Object? width = null,Object? height = null,Object? start = null,Object? end = freezed,Object? loop = null,Object? frameDurationMs = freezed,Object? usePalette = null,Object? scaleMultiplier = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? fps = null,Object? width = null,Object? height = null,Object? start = null,Object? end = freezed,Object? loop = null,Object? frameDurationMs = freezed,Object? usePalette = null,Object? scaleMultiplier = null,Object? playbackSpeed = null,}) {
   return _then(_GifSetting(
 fps: null == fps ? _self.fps : fps // ignore: cast_nullable_to_non_nullable
 as double,width: null == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
@@ -321,6 +333,7 @@ as Duration?,loop: null == loop ? _self.loop : loop // ignore: cast_nullable_to_
 as int,frameDurationMs: freezed == frameDurationMs ? _self.frameDurationMs : frameDurationMs // ignore: cast_nullable_to_non_nullable
 as int?,usePalette: null == usePalette ? _self.usePalette : usePalette // ignore: cast_nullable_to_non_nullable
 as bool,scaleMultiplier: null == scaleMultiplier ? _self.scaleMultiplier : scaleMultiplier // ignore: cast_nullable_to_non_nullable
+as double,playbackSpeed: null == playbackSpeed ? _self.playbackSpeed : playbackSpeed // ignore: cast_nullable_to_non_nullable
 as double,
   ));
 }

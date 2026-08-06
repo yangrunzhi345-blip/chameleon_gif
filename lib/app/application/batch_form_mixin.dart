@@ -31,6 +31,9 @@ abstract interface class BatchFormActions {
   /// 循环次数(钳制 0–100,0 = 无限)。
   void updateLoop(int loop);
 
+  /// 播放速度(钳制 0.25–4:<1 慢放,>1 加速;命令侧 setpts)。
+  void updatePlaybackSpeed(double speed);
+
   /// 起点(负值钳 0 + 与终点自动交换)。
   void updateStart(Duration start);
 
@@ -103,6 +106,14 @@ mixin BatchFormMixin on Notifier<BatchImportFormState>
   }
 
   @override
+  void updatePlaybackSpeed(double speed) {
+    state = state.copyWith(
+      playbackSpeed: speed.clamp(0.25, 4),
+      formError: null,
+    );
+  }
+
+  @override
   void updateStart(Duration start) {
     final (s, e) = _normalized(start, state.end);
     state = state.copyWith(start: s, end: e, formError: null);
@@ -158,6 +169,7 @@ mixin BatchFormMixin on Notifier<BatchImportFormState>
     start: state.start,
     end: state.end,
     scaleMultiplier: state.scaleMultiplier ?? 1.0,
+    playbackSpeed: state.playbackSpeed,
   );
 
   /// 起止归一化:负值钳 0,end 为 null 保持 null;均非空时自动交换。

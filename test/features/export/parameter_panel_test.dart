@@ -9,6 +9,7 @@ import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_service.dart';
 import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
 import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
 import 'package:chameleon_gif/features/export/application/export_providers.dart';
+import 'package:chameleon_gif/features/export/presentation/param_dropdown_field.dart';
 import 'package:chameleon_gif/features/export/presentation/parameter_panel.dart';
 import 'package:chameleon_gif/features/timeline/application/timeline_providers.dart';
 import 'package:chameleon_gif/shared/providers/core_providers.dart';
@@ -55,6 +56,10 @@ void main() {
   ProviderContainer containerOf(WidgetTester tester) =>
       ProviderScope.containerOf(tester.element(find.byType(ParameterPanel)));
 
+  /// 缩放倍数下拉(页面有多个"1 倍"收起值:缩放倍数 + 播放速度,
+  /// 缩放倍数经 <double?> 泛型定位,与帧率/速度的 <double> 区分)。
+  Finder scaleMultiplierDropdown() => find.byType(ParamDropdownField<double?>);
+
   /// 模拟壳的 initForm + timeline init 接线(否则视频时长未知,
   /// updateStart 经 timeline 回流时被钳制为 0)。
   Future<void> pumpPanel(WidgetTester tester) async {
@@ -85,9 +90,10 @@ void main() {
     expect(find.text('导出 GIF'), findsOneWidget);
     expect(find.text('存为默认'), findsOneWidget);
     expect(find.text('载入默认'), findsOneWidget);
-    // 缩放倍数行位于宽度上方,默认 1 倍
+    // 缩放倍数行位于宽度上方,默认 1 倍;播放速度行同样默认 1 倍
     expect(find.text('缩放倍数'), findsOneWidget);
-    expect(find.text('1 倍'), findsOneWidget);
+    expect(find.text('速度'), findsOneWidget);
+    expect(find.text('1 倍'), findsNWidgets(2), reason: '缩放倍数 + 播放速度');
   });
 
   testWidgets('自定义宽度:菜单"自定义" → 输入 150 → 回显 150 px', (tester) async {
@@ -125,7 +131,7 @@ void main() {
     final container = containerOf(tester);
 
     // 展开倍数菜单(收起显示"1 倍"),点"自定义"
-    await tester.tap(find.text('1 倍'));
+    await tester.tap(scaleMultiplierDropdown());
     await tester.pumpAndSettle();
     await tester.tap(find.text('自定义').last);
     await tester.pumpAndSettle();
@@ -151,7 +157,7 @@ void main() {
     await pumpPanel(tester);
     final container = containerOf(tester);
 
-    await tester.tap(find.text('1 倍'));
+    await tester.tap(scaleMultiplierDropdown());
     await tester.pumpAndSettle();
     await tester.tap(find.text('自定义').last);
     await tester.pumpAndSettle();
@@ -176,7 +182,7 @@ void main() {
     final container = containerOf(tester);
 
     // 选 2 倍(源 640×360)
-    await tester.tap(find.text('1 倍'));
+    await tester.tap(scaleMultiplierDropdown());
     await tester.pumpAndSettle();
     await tester.tap(find.text('2 倍').last);
     await tester.pumpAndSettle();

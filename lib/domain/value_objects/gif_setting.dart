@@ -44,6 +44,13 @@ abstract class GifSetting with _$GifSetting {
     /// "偏好/展开语义":批量入队时若 width==height==0 且 m!=1.0,
     /// 按各视频自身尺寸 × m 展开(见 scale_multiplier.dart)。
     @Default(1.0) double scaleMultiplier,
+
+    /// 播放速度(0.25–4:0.25/0.5 慢放,1.0 正常,≥2 加速;默认 1.0)。
+    ///
+    /// 命令侧经滤镜链 `setpts=PTS/<speed>` 实现:帧数不变、输出时间轴
+    /// 等比缩放(加速 → 总时长缩短,慢放 → 拉长);视频模式裁剪
+    /// `-ss`/`-to` 作用于源时间轴,不受速度影响;1.0 不注入滤镜(快照不变)。
+    @Default(1.0) double playbackSpeed,
   }) = _GifSetting;
 
   factory GifSetting.fromJson(Map<String, dynamic> json) =>

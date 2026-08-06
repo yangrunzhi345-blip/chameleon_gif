@@ -295,6 +295,75 @@ void main() {
     });
   });
 
+  group('播放速度(慢放/加速)', () {
+    test('speed=2 → 滤镜链尾追加 setpts=PTS/2', () {
+      const setting = GifSetting(playbackSpeed: 2);
+      final commands = builder.build(
+        setting: setting,
+        video: video,
+        inputPath: video.path,
+        workDir: '/tmp/work',
+        outputPath: '/tmp/work/out.gif',
+        usePalette: false,
+      );
+      final vf = commands.single.args[commands.single.args.indexOf('-vf') + 1];
+      expect(vf, 'fps=15,setpts=PTS/2');
+    });
+
+    test('慢放 0.25 → setpts=PTS/0.25', () {
+      const setting = GifSetting(playbackSpeed: 0.25);
+      final commands = builder.build(
+        setting: setting,
+        video: video,
+        inputPath: video.path,
+        workDir: '/tmp/work',
+        outputPath: '/tmp/work/out.gif',
+        usePalette: false,
+      );
+      final vf = commands.single.args[commands.single.args.indexOf('-vf') + 1];
+      expect(vf, 'fps=15,setpts=PTS/0.25');
+    });
+
+    test('调色板两遍均携带 setpts(滤镜一致)', () {
+      const setting = GifSetting(playbackSpeed: 2);
+      final commands = builder.build(
+        setting: setting,
+        video: video,
+        inputPath: video.path,
+        workDir: '/tmp/work',
+        outputPath: '/tmp/work/out.gif',
+      );
+      // palette 遍 -vf;encode 遍 -lavfi,滤镜前缀一致
+      final vf1 = commands[0].args[commands[0].args.indexOf('-vf') + 1];
+      final lavfi = commands[1].args[commands[1].args.indexOf('-lavfi') + 1];
+      expect(vf1, 'fps=15,setpts=PTS/2,palettegen=max_colors=256');
+      expect(
+        lavfi,
+        'fps=15,setpts=PTS/2[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5',
+      );
+    });
+
+    test('进度分母 = 裁剪时长 ÷ speed', () {
+      const setting = GifSetting(
+        start: Duration(seconds: 5),
+        end: Duration(seconds: 15),
+        playbackSpeed: 2,
+      );
+      expect(
+        builder.progressDenominator(setting, video),
+        const Duration(seconds: 5),
+      );
+    });
+
+    test('慢放 0.25 → 进度分母 ×4', () {
+      const setting = GifSetting(playbackSpeed: 0.25);
+      expect(
+        builder.progressDenominator(setting, video),
+        const Duration(seconds: 120),
+      );
+    });
+  });
+
   group('formatFfmpegTime', () {
     test('毫秒精度 HH:MM:SS.mmm', () {
       expect(formatFfmpegTime(Duration.zero), '00:00:00.000');

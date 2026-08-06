@@ -269,6 +269,22 @@ void main() {
     expect(state().formError, isNull);
   });
 
+  test('updatePlaybackSpeed:钳制 0.25–4,合法值生效', () {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+
+    notifier.updatePlaybackSpeed(8); // 超上限 → 钳 4
+    expect(state().playbackSpeed, 4);
+
+    notifier.updatePlaybackSpeed(0.1); // 低下限 → 钳 0.25
+    expect(state().playbackSpeed, 0.25);
+
+    notifier.updatePlaybackSpeed(2);
+    expect(state().playbackSpeed, 2);
+    expect(state().formError, isNull);
+  });
+
   test('updateFps 联动每图时长下限自动抬升', () {
     container = build();
     final notifier = container.read(imageGifControllerProvider.notifier);

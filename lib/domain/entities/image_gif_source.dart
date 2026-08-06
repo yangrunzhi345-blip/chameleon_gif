@@ -35,11 +35,13 @@ class ImageGifSource {
     return controls[i];
   }
 
-  /// 总输出时长 = 每图时长 × 图片数(供进度分母/历史快照使用)。
+  /// 总输出时长 = 每图时长 × 图片数 ÷ 播放速度(供进度分母/历史快照
+  /// 使用;速度 1.0 不缩放,setpts 压缩/拉伸输出时间轴后即为实际时长)。
   Duration totalDuration(GifSetting setting) {
-    return Duration(
-      microseconds:
-          setting.effectiveFrameDuration.inMicroseconds * paths.length,
-    );
+    final us =
+        setting.effectiveFrameDuration.inMicroseconds *
+        paths.length /
+        setting.playbackSpeed;
+    return Duration(microseconds: us.round());
   }
 }

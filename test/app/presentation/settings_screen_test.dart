@@ -17,6 +17,7 @@ import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_service.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/parse_video_port.dart';
 import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
 import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
+import 'package:chameleon_gif/features/export/presentation/param_dropdown_field.dart';
 import 'package:chameleon_gif/features/preview/application/preview_controller.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_queue_providers.dart';
@@ -195,12 +196,30 @@ void main() {
     expect(saved['scaleMultiplier'], 1.0, reason: '手动宽高 → 倍数归一 1.0');
   });
 
+  testWidgets('回归:循环输入不回车 → 保存仍生效(flush 兜底)', (tester) async {
+    await pumpApp(tester);
+    await enterSettings(tester);
+
+    // 循环框 = 第 1 个 TextField,输入 5 不按回车
+    // (旧 bug:不按回车直接保存,循环次数不落盘)
+    await tester.enterText(find.byType(TextField).first, '5');
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(FilledButton, '保存设置'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('设置已保存'), findsOneWidget);
+    final saved = jsonDecode(prefs.getString('default_gif_setting')!) as Map;
+    expect(saved['loop'], 5, reason: '未回车输入也必须保存生效');
+  });
+
   testWidgets('选缩放倍数 2 倍 → 保存:倍数 2.0 + 宽高重置 0(入队逐文件展开)', (tester) async {
     await pumpApp(tester);
     await enterSettings(tester);
 
-    // 选 2 倍(默认收起显示"1 倍")
-    await tester.tap(find.text('1 倍'));
+    // 选 2 倍(默认收起显示"1 倍";缩放倍数经 <double?> 泛型定位,
+    // 与帧率/速度的 <double> 区分,避免与速度行"1 倍"歧义)
+    await tester.tap(find.byType(ParamDropdownField<double?>).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('2 倍').last);
     await tester.pumpAndSettle();
@@ -223,7 +242,7 @@ void main() {
     expect(find.text('原图等比'), findsNWidgets(2));
 
     // 选 0.5 倍 → 宽高联动显示"原图等比 0.5"(值仍为 0,仅文案联动)
-    await tester.tap(find.text('1 倍'));
+    await tester.tap(find.byType(ParamDropdownField<double?>).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('0.5 倍').last);
     await tester.pumpAndSettle();

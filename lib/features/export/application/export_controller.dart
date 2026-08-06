@@ -54,6 +54,7 @@ class ExportController extends Notifier<ExportFormState>
       loop: base.loop.clamp(0, 100),
       start: base.start,
       end: base.end,
+      playbackSpeed: base.playbackSpeed.clamp(0.25, 4),
       formError: null,
     );
     _applyLoadedMultiplier(w, h, base.scaleMultiplier);
@@ -72,6 +73,7 @@ class ExportController extends Notifier<ExportFormState>
       loop: saved.loop.clamp(0, 100),
       start: saved.start,
       end: saved.end,
+      playbackSpeed: saved.playbackSpeed.clamp(0.25, 4),
       formError: null,
     );
     _applyLoadedMultiplier(w, h, saved.scaleMultiplier);
@@ -199,6 +201,15 @@ class ExportController extends Notifier<ExportFormState>
     state = state.copyWith(start: start, end: end, formError: null);
   }
 
+  /// 播放速度(钳制 0.25–4:<1 慢放,>1 加速;命令侧 setpts)。
+  void updatePlaybackSpeed(double speed) {
+    if (state.locked) return;
+    state = state.copyWith(
+      playbackSpeed: speed.clamp(0.25, 4),
+      formError: null,
+    );
+  }
+
   /// 表单 → GifSetting(end 保留 null,由 TaskManager 装配视频时长;
   /// 倍数 null = 自定义,持久化时归一为 1.0)。
   GifSetting assembleSetting() => GifSetting(
@@ -209,6 +220,7 @@ class ExportController extends Notifier<ExportFormState>
     start: state.start,
     end: state.end,
     scaleMultiplier: state.scaleMultiplier ?? 1.0,
+    playbackSpeed: state.playbackSpeed,
   );
 
   /// 设置导出目录(空串 → null = 系统临时目录)。

@@ -91,6 +91,7 @@ class ImageGifController extends Notifier<ImageGifFormState>
       usePalette: base.usePalette,
       outputDir: outputDir.isEmpty ? null : outputDir,
       scaleMultiplier: (w == 0 && h == 0) ? base.scaleMultiplier : null,
+      playbackSpeed: base.playbackSpeed.clamp(0.25, 4),
       formError: null,
     );
     // 首图尺寸在 UI 侧 init 后经 updatePaths 探测,探测成功后若
@@ -226,6 +227,15 @@ class ImageGifController extends Notifier<ImageGifFormState>
     state = state.copyWith(loop: loop.clamp(0, 100), formError: null);
   }
 
+  /// 播放速度(钳制 0.25–4:<1 慢放,>1 加速;命令侧 setpts)。
+  void updatePlaybackSpeed(double speed) {
+    if (state.locked) return;
+    state = state.copyWith(
+      playbackSpeed: speed.clamp(0.25, 4),
+      formError: null,
+    );
+  }
+
   /// 质量开关(高质两遍 / 标准单遍)。
   void updateUsePalette(bool usePalette) {
     if (state.locked) return;
@@ -281,6 +291,7 @@ class ImageGifController extends Notifier<ImageGifFormState>
     loop: state.loop,
     usePalette: state.usePalette,
     scaleMultiplier: state.scaleMultiplier ?? 1.0,
+    playbackSpeed: state.playbackSpeed,
   );
 
   // ---- 生命周期 ----

@@ -54,6 +54,7 @@ class BatchImportController extends Notifier<BatchImportFormState>
       // 宽高强制 0(原图等比)的同时继承倍数偏好 → 入队时按各视频
       // 自身尺寸 × 倍数展开(需求 4 接线点)
       scaleMultiplier: base.scaleMultiplier,
+      playbackSpeed: base.playbackSpeed.clamp(0.25, 4),
       formError: null,
     );
   }
