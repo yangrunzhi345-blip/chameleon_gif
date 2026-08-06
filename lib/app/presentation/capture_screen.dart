@@ -264,7 +264,9 @@ class _Placeholder extends StatelessWidget {
   }
 }
 
-/// 录制按钮:就绪 = 大红圆;录制中 = 红底方钮(停止)。
+/// 录制按钮:开始/停止**固定 72×72 外框**,位置与大小完全一致
+/// (真机反馈:大圆与方钮尺寸不同致切换时按键跳动)。
+/// 开始 = 红圆 + 白圆环;停止 = 红圆 + 白圆角方块(视觉切换,轮廓不变)。
 class _RecordButton extends StatelessWidget {
   const _RecordButton({required this.recording, required this.onPressed});
 
@@ -274,22 +276,41 @@ class _RecordButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null;
-    if (recording) {
-      return FloatingActionButton(
-        onPressed: enabled ? onPressed : null,
-        backgroundColor: Colors.red,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        tooltip: '停止录制',
-        child: const Icon(Icons.stop),
-      );
-    }
-    return FloatingActionButton.large(
-      onPressed: enabled ? onPressed : null,
-      backgroundColor: Colors.red,
-      foregroundColor: Colors.white,
-      tooltip: '开始录制',
-      child: const Icon(Icons.circle_outlined),
+    return Tooltip(
+      message: recording ? '停止录制' : '开始录制',
+      child: SizedBox(
+        width: 72,
+        height: 72,
+        child: Material(
+          color: enabled ? Colors.red : Colors.red.withValues(alpha: 0.4),
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: enabled ? onPressed : null,
+            child: Center(
+              child: recording
+                  // 停止:白色圆角方块
+                  ? Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                    )
+                  // 开始:白色圆环
+                  : Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 4),
+                      ),
+                    ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
