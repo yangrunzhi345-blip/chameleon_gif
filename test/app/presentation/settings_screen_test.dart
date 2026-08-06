@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chameleon_gif/app/app.dart';
+import 'package:chameleon_gif/app/presentation/batch_parameter_form.dart';
 import 'package:chameleon_gif/app/presentation/settings_screen.dart';
 import 'package:chameleon_gif/app/router.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
@@ -21,6 +22,7 @@ import 'package:chameleon_gif/features/task_queue/application/task_manager.dart'
 import 'package:chameleon_gif/features/task_queue/application/task_queue_providers.dart';
 import 'package:chameleon_gif/shared/platform/platform_adapter.dart';
 import 'package:chameleon_gif/shared/providers/core_providers.dart';
+import '../../fixtures/fake_camera_port.dart';
 import 'package:chameleon_gif/shared/repositories/in_memory_history_repository.dart';
 import 'package:chameleon_gif/shared/repositories/in_memory_task_repository.dart';
 import 'package:go_router/go_router.dart';
@@ -47,9 +49,9 @@ void main() {
   }) async {
     SharedPreferences.setMockInitialValues(prefsValues);
     prefs = await SharedPreferences.getInstance();
-    // 加高测试窗口:批量参数表单含缩放倍数行后,"保存设置"按钮在
-    // 1280×800 视口外
-    tester.view.physicalSize = const Size(1280, 900);
+    // 加高测试窗口:批量参数表单 + 相机分组后,"保存设置"按钮在
+    // 1280×900 视口外(相机分组新增约 400px 内容)
+    tester.view.physicalSize = const Size(1280, 1400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     final adapter = _TestAdapter(tempRoot.path);
@@ -61,6 +63,7 @@ void main() {
         parseVideoPortProvider.overrideWithValue(_FakeParseVideoPort()),
         previewPlayerPortProvider.overrideWithValue(FakePlayerPort()),
         platformAdapterProvider.overrideWithValue(adapter),
+        cameraPortProvider.overrideWithValue(FakeCameraPort()),
         taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
         historyRepositoryProvider.overrideWithValue(
           InMemoryHistoryRepository(),
@@ -111,7 +114,14 @@ void main() {
     expect(find.text('跟随系统'), findsOneWidget);
     expect(find.text('批量导入默认参数'), findsOneWidget);
     expect(find.text('保存后,批量导入将默认使用以下参数'), findsOneWidget);
-    expect(find.text('帧率'), findsOneWidget);
+    // 帧率在批量表单与相机分组各一处,断言限定批量表单内
+    expect(
+      find.descendant(
+        of: find.byType(BatchParameterForm),
+        matching: find.text('帧率'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('宽度'), findsOneWidget);
     expect(find.text('高度'), findsOneWidget);
     expect(find.text('循环'), findsOneWidget);
@@ -128,7 +138,14 @@ void main() {
     await pumpApp(tester);
     await enterSettings(tester);
 
-    expect(find.text('15 fps'), findsOneWidget);
+    // 15 fps 在批量表单与相机分组各一处,断言限定批量表单内
+    expect(
+      find.descendant(
+        of: find.byType(BatchParameterForm),
+        matching: find.text('15 fps'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('预置默认 → 原样回显', (tester) async {

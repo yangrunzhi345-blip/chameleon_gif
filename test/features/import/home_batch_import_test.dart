@@ -24,6 +24,7 @@ import 'package:chameleon_gif/features/task_queue/application/task_queue_provide
 import 'package:chameleon_gif/features/task_queue/presentation/queue_page.dart';
 import 'package:chameleon_gif/shared/platform/platform_adapter.dart';
 import 'package:chameleon_gif/shared/providers/core_providers.dart';
+import '../../fixtures/fake_camera_port.dart';
 import 'package:chameleon_gif/shared/repositories/in_memory_history_repository.dart';
 import 'package:chameleon_gif/shared/repositories/in_memory_task_repository.dart';
 import 'package:go_router/go_router.dart';
@@ -66,6 +67,7 @@ void main() {
         parseVideoPortProvider.overrideWithValue(_FakeParseVideoPort()),
         previewPlayerPortProvider.overrideWithValue(FakePlayerPort()),
         platformAdapterProvider.overrideWithValue(_TestAdapter(tempRoot.path)),
+        cameraPortProvider.overrideWithValue(FakeCameraPort()),
         taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
         historyRepositoryProvider.overrideWithValue(
           InMemoryHistoryRepository(),
@@ -172,6 +174,7 @@ void main() {
           platformAdapterProvider.overrideWithValue(
             _TestAdapter(tempRoot.path),
           ),
+          cameraPortProvider.overrideWithValue(FakeCameraPort()),
           taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
           historyRepositoryProvider.overrideWithValue(
             InMemoryHistoryRepository(),

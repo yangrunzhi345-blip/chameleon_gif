@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app/app.dart';
 import 'core/logger/app_logger.dart';
 import 'core/utils/startup_tracer.dart';
+import 'features/camera/infrastructure/camera_port_impl.dart';
 import 'features/converter/application/ffmpeg_service_engine.dart';
 import 'features/converter/infrastructure/ffprobe_parse_video_port.dart';
 import 'shared/platform/platform_adapter.dart';
@@ -72,6 +73,14 @@ Future<void> main() async {
         ffmpegServiceProvider.overrideWithValue(
           FfmpegServiceEngine(
             engine: adapter.createFfmpegEngine(),
+            logger: logger,
+          ),
+        ),
+        // Android 相机拍摄(桌面亦注入:端口枚举空列表 → 页面空态)
+        cameraPortProvider.overrideWithValue(
+          CameraPortImpl(
+            capturesDir: Directory('${docsDir.path}/chameleon_gif/captures'),
+            adapter: adapter,
             logger: logger,
           ),
         ),

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/value_objects/app_theme_mode.dart';
+import '../application/camera_settings_controller.dart';
 import '../application/providers.dart';
 import '../application/settings_controller.dart';
 import 'batch_parameter_form.dart';
+import 'capture_settings_groups.dart';
 
 /// 设置界面(app 层组合壳):外观(主题切换)+ 批量导入默认参数。
 ///
@@ -27,11 +29,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     Future.microtask(() {
       if (!mounted) return;
       ref.read(settingsControllerProvider.notifier).init();
+      ref.read(cameraSettingsControllerProvider.notifier).probe();
     });
   }
 
   Future<void> _save() async {
     await ref.read(settingsControllerProvider.notifier).save();
+    await ref.read(cameraSettingsControllerProvider.notifier).save();
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -89,6 +93,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             BatchParameterForm(state: formState, actions: controller),
+            const SizedBox(height: 24),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            const SectionLabel('相机'),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                '拍摄参数(能力探测失败时仅基础参数;设备支持什么显示什么)',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+            const CameraSettingsGroup(),
+            const SizedBox(height: 24),
+            const Divider(height: 1),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: formState.formError != null ? null : _save,
