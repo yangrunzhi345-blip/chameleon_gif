@@ -71,24 +71,38 @@ class TaskQueueController extends Notifier<TaskQueueState> {
   }
 
   /// 取消任务(queued 直接终态;running 触发令牌与清理)。
+  /// 仓储异常兜底记日志,不向 fire-and-forget 调用方抛未处理异步错误。
   Future<void> cancel(int id) async {
-    await ref.read(taskManagerProvider).cancel(id);
+    try {
+      await ref.read(taskManagerProvider).cancel(id);
+    } catch (e, st) {
+      ref.read(appLoggerProvider).e('取消任务失败', error: e, stackTrace: st);
+    }
     await _refresh();
   }
 
   /// 取消全部非终态任务(P6-WP2)。
   Future<void> cancelAll() async {
-    await ref.read(taskManagerProvider).cancelAll();
+    try {
+      await ref.read(taskManagerProvider).cancelAll();
+    } catch (e, st) {
+      ref.read(appLoggerProvider).e('取消全部任务失败', error: e, stackTrace: st);
+    }
     await _refresh();
   }
 
   /// 重试失败任务(failed → queued 重新排队)。
   Future<void> retry(int id) async {
-    await ref.read(taskManagerProvider).retry(id);
+    try {
+      await ref.read(taskManagerProvider).retry(id);
+    } catch (e, st) {
+      ref.read(appLoggerProvider).e('重试任务失败', error: e, stackTrace: st);
+    }
     await _refresh();
   }
 
   Future<void> _refresh() async {
+    if (!ref.mounted) return; // 常驻 provider,防御性守卫
     final tasks = await ref.read(taskManagerProvider).tasks;
     final running = tasks.where((t) => t.state == TaskState.running).toList();
     state = TaskQueueState(tasks: tasks, running: running);

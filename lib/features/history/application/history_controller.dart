@@ -48,14 +48,23 @@ class HistoryController extends Notifier<AsyncValue<List<ExportHistory>>> {
 
   /// 清空全部历史(UI 层已二次确认;仅记录级,不删输出文件)。
   Future<void> clear() async {
-    await ref.read(historyRepositoryProvider).clear();
-    await reload();
+    try {
+      await ref.read(historyRepositoryProvider).clear();
+      await reload();
+    } catch (e, st) {
+      // 仓储异常兜底:记日志,避免 fire-and-forget 调用方出现未处理异步错误
+      ref.read(appLoggerProvider).e('清空历史失败', error: e, stackTrace: st);
+    }
   }
 
   /// 删除单条历史(仅记录级,不删输出文件)。
   Future<void> delete(int id) async {
-    await ref.read(historyRepositoryProvider).delete(id);
-    await reload();
+    try {
+      await ref.read(historyRepositoryProvider).delete(id);
+      await reload();
+    } catch (e, st) {
+      ref.read(appLoggerProvider).e('删除历史失败', error: e, stackTrace: st);
+    }
   }
 
   /// 重转:按历史 videoPath 重新解析 → 以历史 settings 快照直接入队。

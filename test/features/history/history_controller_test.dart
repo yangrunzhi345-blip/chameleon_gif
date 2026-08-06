@@ -160,6 +160,53 @@ void main() {
     expect(await stateList(), isEmpty);
   });
 
+  test('delete/clear 仓储异常 → 内部兜底,不抛给调用方,状态保留', () async {
+    // list 正常、delete/clear 抛异常:验证控制器内部 catch(而非未处理错误)
+    final broken = _ThrowOnMutateHistoryRepo();
+    final tempRoot = await Directory.systemTemp.createTemp('gifforge_hc4_');
+    final container2 = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(
+          await SharedPreferences.getInstance(),
+        ),
+        appLoggerProvider.overrideWithValue(AppLogger()),
+        platformAdapterProvider.overrideWithValue(_TestAdapter(tempRoot.path)),
+        taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
+        historyRepositoryProvider.overrideWithValue(broken),
+        parseVideoPortProvider.overrideWithValue(FakeParseVideoPort()),
+        ffmpegServiceProvider.overrideWithValue(_FakeService()),
+        taskManagerProvider.overrideWith(
+          (ref) => TaskManager(
+            taskRepository: ref.read(taskRepositoryProvider),
+            historyRepository: broken,
+            ffmpegService: ref.read(ffmpegServiceProvider),
+            platformAdapter: ref.read(platformAdapterProvider),
+            logger: AppLogger(),
+            retryDelay: (_) async {},
+          ),
+        ),
+      ],
+    )..listen(historyControllerProvider, (_, _) {});
+
+    // 等待首次 reload 完成(data 态),再触发失败路径
+    for (var i = 0; i < 100; i++) {
+      final v = container2.read(historyControllerProvider).value;
+      if (v != null) break;
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    final ctl2 = container2.read(historyControllerProvider.notifier);
+    // 若不兜底,以下 await 会抛 StateError 直接失败本测试
+    await ctl2.delete(1);
+    await ctl2.clear();
+    expect(
+      container2.read(historyControllerProvider).hasError,
+      isFalse,
+      reason: '删除/清空异常被内部兜底,状态不置 error',
+    );
+    container2.dispose();
+    await tempRoot.delete(recursive: true);
+  });
+
   test('reload 仓储异常 → 状态置 error,不产生未处理异步错误', () async {
     final broken = _ThrowingHistoryRepository();
     final tempRoot = await Directory.systemTemp.createTemp('gifforge_hc2_');
@@ -461,6 +508,15 @@ class _TestAdapter extends PlatformAdapter {
 }
 
 /// 列表恒抛错的仓储(reload 容错测试)。
+/// list 正常、delete/clear 抛异常的仓储(验证删除/清空路径的异常兜底)。
+class _ThrowOnMutateHistoryRepo extends InMemoryHistoryRepository {
+  @override
+  Future<void> delete(int id) async => throw StateError('isar down');
+
+  @override
+  Future<void> clear() async => throw StateError('isar down');
+}
+
 class _ThrowingHistoryRepository implements HistoryRepository {
   @override
   Future<int> add(ExportHistory history) async => 1;
