@@ -1,4 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 录屏前台服务(Android 14+/targetSdk 34+ 强制:先 startForegroundService
+         再 getMediaProjection,缺 FGS_MEDIA_PROJECTION 抛 SecurityException) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"/>
+    <!-- 声明但不主动请求:13+ 拒绝不阻止 FGS,通知从抽屉消失但任务管理器仍展示 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- 相机硬件非必需:无相机设备(如模拟器)仍可安装(CAMERA 权限由 camera 插件声明) -->
+    <uses-feature android:name="android.hardware.camera.any" android:required="false"/>
     <application
         android:label="Chameleon Gif"
         android:name="${applicationName}"
@@ -41,6 +49,12 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+        <!-- 录屏前台服务(MediaProjection 会话载体;stopWithTask 防止杀任务后泄漏) -->
+        <service
+            android:name=".ScreenRecordService"
+            android:foregroundServiceType="mediaProjection"
+            android:exported="false"
+            android:stopWithTask="true"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

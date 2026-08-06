@@ -10,13 +10,13 @@ class CaptureException extends DomainException {
 }
 
 /// 采集被用户取消(静默:返回/按返回键等,UI 不弹提示)。
-class CaptureCancelledException extends DomainException {
+class CaptureCancelledException extends CaptureException {
   const CaptureCancelledException()
     : super(errorCode: 'GIF_CAPTURE_CANCELLED', userMessage: '已取消');
 }
 
 /// 采集权限被拒绝(相机权限 / MediaProjection 授权;UI 展示引导文案)。
-class CapturePermissionDeniedException extends DomainException {
+class CapturePermissionDeniedException extends CaptureException {
   const CapturePermissionDeniedException({required super.userMessage})
     : super(errorCode: 'GIF_CAPTURE_PERMISSION_DENIED');
 }

@@ -7,6 +7,7 @@ import 'package:chameleon_gif/domain/value_objects/capture_params.dart';
 import 'package:chameleon_gif/features/export/presentation/param_dropdown_field.dart';
 
 import '../application/camera_settings_controller.dart';
+import '../application/record_settings_controller.dart';
 
 /// 设置页相机分组(设备支持什么显示什么;docs/18 C1-WP4)。
 ///
@@ -144,6 +145,69 @@ class CameraSettingsGroup extends ConsumerWidget {
     FocusMode.continuous => '连续',
     FocusMode.manual => '手动',
   };
+}
+
+/// 设置页录屏分组(帧率/时长上限/虚拟显示比例;docs/19 S1-WP4)。
+///
+/// Android 恒全屏(虚拟显示比例经 aspectRatio),能力固定无探测;
+/// 参数变更仅更新状态,保存时持久化(record_params)。
+class RecordSettingsGroup extends ConsumerWidget {
+  const RecordSettingsGroup({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(recordSettingsControllerProvider);
+    final controller = ref.read(recordSettingsControllerProvider.notifier);
+    final params = state.params;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Row(
+          label: '帧率',
+          child: ParamDropdownField<double>(
+            value: params.fps,
+            items: const [
+              ParamDropdownItem(5.0, '5 fps'),
+              ParamDropdownItem(10.0, '10 fps'),
+              ParamDropdownItem(15.0, '15 fps'),
+              ParamDropdownItem(20.0, '20 fps'),
+              ParamDropdownItem(30.0, '30 fps'),
+            ],
+            onChanged: (v) => controller.updateParams(params.copyWith(fps: v)),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _Row(
+          label: '时长上限',
+          child: ParamDropdownField<int>(
+            value: params.maxDurationMs,
+            items: const [
+              ParamDropdownItem(30000, '30 秒'),
+              ParamDropdownItem(60000, '60 秒'),
+              ParamDropdownItem(120000, '120 秒'),
+            ],
+            onChanged: (v) =>
+                controller.updateParams(params.copyWith(maxDurationMs: v)),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _Row(
+          label: '画面比例',
+          child: SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'native', label: Text('全屏原生')),
+              ButtonSegment(value: '16:9', label: Text('16:9')),
+            ],
+            selected: {params.aspectRatio == null ? 'native' : '16:9'},
+            onSelectionChanged: (s) => controller.updateParams(
+              params.copyWith(aspectRatio: s.first == '16:9' ? 16 / 9 : null),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 /// 行布局:左标签 + 右控件。

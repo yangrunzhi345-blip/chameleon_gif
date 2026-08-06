@@ -13,6 +13,7 @@ import 'core/utils/startup_tracer.dart';
 import 'features/camera/infrastructure/camera_port_impl.dart';
 import 'features/converter/application/ffmpeg_service_engine.dart';
 import 'features/converter/infrastructure/ffprobe_parse_video_port.dart';
+import 'features/screen_record/infrastructure/screen_recorder_port_impl.dart';
 import 'shared/platform/platform_adapter.dart';
 import 'shared/providers/core_providers.dart';
 import 'shared/repositories/schemas/export_history_schema.dart';
@@ -80,6 +81,16 @@ Future<void> main() async {
         cameraPortProvider.overrideWithValue(
           CameraPortImpl(
             capturesDir: Directory('${docsDir.path}/chameleon_gif/captures'),
+            adapter: adapter,
+            logger: logger,
+          ),
+        ),
+        // Android 录屏(自写 MediaProjection 原生桥;桌面亦注入:
+        // 通道 MissingPluginException → 录制失败提示)
+        screenRecorderPortProvider.overrideWithValue(
+          ScreenRecorderPortImpl(
+            capturesDir: Directory('${docsDir.path}/chameleon_gif/captures'),
+            tempDir: Directory.systemTemp,
             adapter: adapter,
             logger: logger,
           ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/value_objects/app_theme_mode.dart';
 import '../application/camera_settings_controller.dart';
+import '../application/record_settings_controller.dart';
 import '../application/providers.dart';
 import '../application/settings_controller.dart';
 import 'batch_parameter_form.dart';
@@ -36,6 +37,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _save() async {
     await ref.read(settingsControllerProvider.notifier).save();
     await ref.read(cameraSettingsControllerProvider.notifier).save();
+    await ref.read(recordSettingsControllerProvider.notifier).save();
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -105,6 +107,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             const CameraSettingsGroup(),
+            const SizedBox(height: 24),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            const SectionLabel('录屏'),
+            const RecordSettingsGroup(),
             const SizedBox(height: 24),
             const Divider(height: 1),
             const SizedBox(height: 16),
