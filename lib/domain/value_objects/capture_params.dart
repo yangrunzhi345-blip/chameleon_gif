@@ -16,6 +16,9 @@ abstract class CaptureParams with _$CaptureParams {
   const CaptureParams._();
 
   const factory CaptureParams({
+    /// 目标设备标识(null = 默认后置摄像头;Android 前后摄,桌面 /dev/videoN)
+    String? deviceId,
+
     /// 帧率(1–60)
     @Default(15.0) double fps,
 

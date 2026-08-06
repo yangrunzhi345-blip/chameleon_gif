@@ -8,6 +8,7 @@ part of 'capture_params.dart';
 
 _CaptureParams _$CaptureParamsFromJson(Map<String, dynamic> json) =>
     _CaptureParams(
+      deviceId: json['deviceId'] as String?,
       fps: (json['fps'] as num?)?.toDouble() ?? 15.0,
       resolutionWidth: (json['resolutionWidth'] as num?)?.toInt(),
       resolutionHeight: (json['resolutionHeight'] as num?)?.toInt(),
@@ -27,6 +28,7 @@ _CaptureParams _$CaptureParamsFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$CaptureParamsToJson(_CaptureParams instance) =>
     <String, dynamic>{
+      'deviceId': instance.deviceId,
       'fps': instance.fps,
       'resolutionWidth': instance.resolutionWidth,
       'resolutionHeight': instance.resolutionHeight,

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,6 +21,8 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 采集入口平台态(渲染决策,UI 层判定):Android 常亮,桌面置灰
+    final isAndroid = defaultTargetPlatform == TargetPlatform.android;
     return Scaffold(
       appBar: AppBar(
         // ellipsis:窄窗口下标题截断,避免与 3 个快捷入口 IconButton
@@ -55,8 +58,9 @@ class HomePage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // 品牌区:Logo + 应用名 + 标语,整体上移(顶部留白 48)
-            const SizedBox(height: 48),
+            // 品牌区:Logo + 应用名 + 标语,整体上移(顶部留白 24;
+            // 视频来源组两按钮加入后收窄顶部留白防溢出)
+            const SizedBox(height: 24),
             ClipRRect(
               borderRadius: BorderRadius.circular(24),
               child: Image.asset(
@@ -76,6 +80,34 @@ class HomePage extends ConsumerWidget {
             const Text('基础架构就绪', textAlign: TextAlign.center),
             // 按钮区下沉到底部
             const Spacer(),
+            // 视频来源组:相机拍摄 / 屏幕录制(Android 常亮;桌面置灰 +
+            // tooltip,采集能力属平台态,UI 层 defaultTargetPlatform 判定)
+            Row(
+              children: [
+                Expanded(
+                  child: _SourceEntry(
+                    icon: Icons.photo_camera_outlined,
+                    label: '相机拍摄',
+                    subtitle: '拍一段→转GIF',
+                    enabled: isAndroid,
+                    tooltip: '未检测到摄像头(桌面采集将在后续版本开放)',
+                    onPressed: () => openCaptureScreen(context, ref),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _SourceEntry(
+                    icon: Icons.screen_share_outlined,
+                    label: '屏幕录制',
+                    subtitle: '录一段→转GIF',
+                    enabled: isAndroid,
+                    tooltip: '桌面采集将在后续版本开放',
+                    onPressed: () => openRecordScreen(context, ref),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             // 图片制作 GIF:入口位于「导入 MP4」上方,样式一致
             FilledButton.icon(
               onPressed: () => pickImagesAndBuild(context, ref),
@@ -106,5 +138,44 @@ class HomePage extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+/// 视频来源组入口(相机拍摄/屏幕录制;docs/18 §五、docs/19 §三)。
+///
+/// [enabled] 为 false 时按钮置灰 + tooltip(平台能力不足,不隐藏,
+/// 环境变化后恢复);点击动作由 [onPressed] 提供(入口保持单一动作)。
+class _SourceEntry extends StatelessWidget {
+  const _SourceEntry({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.enabled,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final bool enabled;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = FilledButton.icon(
+      onPressed: enabled ? onPressed : null,
+      icon: Icon(icon),
+      label: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label),
+          Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
+    );
+    if (enabled) return button;
+    return Tooltip(message: tooltip, child: button);
   }
 }

@@ -29,9 +29,11 @@ Future<void> main() async {
   logger.i('Chameleon Gif 启动中...');
 
   final Isar isar;
+  // 数据目录:平台应用文档目录下的 chameleon_gif(三平台统一,见 PlatformAdapter);
+  // 供 appDocsDirProvider 注入(采集素材落位根,阶段 B 共享面)
+  final Directory docsDir;
   try {
-    // 数据目录:平台应用文档目录下的 chameleon_gif(三平台统一,见 PlatformAdapter)
-    final docsDir = await getApplicationDocumentsDirectory();
+    docsDir = await getApplicationDocumentsDirectory();
     tracer.mark('t1 docsDir 就绪');
     final isarDir = Directory('${docsDir.path}/chameleon_gif')
       ..createSync(recursive: true);
@@ -58,6 +60,7 @@ Future<void> main() async {
         isarProvider.overrideWithValue(isar),
         sharedPrefsProvider.overrideWithValue(prefs),
         appLoggerProvider.overrideWithValue(logger),
+        appDocsDirProvider.overrideWithValue(docsDir),
         // 组合根装配功能模块实现(shared/providers 只定义接口型 provider)
         parseVideoPortProvider.overrideWithValue(
           FfprobeParseVideoPort(

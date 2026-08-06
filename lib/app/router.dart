@@ -6,10 +6,12 @@ import '../../domain/value_objects/per_image_control.dart';
 import '../../features/history/presentation/history_page.dart';
 import '../../features/task_queue/presentation/queue_page.dart';
 import 'presentation/batch_import_screen.dart';
+import 'presentation/capture_screen.dart';
 import 'presentation/home_page.dart';
 import 'presentation/image_control_screen.dart';
 import 'presentation/image_gif_screen.dart';
 import 'presentation/preview_screen.dart';
+import 'presentation/record_screen.dart';
 import 'presentation/settings_screen.dart';
 
 /// 根 Navigator key(批量完成弹窗宿主经此弹窗/导航,见 batch_completion_host)。
@@ -52,6 +54,16 @@ List<RouteBase> buildRoutes() => [
       final extra = state.extra;
       return ImageGifScreen(paths: extra is List<String> ? extra : null);
     },
+  ),
+  GoRoute(
+    path: '/capture',
+    name: 'capture',
+    builder: (context, state) => const CaptureScreen(),
+  ),
+  GoRoute(
+    path: '/record',
+    name: 'record',
+    builder: (context, state) => const RecordScreen(),
   ),
   GoRoute(
     path: '/image-control',

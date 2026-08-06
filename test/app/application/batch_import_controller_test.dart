@@ -12,7 +12,9 @@ import 'package:chameleon_gif/domain/exceptions/file_pick_exception.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/directory_pick_port.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/settings_repository.dart';
 import 'package:chameleon_gif/domain/value_objects/app_theme_mode.dart';
+import 'package:chameleon_gif/domain/value_objects/capture_params.dart';
 import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/record_params.dart';
 import 'package:chameleon_gif/features/export/application/export_providers.dart';
 import 'package:chameleon_gif/features/import/application/import_video_use_case.dart';
 import 'package:chameleon_gif/shared/providers/core_providers.dart';
@@ -316,6 +318,23 @@ class _FakeSettings implements SettingsRepository {
 
   @override
   Future<void> setDefaultGifSetting(GifSetting setting) async {}
+  @override
+  CaptureParams? get captureParams => null;
+
+  @override
+  Future<void> setCaptureParams(CaptureParams params) async {}
+
+  @override
+  String get captureDeviceId => 'back';
+
+  @override
+  Future<void> setCaptureDeviceId(String deviceId) async {}
+
+  @override
+  RecordParams? get recordParams => null;
+
+  @override
+  Future<void> setRecordParams(RecordParams params) async {}
 }
 
 class _FakeDirPick implements DirectoryPickPort {

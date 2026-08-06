@@ -32,3 +32,15 @@ Future<void> pickImagesAndBuild(BuildContext context, WidgetRef ref) async {
   if (paths == null || paths.isEmpty || !context.mounted) return;
   context.push('/image-gif', extra: paths);
 }
+
+/// 打开相机拍摄页(首页"相机拍摄"入口;docs/18 §五)。
+///
+/// 平台态(Android 常亮 / 桌面置灰)由 home_page 控制,此处只做跳转。
+void openCaptureScreen(BuildContext context, WidgetRef ref) =>
+    context.push('/capture');
+
+/// 打开屏幕录制页(首页"屏幕录制"入口;docs/19 §三)。
+///
+/// 平台态由 home_page 控制;区域选择在录制页内完成,入口保持单一动作。
+void openRecordScreen(BuildContext context, WidgetRef ref) =>
+    context.push('/record');

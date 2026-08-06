@@ -11,6 +11,12 @@ String captureDirPath({required String home, bool isWindows = false}) {
   return '$home${sep}Documents${sep}chameleon_gif${sep}captures';
 }
 
+/// Android 素材落位目录:`<docsDir>/chameleon_gif/captures`
+/// (docs/18 D1「素材持久可重转」,与桌面 capturesDir 同语义;
+/// 相册条目为展示副本,此处为 ffprobe/转换/历史重转的真实文件)。
+String androidCapturesDir(String docsDirPath) =>
+    '$docsDirPath/chameleon_gif/captures';
+
 /// 素材命名 `capture_<yyyyMMdd_HHmmss>_<seq3位补零>.mp4`(docs/18 §5.3)。
 ///
 /// [seq] 为当日序号(1 起),时间戳为拍摄/录制完成时刻;

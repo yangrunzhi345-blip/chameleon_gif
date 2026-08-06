@@ -4,7 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/repository_interfaces/settings_repository.dart';
 import '../../domain/value_objects/app_theme_mode.dart';
+import '../../domain/value_objects/capture_params.dart';
 import '../../domain/value_objects/gif_setting.dart';
+import '../../domain/value_objects/record_params.dart';
 
 /// SettingsRepository 的 SharedPreferences 实现。
 ///
@@ -20,6 +22,9 @@ class SharedPrefsSettingsRepository implements SettingsRepository {
   static const _lastImportDirKey = 'last_import_dir';
   static const _defaultExportDirKey = 'default_export_dir';
   static const _defaultGifSettingKey = 'default_gif_setting';
+  static const _captureParamsKey = 'capture_params';
+  static const _captureDeviceIdKey = 'capture_device_id';
+  static const _recordParamsKey = 'record_params';
 
   // ---- 键值/默认值 ----
   static const _themeSystemValue = 'system';
@@ -78,6 +83,47 @@ class SharedPrefsSettingsRepository implements SettingsRepository {
   @override
   Future<void> setDefaultGifSetting(GifSetting setting) =>
       _prefs.setString(_defaultGifSettingKey, jsonEncode(setting.toJson()));
+
+  @override
+  CaptureParams? get captureParams {
+    final raw = _prefs.getString(_captureParamsKey);
+    if (raw == null) return null;
+    try {
+      return CaptureParams.fromJson(
+        Map<String, dynamic>.from(jsonDecode(raw) as Map),
+      );
+    } on FormatException {
+      return null; // 损坏值容错:按未设置处理
+    }
+  }
+
+  @override
+  Future<void> setCaptureParams(CaptureParams params) =>
+      _prefs.setString(_captureParamsKey, jsonEncode(params.toJson()));
+
+  @override
+  String get captureDeviceId => _prefs.getString(_captureDeviceIdKey) ?? 'back';
+
+  @override
+  Future<void> setCaptureDeviceId(String deviceId) =>
+      _prefs.setString(_captureDeviceIdKey, deviceId);
+
+  @override
+  RecordParams? get recordParams {
+    final raw = _prefs.getString(_recordParamsKey);
+    if (raw == null) return null;
+    try {
+      return RecordParams.fromJson(
+        Map<String, dynamic>.from(jsonDecode(raw) as Map),
+      );
+    } on FormatException {
+      return null; // 损坏值容错
+    }
+  }
+
+  @override
+  Future<void> setRecordParams(RecordParams params) =>
+      _prefs.setString(_recordParamsKey, jsonEncode(params.toJson()));
 
   /// 默认导出目录:用户 Downloads 目录(桌面)/空串由调用方按平台处理
   static const _defaultExportDirKeyFallback = '';

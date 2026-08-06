@@ -2,11 +2,13 @@ import '../../shared/platform/gallery_save_result.dart';
 
 /// 采集结果(拍摄/录屏共用,docs/18 §5.2、docs/19 §3.2)。
 ///
-/// [finalPath] 语义:Android = 相册展示路径/内容 URI(存相册成功后),
-/// 桌面 = 素材文件绝对路径;供自动导入链路与历史记录引用。
-/// [galleryStatus] 三态复用 [GallerySaveResult](存相册失败不阻塞采集完成,
-/// 私有副本保留供手动处理);瞬态运行结果,不落库,手写 const 类
-/// (仿 GallerySaveResult 先例,非 freezed)。
+/// [finalPath] 语义:Android = **应用素材目录的真实文件路径**
+/// (`<docsDir>/chameleon_gif/captures/`,docs/18 D1 素材持久可重转;
+/// ffprobe/转换/历史重转直接可用,ffmpeg-kit 无法解析相册 content URI,
+/// 阶段 B 决策 3),桌面 = 素材文件绝对路径;[galleryUri] 为相册展示副本
+/// 的 content URI(定位用)。[galleryStatus] 三态复用 [GallerySaveResult]
+/// (存相册失败不阻塞采集完成,素材副本保留);瞬态运行结果,不落库,
+/// 手写 const 类(仿 GallerySaveResult 先例,非 freezed)。
 class CaptureResult {
   const CaptureResult({
     required this.finalPath,

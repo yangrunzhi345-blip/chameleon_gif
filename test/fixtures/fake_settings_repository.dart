@@ -1,6 +1,8 @@
 import 'package:chameleon_gif/domain/repository_interfaces/settings_repository.dart';
 import 'package:chameleon_gif/domain/value_objects/app_theme_mode.dart';
+import 'package:chameleon_gif/domain/value_objects/capture_params.dart';
 import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
+import 'package:chameleon_gif/domain/value_objects/record_params.dart';
 
 /// 内存版 SettingsRepository(theme_controller 等测试用)。
 ///
@@ -47,4 +49,42 @@ class FakeSettingsRepository implements SettingsRepository {
 
   @override
   Future<void> setDefaultGifSetting(GifSetting setting) async {}
+
+  // ---- 采集参数(阶段 B 共享面;内存字段,可注入/断言) ----
+
+  @override
+  CaptureParams? captureParams;
+
+  /// 最近一次 [setCaptureParams] 收到的值(未调用为 null)。
+  CaptureParams? lastSetCaptureParams;
+
+  @override
+  Future<void> setCaptureParams(CaptureParams params) async {
+    captureParams = params;
+    lastSetCaptureParams = params;
+  }
+
+  @override
+  String captureDeviceId = 'back';
+
+  /// 最近一次 [setCaptureDeviceId] 收到的值(未调用为 null)。
+  String? lastSetCaptureDeviceId;
+
+  @override
+  Future<void> setCaptureDeviceId(String deviceId) async {
+    captureDeviceId = deviceId;
+    lastSetCaptureDeviceId = deviceId;
+  }
+
+  @override
+  RecordParams? recordParams;
+
+  /// 最近一次 [setRecordParams] 收到的值(未调用为 null)。
+  RecordParams? lastSetRecordParams;
+
+  @override
+  Future<void> setRecordParams(RecordParams params) async {
+    recordParams = params;
+    lastSetRecordParams = params;
+  }
 }

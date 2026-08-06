@@ -15,7 +15,8 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$CaptureParams {
 
-/// 帧率(1–60)
+/// 目标设备标识(null = 默认后置摄像头;Android 前后摄,桌面 /dev/videoN)
+ String? get deviceId;/// 帧率(1–60)
  double get fps;/// 桌面端:采集分辨率宽度;Android 忽略
  int? get resolutionWidth;/// 桌面端:采集分辨率高度;Android 忽略
  int? get resolutionHeight;/// 时长上限(毫秒,超时自动停)
@@ -41,16 +42,16 @@ $CaptureParamsCopyWith<CaptureParams> get copyWith => _$CaptureParamsCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is CaptureParams&&(identical(other.fps, fps) || other.fps == fps)&&(identical(other.resolutionWidth, resolutionWidth) || other.resolutionWidth == resolutionWidth)&&(identical(other.resolutionHeight, resolutionHeight) || other.resolutionHeight == resolutionHeight)&&(identical(other.maxDurationMs, maxDurationMs) || other.maxDurationMs == maxDurationMs)&&(identical(other.whiteBalanceTemp, whiteBalanceTemp) || other.whiteBalanceTemp == whiteBalanceTemp)&&(identical(other.whiteBalanceAuto, whiteBalanceAuto) || other.whiteBalanceAuto == whiteBalanceAuto)&&(identical(other.exposureCompensation, exposureCompensation) || other.exposureCompensation == exposureCompensation)&&(identical(other.exposureLock, exposureLock) || other.exposureLock == exposureLock)&&(identical(other.iso, iso) || other.iso == iso)&&(identical(other.focusMode, focusMode) || other.focusMode == focusMode)&&(identical(other.zoom, zoom) || other.zoom == zoom)&&(identical(other.flashOn, flashOn) || other.flashOn == flashOn)&&(identical(other.outputDir, outputDir) || other.outputDir == outputDir));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CaptureParams&&(identical(other.deviceId, deviceId) || other.deviceId == deviceId)&&(identical(other.fps, fps) || other.fps == fps)&&(identical(other.resolutionWidth, resolutionWidth) || other.resolutionWidth == resolutionWidth)&&(identical(other.resolutionHeight, resolutionHeight) || other.resolutionHeight == resolutionHeight)&&(identical(other.maxDurationMs, maxDurationMs) || other.maxDurationMs == maxDurationMs)&&(identical(other.whiteBalanceTemp, whiteBalanceTemp) || other.whiteBalanceTemp == whiteBalanceTemp)&&(identical(other.whiteBalanceAuto, whiteBalanceAuto) || other.whiteBalanceAuto == whiteBalanceAuto)&&(identical(other.exposureCompensation, exposureCompensation) || other.exposureCompensation == exposureCompensation)&&(identical(other.exposureLock, exposureLock) || other.exposureLock == exposureLock)&&(identical(other.iso, iso) || other.iso == iso)&&(identical(other.focusMode, focusMode) || other.focusMode == focusMode)&&(identical(other.zoom, zoom) || other.zoom == zoom)&&(identical(other.flashOn, flashOn) || other.flashOn == flashOn)&&(identical(other.outputDir, outputDir) || other.outputDir == outputDir));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,fps,resolutionWidth,resolutionHeight,maxDurationMs,whiteBalanceTemp,whiteBalanceAuto,exposureCompensation,exposureLock,iso,focusMode,zoom,flashOn,outputDir);
+int get hashCode => Object.hash(runtimeType,deviceId,fps,resolutionWidth,resolutionHeight,maxDurationMs,whiteBalanceTemp,whiteBalanceAuto,exposureCompensation,exposureLock,iso,focusMode,zoom,flashOn,outputDir);
 
 @override
 String toString() {
-  return 'CaptureParams(fps: $fps, resolutionWidth: $resolutionWidth, resolutionHeight: $resolutionHeight, maxDurationMs: $maxDurationMs, whiteBalanceTemp: $whiteBalanceTemp, whiteBalanceAuto: $whiteBalanceAuto, exposureCompensation: $exposureCompensation, exposureLock: $exposureLock, iso: $iso, focusMode: $focusMode, zoom: $zoom, flashOn: $flashOn, outputDir: $outputDir)';
+  return 'CaptureParams(deviceId: $deviceId, fps: $fps, resolutionWidth: $resolutionWidth, resolutionHeight: $resolutionHeight, maxDurationMs: $maxDurationMs, whiteBalanceTemp: $whiteBalanceTemp, whiteBalanceAuto: $whiteBalanceAuto, exposureCompensation: $exposureCompensation, exposureLock: $exposureLock, iso: $iso, focusMode: $focusMode, zoom: $zoom, flashOn: $flashOn, outputDir: $outputDir)';
 }
 
 
@@ -61,7 +62,7 @@ abstract mixin class $CaptureParamsCopyWith<$Res>  {
   factory $CaptureParamsCopyWith(CaptureParams value, $Res Function(CaptureParams) _then) = _$CaptureParamsCopyWithImpl;
 @useResult
 $Res call({
- double fps, int? resolutionWidth, int? resolutionHeight, int maxDurationMs, int? whiteBalanceTemp, bool whiteBalanceAuto, double? exposureCompensation, bool exposureLock, int? iso, FocusMode focusMode, double? zoom, bool flashOn, String? outputDir
+ String? deviceId, double fps, int? resolutionWidth, int? resolutionHeight, int maxDurationMs, int? whiteBalanceTemp, bool whiteBalanceAuto, double? exposureCompensation, bool exposureLock, int? iso, FocusMode focusMode, double? zoom, bool flashOn, String? outputDir
 });
 
 
@@ -78,9 +79,10 @@ class _$CaptureParamsCopyWithImpl<$Res>
 
 /// Create a copy of CaptureParams
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? fps = null,Object? resolutionWidth = freezed,Object? resolutionHeight = freezed,Object? maxDurationMs = null,Object? whiteBalanceTemp = freezed,Object? whiteBalanceAuto = null,Object? exposureCompensation = freezed,Object? exposureLock = null,Object? iso = freezed,Object? focusMode = null,Object? zoom = freezed,Object? flashOn = null,Object? outputDir = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? deviceId = freezed,Object? fps = null,Object? resolutionWidth = freezed,Object? resolutionHeight = freezed,Object? maxDurationMs = null,Object? whiteBalanceTemp = freezed,Object? whiteBalanceAuto = null,Object? exposureCompensation = freezed,Object? exposureLock = null,Object? iso = freezed,Object? focusMode = null,Object? zoom = freezed,Object? flashOn = null,Object? outputDir = freezed,}) {
   return _then(_self.copyWith(
-fps: null == fps ? _self.fps : fps // ignore: cast_nullable_to_non_nullable
+deviceId: freezed == deviceId ? _self.deviceId : deviceId // ignore: cast_nullable_to_non_nullable
+as String?,fps: null == fps ? _self.fps : fps // ignore: cast_nullable_to_non_nullable
 as double,resolutionWidth: freezed == resolutionWidth ? _self.resolutionWidth : resolutionWidth // ignore: cast_nullable_to_non_nullable
 as int?,resolutionHeight: freezed == resolutionHeight ? _self.resolutionHeight : resolutionHeight // ignore: cast_nullable_to_non_nullable
 as int?,maxDurationMs: null == maxDurationMs ? _self.maxDurationMs : maxDurationMs // ignore: cast_nullable_to_non_nullable
@@ -178,10 +180,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double fps,  int? resolutionWidth,  int? resolutionHeight,  int maxDurationMs,  int? whiteBalanceTemp,  bool whiteBalanceAuto,  double? exposureCompensation,  bool exposureLock,  int? iso,  FocusMode focusMode,  double? zoom,  bool flashOn,  String? outputDir)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? deviceId,  double fps,  int? resolutionWidth,  int? resolutionHeight,  int maxDurationMs,  int? whiteBalanceTemp,  bool whiteBalanceAuto,  double? exposureCompensation,  bool exposureLock,  int? iso,  FocusMode focusMode,  double? zoom,  bool flashOn,  String? outputDir)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _CaptureParams() when $default != null:
-return $default(_that.fps,_that.resolutionWidth,_that.resolutionHeight,_that.maxDurationMs,_that.whiteBalanceTemp,_that.whiteBalanceAuto,_that.exposureCompensation,_that.exposureLock,_that.iso,_that.focusMode,_that.zoom,_that.flashOn,_that.outputDir);case _:
+return $default(_that.deviceId,_that.fps,_that.resolutionWidth,_that.resolutionHeight,_that.maxDurationMs,_that.whiteBalanceTemp,_that.whiteBalanceAuto,_that.exposureCompensation,_that.exposureLock,_that.iso,_that.focusMode,_that.zoom,_that.flashOn,_that.outputDir);case _:
   return orElse();
 
 }
@@ -199,10 +201,10 @@ return $default(_that.fps,_that.resolutionWidth,_that.resolutionHeight,_that.max
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double fps,  int? resolutionWidth,  int? resolutionHeight,  int maxDurationMs,  int? whiteBalanceTemp,  bool whiteBalanceAuto,  double? exposureCompensation,  bool exposureLock,  int? iso,  FocusMode focusMode,  double? zoom,  bool flashOn,  String? outputDir)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? deviceId,  double fps,  int? resolutionWidth,  int? resolutionHeight,  int maxDurationMs,  int? whiteBalanceTemp,  bool whiteBalanceAuto,  double? exposureCompensation,  bool exposureLock,  int? iso,  FocusMode focusMode,  double? zoom,  bool flashOn,  String? outputDir)  $default,) {final _that = this;
 switch (_that) {
 case _CaptureParams():
-return $default(_that.fps,_that.resolutionWidth,_that.resolutionHeight,_that.maxDurationMs,_that.whiteBalanceTemp,_that.whiteBalanceAuto,_that.exposureCompensation,_that.exposureLock,_that.iso,_that.focusMode,_that.zoom,_that.flashOn,_that.outputDir);case _:
+return $default(_that.deviceId,_that.fps,_that.resolutionWidth,_that.resolutionHeight,_that.maxDurationMs,_that.whiteBalanceTemp,_that.whiteBalanceAuto,_that.exposureCompensation,_that.exposureLock,_that.iso,_that.focusMode,_that.zoom,_that.flashOn,_that.outputDir);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -219,10 +221,10 @@ return $default(_that.fps,_that.resolutionWidth,_that.resolutionHeight,_that.max
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double fps,  int? resolutionWidth,  int? resolutionHeight,  int maxDurationMs,  int? whiteBalanceTemp,  bool whiteBalanceAuto,  double? exposureCompensation,  bool exposureLock,  int? iso,  FocusMode focusMode,  double? zoom,  bool flashOn,  String? outputDir)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? deviceId,  double fps,  int? resolutionWidth,  int? resolutionHeight,  int maxDurationMs,  int? whiteBalanceTemp,  bool whiteBalanceAuto,  double? exposureCompensation,  bool exposureLock,  int? iso,  FocusMode focusMode,  double? zoom,  bool flashOn,  String? outputDir)?  $default,) {final _that = this;
 switch (_that) {
 case _CaptureParams() when $default != null:
-return $default(_that.fps,_that.resolutionWidth,_that.resolutionHeight,_that.maxDurationMs,_that.whiteBalanceTemp,_that.whiteBalanceAuto,_that.exposureCompensation,_that.exposureLock,_that.iso,_that.focusMode,_that.zoom,_that.flashOn,_that.outputDir);case _:
+return $default(_that.deviceId,_that.fps,_that.resolutionWidth,_that.resolutionHeight,_that.maxDurationMs,_that.whiteBalanceTemp,_that.whiteBalanceAuto,_that.exposureCompensation,_that.exposureLock,_that.iso,_that.focusMode,_that.zoom,_that.flashOn,_that.outputDir);case _:
   return null;
 
 }
@@ -234,9 +236,11 @@ return $default(_that.fps,_that.resolutionWidth,_that.resolutionHeight,_that.max
 @JsonSerializable()
 
 class _CaptureParams extends CaptureParams {
-  const _CaptureParams({this.fps = 15.0, this.resolutionWidth, this.resolutionHeight, this.maxDurationMs = 30000, this.whiteBalanceTemp, this.whiteBalanceAuto = true, this.exposureCompensation, this.exposureLock = false, this.iso, this.focusMode = FocusMode.auto, this.zoom, this.flashOn = false, this.outputDir}): super._();
+  const _CaptureParams({this.deviceId, this.fps = 15.0, this.resolutionWidth, this.resolutionHeight, this.maxDurationMs = 30000, this.whiteBalanceTemp, this.whiteBalanceAuto = true, this.exposureCompensation, this.exposureLock = false, this.iso, this.focusMode = FocusMode.auto, this.zoom, this.flashOn = false, this.outputDir}): super._();
   factory _CaptureParams.fromJson(Map<String, dynamic> json) => _$CaptureParamsFromJson(json);
 
+/// 目标设备标识(null = 默认后置摄像头;Android 前后摄,桌面 /dev/videoN)
+@override final  String? deviceId;
 /// 帧率(1–60)
 @override@JsonKey() final  double fps;
 /// 桌面端:采集分辨率宽度;Android 忽略
@@ -277,16 +281,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CaptureParams&&(identical(other.fps, fps) || other.fps == fps)&&(identical(other.resolutionWidth, resolutionWidth) || other.resolutionWidth == resolutionWidth)&&(identical(other.resolutionHeight, resolutionHeight) || other.resolutionHeight == resolutionHeight)&&(identical(other.maxDurationMs, maxDurationMs) || other.maxDurationMs == maxDurationMs)&&(identical(other.whiteBalanceTemp, whiteBalanceTemp) || other.whiteBalanceTemp == whiteBalanceTemp)&&(identical(other.whiteBalanceAuto, whiteBalanceAuto) || other.whiteBalanceAuto == whiteBalanceAuto)&&(identical(other.exposureCompensation, exposureCompensation) || other.exposureCompensation == exposureCompensation)&&(identical(other.exposureLock, exposureLock) || other.exposureLock == exposureLock)&&(identical(other.iso, iso) || other.iso == iso)&&(identical(other.focusMode, focusMode) || other.focusMode == focusMode)&&(identical(other.zoom, zoom) || other.zoom == zoom)&&(identical(other.flashOn, flashOn) || other.flashOn == flashOn)&&(identical(other.outputDir, outputDir) || other.outputDir == outputDir));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CaptureParams&&(identical(other.deviceId, deviceId) || other.deviceId == deviceId)&&(identical(other.fps, fps) || other.fps == fps)&&(identical(other.resolutionWidth, resolutionWidth) || other.resolutionWidth == resolutionWidth)&&(identical(other.resolutionHeight, resolutionHeight) || other.resolutionHeight == resolutionHeight)&&(identical(other.maxDurationMs, maxDurationMs) || other.maxDurationMs == maxDurationMs)&&(identical(other.whiteBalanceTemp, whiteBalanceTemp) || other.whiteBalanceTemp == whiteBalanceTemp)&&(identical(other.whiteBalanceAuto, whiteBalanceAuto) || other.whiteBalanceAuto == whiteBalanceAuto)&&(identical(other.exposureCompensation, exposureCompensation) || other.exposureCompensation == exposureCompensation)&&(identical(other.exposureLock, exposureLock) || other.exposureLock == exposureLock)&&(identical(other.iso, iso) || other.iso == iso)&&(identical(other.focusMode, focusMode) || other.focusMode == focusMode)&&(identical(other.zoom, zoom) || other.zoom == zoom)&&(identical(other.flashOn, flashOn) || other.flashOn == flashOn)&&(identical(other.outputDir, outputDir) || other.outputDir == outputDir));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,fps,resolutionWidth,resolutionHeight,maxDurationMs,whiteBalanceTemp,whiteBalanceAuto,exposureCompensation,exposureLock,iso,focusMode,zoom,flashOn,outputDir);
+int get hashCode => Object.hash(runtimeType,deviceId,fps,resolutionWidth,resolutionHeight,maxDurationMs,whiteBalanceTemp,whiteBalanceAuto,exposureCompensation,exposureLock,iso,focusMode,zoom,flashOn,outputDir);
 
 @override
 String toString() {
-  return 'CaptureParams(fps: $fps, resolutionWidth: $resolutionWidth, resolutionHeight: $resolutionHeight, maxDurationMs: $maxDurationMs, whiteBalanceTemp: $whiteBalanceTemp, whiteBalanceAuto: $whiteBalanceAuto, exposureCompensation: $exposureCompensation, exposureLock: $exposureLock, iso: $iso, focusMode: $focusMode, zoom: $zoom, flashOn: $flashOn, outputDir: $outputDir)';
+  return 'CaptureParams(deviceId: $deviceId, fps: $fps, resolutionWidth: $resolutionWidth, resolutionHeight: $resolutionHeight, maxDurationMs: $maxDurationMs, whiteBalanceTemp: $whiteBalanceTemp, whiteBalanceAuto: $whiteBalanceAuto, exposureCompensation: $exposureCompensation, exposureLock: $exposureLock, iso: $iso, focusMode: $focusMode, zoom: $zoom, flashOn: $flashOn, outputDir: $outputDir)';
 }
 
 
@@ -297,7 +301,7 @@ abstract mixin class _$CaptureParamsCopyWith<$Res> implements $CaptureParamsCopy
   factory _$CaptureParamsCopyWith(_CaptureParams value, $Res Function(_CaptureParams) _then) = __$CaptureParamsCopyWithImpl;
 @override @useResult
 $Res call({
- double fps, int? resolutionWidth, int? resolutionHeight, int maxDurationMs, int? whiteBalanceTemp, bool whiteBalanceAuto, double? exposureCompensation, bool exposureLock, int? iso, FocusMode focusMode, double? zoom, bool flashOn, String? outputDir
+ String? deviceId, double fps, int? resolutionWidth, int? resolutionHeight, int maxDurationMs, int? whiteBalanceTemp, bool whiteBalanceAuto, double? exposureCompensation, bool exposureLock, int? iso, FocusMode focusMode, double? zoom, bool flashOn, String? outputDir
 });
 
 
@@ -314,9 +318,10 @@ class __$CaptureParamsCopyWithImpl<$Res>
 
 /// Create a copy of CaptureParams
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? fps = null,Object? resolutionWidth = freezed,Object? resolutionHeight = freezed,Object? maxDurationMs = null,Object? whiteBalanceTemp = freezed,Object? whiteBalanceAuto = null,Object? exposureCompensation = freezed,Object? exposureLock = null,Object? iso = freezed,Object? focusMode = null,Object? zoom = freezed,Object? flashOn = null,Object? outputDir = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? deviceId = freezed,Object? fps = null,Object? resolutionWidth = freezed,Object? resolutionHeight = freezed,Object? maxDurationMs = null,Object? whiteBalanceTemp = freezed,Object? whiteBalanceAuto = null,Object? exposureCompensation = freezed,Object? exposureLock = null,Object? iso = freezed,Object? focusMode = null,Object? zoom = freezed,Object? flashOn = null,Object? outputDir = freezed,}) {
   return _then(_CaptureParams(
-fps: null == fps ? _self.fps : fps // ignore: cast_nullable_to_non_nullable
+deviceId: freezed == deviceId ? _self.deviceId : deviceId // ignore: cast_nullable_to_non_nullable
+as String?,fps: null == fps ? _self.fps : fps // ignore: cast_nullable_to_non_nullable
 as double,resolutionWidth: freezed == resolutionWidth ? _self.resolutionWidth : resolutionWidth // ignore: cast_nullable_to_non_nullable
 as int?,resolutionHeight: freezed == resolutionHeight ? _self.resolutionHeight : resolutionHeight // ignore: cast_nullable_to_non_nullable
 as int?,maxDurationMs: null == maxDurationMs ? _self.maxDurationMs : maxDurationMs // ignore: cast_nullable_to_non_nullable
