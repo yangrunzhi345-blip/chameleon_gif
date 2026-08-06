@@ -215,6 +215,45 @@ void main() {
     expect(saved['height'], 0);
   });
 
+  testWidgets('选缩放倍数 → 宽度/高度收起态联动显示"原图等比 <倍数>"', (tester) async {
+    await pumpApp(tester);
+    await enterSettings(tester);
+
+    // 默认无倍数:宽高各显示"原图等比"
+    expect(find.text('原图等比'), findsNWidgets(2));
+
+    // 选 0.5 倍 → 宽高联动显示"原图等比 0.5"(值仍为 0,仅文案联动)
+    await tester.tap(find.text('1 倍'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('0.5 倍').last);
+    await tester.pumpAndSettle();
+    expect(find.text('原图等比 0.5'), findsNWidgets(2), reason: '宽度/高度各一');
+    expect(find.text('原图等比'), findsNothing);
+
+    // 手动改宽度 → 倍数被清除,高度恢复"原图等比",宽度显示像素
+    await tester.tap(find.text('原图等比 0.5').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('480 px').last);
+    await tester.pumpAndSettle();
+    expect(find.text('480 px'), findsOneWidget);
+    expect(find.text('原图等比'), findsOneWidget, reason: '高度恢复原图等比');
+    expect(find.text('原图等比 0.5'), findsNothing);
+  });
+
+  testWidgets('预置倍数默认 → 进入设置页即联动显示"原图等比 <倍数>"', (tester) async {
+    await pumpApp(
+      tester,
+      prefsValues: {
+        'default_gif_setting': jsonEncode({
+          'scaleMultiplier': 0.75, // 宽高缺省 → 0(原图等比,继承倍数)
+        }),
+      },
+    );
+    await enterSettings(tester);
+
+    expect(find.text('原图等比 0.75'), findsNWidgets(2), reason: '宽高各一');
+  });
+
   testWidgets('非法时间 → 红字 + 保存禁用;修正后恢复', (tester) async {
     await pumpApp(tester);
     await enterSettings(tester);

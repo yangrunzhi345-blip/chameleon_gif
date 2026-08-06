@@ -114,6 +114,33 @@ void main() {
     expect(find.text('自定义'), findsNothing);
   });
 
+  testWidgets('labelOverride:优先于候选/值构造器,菜单项与勾选不受影响', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 300,
+              child: ParamDropdownField<int>(
+                value: 0, // 在候选中("原图等比")
+                items: items,
+                labelOverride: '原图等比 0.75',
+                onChanged: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('原图等比 0.75'), findsOneWidget, reason: '收起态用覆盖文案');
+    // 展开菜单:菜单项仍为原始 label,勾选落在 value=0 的"原图等比"上
+    await tester.tap(find.text('原图等比 0.75'));
+    await tester.pumpAndSettle();
+    expect(find.text('原图等比'), findsOneWidget, reason: '菜单项未受影响');
+    expect(find.byIcon(Icons.check), findsOneWidget, reason: '勾选基于 value');
+  });
+
   testWidgets('菜单在按钮正下方弹出(强制下拉)且与按钮同宽', (tester) async {
     await tester.pumpWidget(build());
 

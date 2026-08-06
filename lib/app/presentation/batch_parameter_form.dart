@@ -148,6 +148,17 @@ class _BatchParameterFormState extends State<BatchParameterForm> {
     widget.actions.updateHeight(v);
   }
 
+  /// 宽高收起态文案:当前为原图等比(0)且选了倍数(非 1)时,显示
+  /// "原图等比 <倍数>"(与缩放倍数联动,菜单内选项不变);其余情形
+  /// 返回 null 走默认 label(原图等比 / 具体像素)。
+  String? _dimensionLabel(int dimension) {
+    if (dimension != 0) return null;
+    final m = widget.state.scaleMultiplier;
+    if (m == null || (m - 1.0).abs() <= 1e-9) return null;
+    final text = m == m.roundToDouble() ? '${m.toInt()}' : '$m';
+    return '原图等比 $text';
+  }
+
   /// 自定义缩放倍数:弹输入框,0.1–4 校验(非法 → formError)。
   Future<void> _customScaleMultiplier() async {
     final text = await showCustomValueDialog(
@@ -218,6 +229,8 @@ class _BatchParameterFormState extends State<BatchParameterForm> {
           label: '宽度',
           child: ParamDropdownField<int>(
             value: state.width,
+            // 选倍数后收起态显示"原图等比 0.75"(菜单内选项不变)
+            labelOverride: _dimensionLabel(state.width),
             items: [
               for (final w in _widthOptions)
                 ParamDropdownItem(w, w == 0 ? '原图等比' : '$w px'),
@@ -239,6 +252,7 @@ class _BatchParameterFormState extends State<BatchParameterForm> {
           label: '高度',
           child: ParamDropdownField<int>(
             value: state.height,
+            labelOverride: _dimensionLabel(state.height),
             items: [
               for (final h in _widthOptions)
                 ParamDropdownItem(h, h == 0 ? '原图等比' : '$h px'),

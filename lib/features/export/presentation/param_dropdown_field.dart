@@ -22,6 +22,7 @@ class ParamDropdownField<T> extends StatefulWidget {
     required this.onChanged,
     this.enabled = true,
     this.valueLabelBuilder,
+    this.labelOverride,
   });
 
   /// 当前选中值(收起态显示其 label)。
@@ -40,6 +41,11 @@ class ParamDropdownField<T> extends StatefulWidget {
   /// 为 null 时保持原行为(取 [items] 首项展示)。
   final String Function(T value)? valueLabelBuilder;
 
+  /// 收起态文案覆盖(优先级最高;菜单项/勾选逻辑不受影响)。
+  /// 用于选中值仍在 [items] 内、但需按联动状态换文案的场景
+  /// (如批量设置页选倍数后宽高显示"原图等比 0.75")。
+  final String? labelOverride;
+
   @override
   State<ParamDropdownField<T>> createState() => _ParamDropdownFieldState<T>();
 }
@@ -49,6 +55,8 @@ class _ParamDropdownFieldState<T> extends State<ParamDropdownField<T>> {
   OverlayEntry? _menuEntry;
 
   String get _label {
+    final override = widget.labelOverride;
+    if (override != null) return override;
     for (final item in widget.items) {
       if (item.value == widget.value) return item.label;
     }
