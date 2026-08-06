@@ -102,6 +102,50 @@ void main() {
     expect(find.byType(RangeSlider), findsOneWidget);
   });
 
+  testWidgets('回归:预览就绪前首帧 build → 就绪后滑块自动启用', (tester) async {
+    // 生产时序:首帧 build 时预览未就绪(微任务 load 尚未完成)→
+    // 滑块禁用;预览迁移 ready 后必须响应式重建 → 滑块启用
+    // (回归 0376c13:ready 用 read 快照,就绪只通知兄弟节点,滑块
+    // 永远禁用)
+    port = FakePlayerPort();
+    await tester.pumpWidget(wrap());
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(TimelineBar)),
+    );
+    container.listen(previewControllerProvider, (_, _) {});
+    container
+        .read(timelineControllerProvider.notifier)
+        .init(
+          videoDuration: const Duration(seconds: 10),
+          start: const Duration(seconds: 2),
+          end: const Duration(seconds: 8),
+        );
+
+    // 预览未就绪:滑块禁用(不可拖)
+    await tester.pump();
+    final disabledSlider = tester.widget<RangeSlider>(find.byType(RangeSlider));
+    expect(disabledSlider.onChanged, isNull, reason: '未就绪禁用');
+
+    // 预览迁移 ready:滑块自动启用(响应式 watch 触发重建)
+    await container
+        .read(previewControllerProvider.notifier)
+        .load(
+          const VideoInfo(
+            path: '/tmp/videos/demo.mp4',
+            formatName: 'mp4',
+            duration: Duration(seconds: 10),
+            width: 640,
+            height: 360,
+            fps: 30,
+            codec: 'h264',
+          ),
+        );
+    await tester.pump();
+    await tester.pump();
+    final enabledSlider = tester.widget<RangeSlider>(find.byType(RangeSlider));
+    expect(enabledSlider.onChanged, isNotNull, reason: '就绪后启用');
+  });
+
   testWidgets('拖动右句柄 → commitRange 更新选区并 seek', (tester) async {
     await readyAndInit(tester);
 
