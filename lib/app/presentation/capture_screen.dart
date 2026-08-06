@@ -14,6 +14,8 @@ import 'package:chameleon_gif/domain/value_objects/capture_params.dart';
 import 'package:chameleon_gif/domain/value_objects/capture_source.dart';
 import 'package:chameleon_gif/features/camera/infrastructure/camera_port_impl.dart';
 import 'package:chameleon_gif/features/camera/infrastructure/camera_preview_providers.dart';
+import 'package:chameleon_gif/features/camera/infrastructure/desktop_preview_providers.dart';
+import 'package:chameleon_gif/features/camera/presentation/desktop_preview_view.dart';
 import 'package:chameleon_gif/shared/providers/core_providers.dart';
 import '../application/providers.dart';
 
@@ -120,9 +122,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   Future<void> _stop() async {
     setState(() => _phase = _CapturePhase.finishing);
     final port = ref.read(cameraPortProvider);
-    if (port is CameraPortImpl) {
-      await port.stopCapture(); // 保存信号
-    }
+    await port.requestStop(); // 保存信号(接口统一:Android/桌面同语义)
   }
 
   String get _countdown {
@@ -134,6 +134,8 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   @override
   Widget build(BuildContext context) {
     final preview = ref.watch(cameraControllerProvider);
+    // 桌面截帧预览流(Android null;预览会话生命周期经 provider 收敛)
+    final desktopFrames = ref.watch(desktopPreviewFramesProvider).value;
     final recording = _phase == _CapturePhase.recording;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       // 黑色取景底:状态栏图标恒浅色(自绘顶栏,无 Scaffold.appBar 托管)
@@ -150,9 +152,17 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
               child: preview.when(
                 data: (controller) {
                   final port = ref.read(cameraPortProvider);
-                  final active = port is CameraPortImpl
-                      ? port.activeController
-                      : null;
+                  // 桌面截帧预览:帧流就绪 → JPEG 帧渲染;
+                  // 预览不可用/无设备 → 盲拍兜底(录完回放确认,docs/18 D4)
+                  if (port is! CameraPortImpl) {
+                    final frames = desktopFrames;
+                    if (frames != null) {
+                      return DesktopPreviewView(frames: frames);
+                    }
+                    return const _BlindPlaceholder();
+                  }
+                  // Android:插件取景框(activeController 会话重建保护)
+                  final active = port.activeController;
                   final effective = active ?? controller;
                   return effective == null
                       ? const _Placeholder(text: '未检测到摄像头,请检查相机权限')
@@ -247,6 +257,44 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 预览不可用兜底占位(docs/18 D4):流预览启动失败/无设备时,录制
+/// 完成后自动导入工作台回放确认;恒静态(无重试)。
+class _BlindPlaceholder extends StatelessWidget {
+  const _BlindPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.videocam_off_outlined,
+            color: Colors.white70,
+            size: 48,
+          ),
+          const SizedBox(height: 12),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              '相机预览不可用\n录制完成后自动导入工作台回放确认',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '相机参数可在应用设置中调整',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.white54),
+          ),
+        ],
       ),
     );
   }

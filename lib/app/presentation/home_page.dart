@@ -1,9 +1,9 @@
-import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/import/application/import_providers.dart';
+import '../application/capture_entry_providers.dart';
 import 'import_actions.dart';
 
 /// 主页:品牌区 + 功能入口(图片制作 GIF / 导入 MP4 / 批量导入 /
@@ -21,8 +21,13 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 采集入口平台态(渲染决策,UI 层判定):Android 常亮,桌面置灰
-    final isAndroid = defaultTargetPlatform == TargetPlatform.android;
+    // 采集入口能力态(渲染决策,UI 层经 provider 判定;loading 按禁用
+    // 渲染防闪亮,探测完成自动刷新 —— 插上摄像头/切会话即恢复)
+    final cameraAvailable =
+        ref.watch(cameraEntryAvailableProvider).value ?? false;
+    final recordCaps = ref.watch(recordEntryAvailableProvider).value;
+    final recordAvailable = recordCaps?.screenCaptureAvailable ?? false;
+    final recordHint = recordCaps?.hint ?? '屏幕录制暂不可用';
     return Scaffold(
       appBar: AppBar(
         // ellipsis:窄窗口下标题截断,避免与 3 个快捷入口 IconButton
@@ -81,14 +86,13 @@ class HomePage extends ConsumerWidget {
             // 按钮区下沉到底部
             const Spacer(),
             // 视频来源组:相机拍摄 / 屏幕录制(纵向排列,与其他入口同列;
-            // Android 常亮;桌面置灰 + tooltip,采集能力属平台态,
-            // UI 层 defaultTargetPlatform 判定)
+            // 能力驱动置灰 + tooltip,不隐藏 —— 环境动态,探测自动刷新)
             _SourceEntry(
               icon: Icons.photo_camera_outlined,
               label: '相机拍摄',
               subtitle: '拍一段→转GIF',
-              enabled: isAndroid,
-              tooltip: '未检测到摄像头(桌面采集将在后续版本开放)',
+              enabled: cameraAvailable,
+              tooltip: '未检测到摄像头',
               onPressed: () => openCaptureScreen(context, ref),
             ),
             const SizedBox(height: 12),
@@ -96,8 +100,8 @@ class HomePage extends ConsumerWidget {
               icon: Icons.screen_share_outlined,
               label: '屏幕录制',
               subtitle: '录一段→转GIF',
-              enabled: isAndroid,
-              tooltip: '桌面采集将在后续版本开放',
+              enabled: recordAvailable,
+              tooltip: recordHint,
               onPressed: () => openRecordScreen(context, ref),
             ),
             const SizedBox(height: 12),

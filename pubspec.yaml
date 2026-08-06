@@ -43,6 +43,12 @@ dependencies:
   logger: ^2.7.0
 
   # 媒体:播放(预览)
+  # media_kit 本地化(third_party/):桌面相机实时预览(拍摄页 UDP/http 流)
+  # 受其硬编码 cache-on-disk=yes 阻塞(不可 seek 流 → mpv 磁盘缓存创建
+  # 失败 → 黑屏,已实测);本地补丁移除该参数(内存缓存 cache=yes 保留,
+  # 本地文件播放不受影响)。hosted 声明供 media_kit_video 传递解析,
+  # 实际取 third_party 补丁版(dependency_overrides)。与 ffmpeg_kit_flutter
+  # 本地化先例同型。
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
   media_kit_libs_video: ^1.0.7
@@ -107,3 +113,8 @@ flutter:
   assets:
     - assets/images/
   #   - assets/i18n/
+
+# 依赖覆盖:media_kit 本地补丁版(移除 cache-on-disk,见上方 media_kit 注释)。
+dependency_overrides:
+  media_kit:
+    path: third_party/media_kit

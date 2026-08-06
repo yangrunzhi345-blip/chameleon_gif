@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../value_objects/camera_types.dart';
 import '../value_objects/capture_params.dart';
 import '../value_objects/capture_result.dart';
@@ -24,4 +26,31 @@ abstract interface class CameraPort {
     required CaptureParams params,
     CancelToken? cancelToken,
   });
+
+  /// 是否支持实时取景预览(Android 取景框;桌面盲拍 → false,
+  /// 录完在工作台回放确认,docs/18 D4)。同步 getter,零副作用:
+  /// 拍摄页取景形态是端口级恒定属性,不应付 queryCapabilities
+  /// 的会话初始化代价(Android 该探测会建立相机会话)。
+  bool get previewSupported;
+
+  /// 手动停止当前录制(保存;录制中由页面停止按钮调用)。
+  ///
+  /// 与 [capture] 的 [cancelToken] 取消语义对立:停止 = 正常保存结束,
+  /// 取消 = 清理临时产物不落位。
+  Future<void> requestStop();
+
+  /// 启动实时预览(docs/18 里程碑 4;桌面截帧预览:ffmpeg image2pipe
+  /// 周期性输出 JPEG 帧,经 Image.memory 渲染)。
+  ///
+  /// 返回 JPEG 帧流(每帧独立完整 JPEG);null = 启动失败或不适用
+  /// (Android 取景经插件 surface,恒 null)。幂等:同设备同参数已预览
+  /// → 直接返回现有流。流的生命周期由 [stopPreview] 结束。
+  Future<Stream<Uint8List>?> startPreview({
+    required String deviceId,
+    required CaptureParams params,
+  });
+
+  /// 停止实时预览(幂等;录制开始前由 [capture] 内部收敛 —— v4l2 设备
+  /// 独占,预览与采集不可并存)。
+  Future<void> stopPreview();
 }

@@ -57,6 +57,11 @@ abstract class CaptureParams with _$CaptureParams {
 
     /// 桌面端:素材目录;null = 默认 capturesDir
     String? outputDir,
+
+    /// 桌面端第二档控制项(v4l2-ctl 语义:控制名 → 目标值,如
+    /// {'brightness': 10};由设置页动态面板生成;Android 忽略)。
+    /// 空 map 表示不调整(设备保持当前值)。
+    @Default(<String, int>{}) Map<String, int> v4l2Controls,
   }) = _CaptureParams;
 
   factory CaptureParams.fromJson(Map<String, dynamic> json) =>

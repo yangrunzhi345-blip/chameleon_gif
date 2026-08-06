@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:chameleon_gif/domain/repository_interfaces/camera_port.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
 import 'package:chameleon_gif/domain/value_objects/camera_types.dart';
@@ -15,6 +17,7 @@ class FakeCameraPort implements CameraPort {
     this.capabilities = const CameraCapabilities(),
     this.onCapture,
     this.error,
+    this.previewSupported = true,
   });
 
   /// 枚举返回的设备列表。
@@ -34,7 +37,18 @@ class FakeCameraPort implements CameraPort {
   /// 常错注入(模拟授权拒绝等);非空时 capture 直接抛。
   Object? error;
 
+  /// 取景能力(盲拍测试置 false;可变 —— 容器持有对象引用,
+  /// 测试中途改字段无需重建容器)。
+  @override
+  bool previewSupported;
+
+  /// 预览行为注入:startPreview 返回的 JPEG 帧流(null = 启动失败)。
+  Stream<Uint8List>? previewFrames;
+
   final captureCalls = <CaptureParams>[];
+  final requestStopCalls = <int>[];
+  final startPreviewCalls = <String>[];
+  final stopPreviewCalls = <int>[];
   final applyParamsCalls = <CaptureParams>[];
   final enumerateDevicesCalls = <int>[];
   final queryCapabilitiesCalls = <String>[];
@@ -69,5 +83,24 @@ class FakeCameraPort implements CameraPort {
   Future<CameraCapabilities> queryCapabilities(String deviceId) async {
     queryCapabilitiesCalls.add(deviceId);
     return capabilities;
+  }
+
+  @override
+  Future<void> requestStop() async {
+    requestStopCalls.add(1);
+  }
+
+  @override
+  Future<Stream<Uint8List>?> startPreview({
+    required String deviceId,
+    required CaptureParams params,
+  }) async {
+    startPreviewCalls.add(deviceId);
+    return previewFrames;
+  }
+
+  @override
+  Future<void> stopPreview() async {
+    stopPreviewCalls.add(1);
   }
 }

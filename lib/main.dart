@@ -7,13 +7,12 @@ import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'app/application/capture_platform_factory.dart';
 import 'app/app.dart';
 import 'core/logger/app_logger.dart';
 import 'core/utils/startup_tracer.dart';
-import 'features/camera/infrastructure/camera_port_impl.dart';
 import 'features/converter/application/ffmpeg_service_engine.dart';
 import 'features/converter/infrastructure/ffprobe_parse_video_port.dart';
-import 'features/screen_record/infrastructure/screen_recorder_port_impl.dart';
 import 'shared/platform/platform_adapter.dart';
 import 'shared/providers/core_providers.dart';
 import 'shared/repositories/schemas/export_history_schema.dart';
@@ -55,6 +54,12 @@ Future<void> main() async {
   final prefs = await SharedPreferences.getInstance();
   tracer.mark('t4 prefs 完成');
   final adapter = PlatformAdapter();
+  // 采集端口选型工厂(Android 插件/原生桥;桌面 ffmpeg 采集,见工厂注释)
+  final captureFactory = CapturePlatformFactory(
+    adapter: adapter,
+    logger: logger,
+  );
+  final capturesDir = Directory('${docsDir.path}/chameleon_gif/captures');
 
   runApp(
     ProviderScope(
@@ -77,25 +82,16 @@ Future<void> main() async {
             logger: logger,
           ),
         ),
-        // Android 相机拍摄(桌面亦注入:端口枚举空列表 → 页面空态)
+        // 相机拍摄端口(Android = camera 插件;桌面 = ffmpeg v4l2/dshow 采集)
         cameraPortProvider.overrideWithValue(
-          CameraPortImpl(
-            capturesDir: Directory('${docsDir.path}/chameleon_gif/captures'),
-            adapter: adapter,
-            logger: logger,
-            // 素材竖屏化(media_kit 不应用 rotation,拍摄素材重编码竖屏)
-            rotationProbe: adapter.createFfprobeExecutor(),
-            rotateEngine: adapter.createFfmpegEngine(),
-          ),
+          captureFactory.createCameraPort(capturesDir: capturesDir),
         ),
-        // Android 录屏(自写 MediaProjection 原生桥;桌面亦注入:
-        // 通道 MissingPluginException → 录制失败提示)
+        // 录屏端口(Android = MediaProjection 原生桥;桌面 = ffmpeg
+        // gdigrab/x11grab/pipewire 采集)
         screenRecorderPortProvider.overrideWithValue(
-          ScreenRecorderPortImpl(
-            capturesDir: Directory('${docsDir.path}/chameleon_gif/captures'),
+          captureFactory.createScreenRecorderPort(
+            capturesDir: capturesDir,
             tempDir: Directory.systemTemp,
-            adapter: adapter,
-            logger: logger,
           ),
         ),
       ],

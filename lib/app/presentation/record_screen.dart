@@ -8,8 +8,8 @@ import 'package:chameleon_gif/domain/exceptions/file_pick_exception.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
 import 'package:chameleon_gif/domain/value_objects/capture_source.dart';
 import 'package:chameleon_gif/domain/value_objects/record_params.dart';
-import 'package:chameleon_gif/features/screen_record/infrastructure/screen_recorder_port_impl.dart';
 import 'package:chameleon_gif/shared/providers/core_providers.dart';
+import '../application/capture_entry_providers.dart';
 import '../application/providers.dart';
 
 /// 录制页状态机。
@@ -84,14 +84,12 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     }
   }
 
-  /// 停止按钮:经端口调原生 stopRecording(保存);record 的挂起 Result
-  /// 由原生结束信号驱动返回。
+  /// 停止按钮:经端口 requestStop(保存);record 的挂起 Result 由
+  /// 结束信号驱动返回(接口统一:Android 原生通道 / 桌面 SIGTERM)。
   Future<void> _stop() async {
     setState(() => _phase = _RecordPhase.finishing);
     final port = ref.read(screenRecorderPortProvider);
-    if (port is ScreenRecorderPortImpl) {
-      await port.requestStop(); // 原生 stopRecording(保存)
-    }
+    await port.requestStop();
   }
 
   String get _countdown {
@@ -102,6 +100,12 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 能力驱动渲染(区域 UI/授权文案/开始可用性);loading 按禁用防闪亮
+    final caps = ref.watch(recordCapabilitiesProvider).value;
+    final available = caps?.screenCaptureAvailable ?? false;
+    final requiresConsent = caps?.requiresSystemConsent ?? false;
+    final supportsRegions = caps?.supportsRegions ?? false;
+    final hint = caps?.hint ?? '当前环境不支持屏幕录制';
     return Scaffold(
       appBar: AppBar(title: const Text('屏幕录制')),
       body: Padding(
@@ -109,7 +113,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 敏感内容确认横幅(录制范围确认,启动时展示)
+            // 敏感内容确认横幅(录制范围确认,启动时展示;平台无关)
             Card(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: Padding(
@@ -123,7 +127,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                     const SizedBox(width: 12),
                     const Expanded(
                       child: Text(
-                        '将录制整个屏幕(可能包含通知等敏感内容),仅用于生成 GIF,'
+                        '将录制屏幕内容(可能包含通知等敏感信息),仅用于生成 GIF,'
                         '请勿录制含敏感信息的内容',
                       ),
                     ),
@@ -131,6 +135,11 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                 ),
               ),
             ),
+            // 区域选择(桌面 x11grab/gdigrab;Android/Wayland 无此能力)
+            if (supportsRegions) ...[
+              const SizedBox(height: 16),
+              const _RegionSelector(),
+            ],
             const Spacer(),
             // 录制中:顶部倒计时 + 停止按钮;否则开始按钮
             if (_phase == _RecordPhase.recording) ...[
@@ -161,14 +170,16 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
               const SizedBox(height: 8),
               Center(
                 child: Text(
-                  '返回主屏后录制继续(状态栏通知可取消)',
+                  requiresConsent ? '返回主屏后录制继续(状态栏通知可取消)' : '返回页面将取消本次录制',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
             ] else ...[
               Center(
                 child: FilledButton.icon(
-                  onPressed: _phase == _RecordPhase.idle ? _start : null,
+                  onPressed: _phase == _RecordPhase.idle && available
+                      ? _start
+                      : null,
                   icon: const Icon(Icons.screen_share_outlined),
                   label: const Text('开始录制'),
                 ),
@@ -176,7 +187,12 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
               const SizedBox(height: 8),
               Center(
                 child: Text(
-                  '每次录制需系统授权;拒绝后可在本页重新发起',
+                  available
+                      ? (requiresConsent
+                            ? '每次录制需系统授权;拒绝后可在本页重新发起'
+                            : '录制完成后自动导入工作台回放确认')
+                      : hint,
+                  textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
@@ -185,6 +201,121 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 录制区域选择(全屏 / 自定义;桌面 x11grab/gdigrab 能力)。
+///
+/// 变更即持久化(record_params,与录制页启动读取同源);纯渲染与转发,
+/// 无业务逻辑(数值解析容错除外)。
+class _RegionSelector extends ConsumerWidget {
+  const _RegionSelector();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repo = ref.watch(settingsRepositoryProvider);
+    final params = repo.recordParams ?? const RecordParams();
+    final custom = params.regionMode == RecordRegion.custom;
+
+    Future<void> save(RecordParams next) => repo.setRecordParams(next);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('录制区域', style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 8),
+            SegmentedButton<RecordRegion>(
+              segments: const [
+                ButtonSegment(
+                  value: RecordRegion.fullscreen,
+                  label: Text('全屏'),
+                ),
+                ButtonSegment(value: RecordRegion.custom, label: Text('自定义区域')),
+              ],
+              selected: {params.regionMode},
+              onSelectionChanged: (s) =>
+                  save(params.copyWith(regionMode: s.first)),
+            ),
+            if (custom) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _NumberField(
+                      label: '起点 X',
+                      value: params.regionX,
+                      onChanged: (v) => save(params.copyWith(regionX: v)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _NumberField(
+                      label: '起点 Y',
+                      value: params.regionY,
+                      onChanged: (v) => save(params.copyWith(regionY: v)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _NumberField(
+                      label: '宽度',
+                      value: params.regionWidth,
+                      onChanged: (v) => save(params.copyWith(regionWidth: v)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _NumberField(
+                      label: '高度',
+                      value: params.regionHeight,
+                      onChanged: (v) => save(params.copyWith(regionHeight: v)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 数字输入框(非负整数;空/非法输入不更新,防误改)。
+class _NumberField extends StatelessWidget {
+  const _NumberField({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final int? value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        border: const OutlineInputBorder(),
+      ),
+      controller: TextEditingController(text: value?.toString() ?? ''),
+      onChanged: (text) {
+        final v = int.tryParse(text.trim());
+        if (v == null || v < 0) return;
+        onChanged(v);
+      },
     );
   }
 }

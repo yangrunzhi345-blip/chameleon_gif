@@ -41,6 +41,7 @@ class ScreenRecorderPortImpl implements ScreenRecorderPort {
   final ScreenRecordChannel _channel;
   final CaptureCommitter _committer;
 
+  @override
   /// 手动停止当前录制(保存;录制中由页面停止按钮调用,经原生通道)。
   Future<void> requestStop() async {
     await _channel.stopRecording();
@@ -54,8 +55,12 @@ class ScreenRecorderPortImpl implements ScreenRecorderPort {
 
   @override
   Future<RecordCapabilities> queryCapabilities() async {
-    // Android MediaProjection 恒可用(授权在录制页内引导)
-    return const RecordCapabilities(screenCaptureAvailable: true);
+    // Android MediaProjection 恒可用(授权在录制页内引导);
+    // 每次录制需系统授权(Android 14 起强制,UI 文案据此渲染)
+    return const RecordCapabilities(
+      screenCaptureAvailable: true,
+      requiresSystemConsent: true,
+    );
   }
 
   @override

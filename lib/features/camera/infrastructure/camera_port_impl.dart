@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/services.dart' show MissingPluginException;
@@ -128,6 +129,25 @@ class CameraPortImpl implements CameraPort {
   /// 手动停止当前录制(保存;录制中由页面停止按钮调用)。
   Future<void> stopCapture() async {
     _stopCompleter?.complete();
+  }
+
+  @override
+  bool get previewSupported => true; // Android 插件取景框
+
+  @override
+  Future<void> requestStop() => stopCapture();
+
+  @override
+  Future<Stream<Uint8List>?> startPreview({
+    required String deviceId,
+    required domain.CaptureParams params,
+  }) async {
+    return null; // Android 取景经 camera 插件 surface,无截帧预览路径
+  }
+
+  @override
+  Future<void> stopPreview() async {
+    // Android 无独立预览进程
   }
 
   bool _devicePortrait = true;

@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fixtures/fake_camera_port.dart';
 import 'fixtures/fake_ffmpeg_service.dart';
+import 'fixtures/fake_screen_recorder_port.dart';
 
 /// P0 冒烟:应用启动 → 渲染主页 → 主题切换生效且持久化。
 ///
@@ -41,6 +42,7 @@ void main() {
         appLoggerProvider.overrideWithValue(AppLogger()),
         platformAdapterProvider.overrideWithValue(_TestAdapter(tempRoot.path)),
         cameraPortProvider.overrideWithValue(FakeCameraPort()),
+        screenRecorderPortProvider.overrideWithValue(FakeScreenRecorderPort()),
         appDocsDirProvider.overrideWithValue(Directory(tempRoot.path)),
         taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
         historyRepositoryProvider.overrideWithValue(

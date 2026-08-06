@@ -1,0 +1,4 @@
+USB2.0 HD UVC WebCam: USB2.0 HD (usb-0000:36:00.3-4):
+	/dev/video0
+	/dev/video1
+	/dev/media0
