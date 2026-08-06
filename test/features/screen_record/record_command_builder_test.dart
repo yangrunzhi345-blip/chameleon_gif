@@ -114,7 +114,7 @@ void main() {
       );
     });
 
-    test('自定义区域:-g WxH+X+Y;光标关:无 -c', () {
+    test('自定义区域:-g "X,Y WxH"(实测 0.6.0 语法,slurp 加号式会录全屏)', () {
       final params = defaultParams.copyWith(
         regionMode: RecordRegion.custom,
         regionX: 100,
@@ -129,7 +129,7 @@ void main() {
           kind: RecordCommandKind.wfRecorder,
           outputPath: '/tmp/out.mp4',
         ),
-        ['-r', '15', '-g', '640x480+100+50', '-f', '/tmp/out.mp4'],
+        ['-r', '15', '-g', '100,50 640x480', '-f', '/tmp/out.mp4'],
       );
     });
   });

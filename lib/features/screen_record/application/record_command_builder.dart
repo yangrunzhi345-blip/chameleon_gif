@@ -67,6 +67,8 @@ class RecordCommandBuilder {
         // Wayland(wlr-screencopy):-r 帧率、-g 区域(全屏省略)、
         // -f 输出文件;无 -t(进程常驻,由端口层停止/超时终止);
         // 光标恒带(无开关,wf-recorder 0.6 无 cursor 选项)
+        // 注意:-g 语法为 "X,Y WxH"(逗号+空格,与 slurp 输出的
+        // "WxH+X+Y" 不同;实测 0.6.0 用 slurp 语法会忽略区域录全屏)
         final isCustom =
             params.regionMode == RecordRegion.custom &&
             params.regionWidth != null &&
@@ -76,8 +78,8 @@ class RecordCommandBuilder {
           fps,
           if (isCustom) ...[
             '-g',
-            '${params.regionWidth}x${params.regionHeight}'
-                '+${params.regionX ?? 0}+${params.regionY ?? 0}',
+            '${params.regionX ?? 0},${params.regionY ?? 0} '
+                '${params.regionWidth}x${params.regionHeight}',
           ],
           '-f',
           outputPath,
