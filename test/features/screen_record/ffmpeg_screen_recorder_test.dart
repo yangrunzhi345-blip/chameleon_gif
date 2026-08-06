@@ -21,6 +21,7 @@ void main() {
   late Directory capturesDir;
   late FakeProcess lastProcess;
   late List<String> lastArgs;
+  late String lastExe;
 
   setUp(() async {
     tempRoot = await Directory.systemTemp.createTemp('record_');
@@ -32,11 +33,15 @@ void main() {
   });
 
   /// 假 runner:[exitCode] 非空 = 启动即退出;空 = 运行中(由停止/取消终止)。
+  /// 输出路径:ffmpeg 分支 `-y` 后;wf-recorder 分支 `-f` 后。
   CaptureProcessRunner fakeRunner({int? exitCode}) => CaptureProcessRunner(
     startProcess: (exe, args) async {
+      lastExe = exe;
       lastArgs = args;
       lastProcess = FakeProcess(exitCode: exitCode);
-      final out = args[args.indexOf('-y') + 1];
+      final yIdx = args.indexOf('-y');
+      final fIdx = args.indexOf('-f');
+      final out = yIdx >= 0 ? args[yIdx + 1] : args[fIdx + 1];
       File(out).writeAsStringSync('partial');
       return lastProcess;
     },
@@ -106,24 +111,25 @@ void main() {
     expect(File(result.finalPath).existsSync(), isTrue);
   });
 
-  test('pipewire:auto 输入,成功落位', () async {
-    final recorder = buildRecorder(method: RecordCaptureMethod.pipewire);
+  test('wfRecorder:-r 帧率 + 全屏,成功落位(executable=wf-recorder)', () async {
+    final recorder = buildRecorder(method: RecordCaptureMethod.wfRecorder);
     final result = await recorder.record(
       params: const RecordParams(maxDurationMs: 1000),
       cancelToken: null,
     );
-    expect(lastArgs, containsAllInOrder(['-f', 'pipewire', '-i', 'auto']));
+    expect(lastArgs, containsAllInOrder(['-r', '15', '-f']));
+    expect(lastExe, 'wf-recorder', reason: 'Wayland 用 wf-recorder 可执行');
     expect(File(result.finalPath).existsSync(), isTrue);
   });
 
-  test('pipewire 启动失败(portal 缺失)→ 中文指引', () async {
+  test('wfRecorder 启动失败 → 中文指引(wlr-screencopy 支持)', () async {
     final recorder = buildRecorder(
-      method: RecordCaptureMethod.pipewire,
+      method: RecordCaptureMethod.wfRecorder,
       runner: CaptureProcessRunner(
         startProcess: (exe, args) async {
           lastProcess = FakeProcess(
             exitCode: 1,
-            stderrData: 'Failed to connect to PipeWire\n',
+            stderrData: 'Failed to connect to display\n',
           );
           return lastProcess;
         },
@@ -135,7 +141,7 @@ void main() {
         isA<CaptureException>().having(
           (e) => e.userMessage,
           'userMessage',
-          contains('xdg-desktop-portal'),
+          contains('wlr-screencopy'),
         ),
       ),
     );

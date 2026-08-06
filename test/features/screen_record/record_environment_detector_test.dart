@@ -6,13 +6,13 @@ import 'package:chameleon_gif/features/screen_record/application/record_environm
 void main() {
   test('wayland 会话 → pipewire', () {
     final env = detectRecordEnvironment(sessionType: 'wayland', display: ':1');
-    expect(env.method, RecordCaptureMethod.pipewire);
+    expect(env.method, RecordCaptureMethod.wfRecorder);
     expect(env.display, isNull);
   });
 
   test('Wayland 大小写不敏感', () {
     final env = detectRecordEnvironment(sessionType: 'Wayland', display: null);
-    expect(env.method, RecordCaptureMethod.pipewire);
+    expect(env.method, RecordCaptureMethod.wfRecorder);
   });
 
   test('x11 会话 → x11grab,透传 display', () {
