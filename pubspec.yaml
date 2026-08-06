@@ -79,6 +79,10 @@ dependencies:
   # minSdk 24+;manifest 自带 CAMERA 权限 + 运行时自动请求)
   camera: ^0.12.0
 
+  # 窗口管理(桌面):录屏「框选录制范围」全屏截图遮罩(X11/Windows 用;
+  # transparent 须创建时指定,故采用不透明全屏 + 截图背景,见 docs/19)
+  window_manager: ^0.5.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

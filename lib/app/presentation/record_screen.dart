@@ -8,6 +8,7 @@ import 'package:chameleon_gif/domain/exceptions/file_pick_exception.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
 import 'package:chameleon_gif/domain/value_objects/capture_source.dart';
 import 'package:chameleon_gif/domain/value_objects/record_params.dart';
+import 'package:chameleon_gif/features/screen_record/application/region_picker.dart';
 import 'package:chameleon_gif/shared/providers/core_providers.dart';
 import '../application/capture_entry_providers.dart';
 import '../application/providers.dart';
@@ -227,6 +228,7 @@ class _RegionSelector extends ConsumerStatefulWidget {
 
 class _RegionSelectorState extends ConsumerState<_RegionSelector> {
   late RecordParams _params;
+  bool _picking = false;
 
   @override
   void initState() {
@@ -241,10 +243,33 @@ class _RegionSelectorState extends ConsumerState<_RegionSelector> {
     await ref.read(settingsRepositoryProvider).setRecordParams(next);
   }
 
+  /// 鼠标框选录制范围(真实屏幕;slurp 交互选区)。
+  Future<void> _pickRegion() async {
+    final picker = ref.read(screenRegionPickerProvider);
+    setState(() => _picking = true);
+    try {
+      final region = await picker.pick();
+      if (region == null || !mounted) return; // 取消/失败:不更新
+      await _update(
+        _params.copyWith(
+          regionX: region.x,
+          regionY: region.y,
+          regionWidth: region.width,
+          regionHeight: region.height,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final params = _params;
     final custom = params.regionMode == RecordRegion.custom;
+    final regionPickerAvailable = ref
+        .read(screenRegionPickerProvider)
+        .isAvailable;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -265,6 +290,21 @@ class _RegionSelectorState extends ConsumerState<_RegionSelector> {
               onSelectionChanged: (s) =>
                   _update(params.copyWith(regionMode: s.first)),
             ),
+            if (custom && regionPickerAvailable) ...[
+              const SizedBox(height: 12),
+              // 鼠标框选(Wayland slurp:全屏选区框,拖拽选取录制范围)
+              FilledButton.tonalIcon(
+                onPressed: _picking ? null : _pickRegion,
+                icon: _picking
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.crop_free),
+                label: Text(_picking ? '在屏幕上拖拽选择区域…' : '框选录制范围'),
+              ),
+            ],
             if (custom) ...[
               const SizedBox(height: 12),
               Row(

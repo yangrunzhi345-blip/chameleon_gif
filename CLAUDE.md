@@ -68,6 +68,7 @@ git push
 | 文件选择 | `file_picker` | `^11.0.3` | 选择 MP4 源文件 |
 | **相机拍摄** | `camera` | `^0.12.0` | Android 拍摄(CameraX 后端,自动带 camera_android_camerax;白平衡/ISO 无 API,自动白平衡) |
 | 文件选择 | `file_selector` | `^1.1.0` | 官方方案,保存 GIF 对话框 |
+| 窗口管理 | `window_manager` | `^0.5.2` | 录屏区域框选全屏遮罩(X11/Windows;`transparent` 创建时限定不可切换,采用不透明全屏+截图背景,见 docs/19) |
 | 代码生成 | `build_runner` | `2.15.1`(精确,见注) | 运行 freezed/isar/riverpod 生成器 |
 | 分析 | `flutter_lints` | `^6.0.0` | 官方 lint(riverpod_lint 暂缓引入) |
 | 工具 | `meta` | `^1.18.0` | 注解(visibleForTesting 等) |

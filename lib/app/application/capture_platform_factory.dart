@@ -1,12 +1,17 @@
 import 'dart:io' show Directory, Platform;
 
+import 'package:flutter/material.dart' show GlobalKey, NavigatorState;
 import 'package:chameleon_gif/core/logger/app_logger.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/camera_port.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/screen_recorder_port.dart';
 import 'package:chameleon_gif/features/camera/infrastructure/camera_port_impl.dart';
 import 'package:chameleon_gif/features/camera/infrastructure/ffmpeg_camera_port.dart';
+import 'package:chameleon_gif/features/screen_record/application/record_command_builder.dart'
+    show RecordCommandKind;
+import 'package:chameleon_gif/features/screen_record/application/region_picker.dart';
 import 'package:chameleon_gif/features/screen_record/infrastructure/ffmpeg_screen_recorder.dart';
 import 'package:chameleon_gif/features/screen_record/infrastructure/screen_recorder_port_impl.dart';
+import 'package:chameleon_gif/features/screen_record/presentation/overlay_region_picker.dart';
 import 'package:chameleon_gif/shared/platform/platform_adapter.dart';
 
 /// 采集端口平台选型工厂(组合根;docs/18 §4.2 + docs/19 §2.3 的
@@ -65,6 +70,32 @@ class CapturePlatformFactory {
       tempDir: tempDir,
       adapter: _adapter,
       logger: _logger,
+    );
+  }
+
+  /// 录屏区域框选器:Wayland → slurp(交互选区);X11/Windows →
+  /// Composite(slurp 兜底 + 全屏截图遮罩拖拽 OverlayRegionPicker);
+  /// Android 无区域能力(供 UI supportsRegions 门控外,恒不可用)。
+  RegionPicker createRegionPicker({
+    required GlobalKey<NavigatorState> navigatorKey,
+    required Directory tempDir,
+  }) {
+    if (_isAndroid) return ScreenRegionPicker();
+    final isWayland =
+        Platform.environment['XDG_SESSION_TYPE']?.toLowerCase() == 'wayland';
+    final kind = Platform.isWindows
+        ? RecordCommandKind.gdigrab
+        : RecordCommandKind.x11grab;
+    return CompositeRegionPicker(
+      wayland: isWayland,
+      slurpPicker: ScreenRegionPicker(),
+      overlayPicker: OverlayRegionPicker(
+        navigatorKey: navigatorKey,
+        tempDir: tempDir,
+        kind: kind,
+        display: Platform.environment['DISPLAY'],
+        logger: _logger,
+      ),
     );
   }
 }
