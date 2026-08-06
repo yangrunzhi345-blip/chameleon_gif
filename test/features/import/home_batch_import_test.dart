@@ -68,6 +68,7 @@ void main() {
         previewPlayerPortProvider.overrideWithValue(FakePlayerPort()),
         platformAdapterProvider.overrideWithValue(_TestAdapter(tempRoot.path)),
         cameraPortProvider.overrideWithValue(FakeCameraPort()),
+        appDocsDirProvider.overrideWithValue(Directory(tempRoot.path)),
         taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
         historyRepositoryProvider.overrideWithValue(
           InMemoryHistoryRepository(),
@@ -175,6 +176,7 @@ void main() {
             _TestAdapter(tempRoot.path),
           ),
           cameraPortProvider.overrideWithValue(FakeCameraPort()),
+          appDocsDirProvider.overrideWithValue(Directory(tempRoot.path)),
           taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
           historyRepositoryProvider.overrideWithValue(
             InMemoryHistoryRepository(),

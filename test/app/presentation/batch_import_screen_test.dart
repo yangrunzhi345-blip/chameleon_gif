@@ -65,6 +65,7 @@ void main() {
         previewPlayerPortProvider.overrideWithValue(FakePlayerPort()),
         platformAdapterProvider.overrideWithValue(adapter),
         cameraPortProvider.overrideWithValue(FakeCameraPort()),
+        appDocsDirProvider.overrideWithValue(Directory(tempRoot.path)),
         if (pickPort != null) filePickPortProvider.overrideWithValue(pickPort),
         taskRepositoryProvider.overrideWithValue(taskRepo),
         historyRepositoryProvider.overrideWithValue(

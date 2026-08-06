@@ -41,6 +41,7 @@ void main() {
         appLoggerProvider.overrideWithValue(AppLogger()),
         platformAdapterProvider.overrideWithValue(_TestAdapter(tempRoot.path)),
         cameraPortProvider.overrideWithValue(FakeCameraPort()),
+        appDocsDirProvider.overrideWithValue(Directory(tempRoot.path)),
         taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
         historyRepositoryProvider.overrideWithValue(
           InMemoryHistoryRepository(),

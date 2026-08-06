@@ -49,9 +49,9 @@ void main() {
   }) async {
     SharedPreferences.setMockInitialValues(prefsValues);
     prefs = await SharedPreferences.getInstance();
-    // 加高测试窗口:批量参数表单 + 相机分组后,"保存设置"按钮在
-    // 1280×900 视口外(相机分组新增约 400px 内容)
-    tester.view.physicalSize = const Size(1280, 1400);
+    // 加高测试窗口:批量参数表单 + 相机/录屏/素材存储分组后,
+    // "保存设置"按钮在低视口外(各分组累计约 700px 内容)
+    tester.view.physicalSize = const Size(1280, 1700);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     final adapter = _TestAdapter(tempRoot.path);
@@ -64,6 +64,7 @@ void main() {
         previewPlayerPortProvider.overrideWithValue(FakePlayerPort()),
         platformAdapterProvider.overrideWithValue(adapter),
         cameraPortProvider.overrideWithValue(FakeCameraPort()),
+        appDocsDirProvider.overrideWithValue(Directory(tempRoot.path)),
         taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
         historyRepositoryProvider.overrideWithValue(
           InMemoryHistoryRepository(),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/utils/file_size.dart';
 import '../../domain/value_objects/app_theme_mode.dart';
 import '../application/camera_settings_controller.dart';
+import '../application/captures_storage_controller.dart';
 import '../application/record_settings_controller.dart';
 import '../application/providers.dart';
 import '../application/settings_controller.dart';
@@ -22,6 +24,67 @@ class SettingsScreen extends ConsumerStatefulWidget {
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
+/// 素材存储分组:占用统计 + 清空(二次确认;历史重转对已删素材有预检提示)。
+class _CapturesStorageGroup extends ConsumerWidget {
+  const _CapturesStorageGroup();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(capturesStorageControllerProvider);
+    final controller = ref.read(capturesStorageControllerProvider.notifier);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            state.loading
+                ? '统计中…'
+                : '拍摄/录屏素材 ${state.fileCount} 个,占用 '
+                      '${formatFileSize(state.totalBytes)}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: state.fileCount == 0
+                ? null
+                : () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('清空素材'),
+                        content: Text(
+                          '将删除全部拍摄/录屏素材文件(共 ${state.fileCount} 个,'
+                          '占用 ${formatFileSize(state.totalBytes)})。'
+                          '历史记录中的相关转换将无法重转。确定清空?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(false),
+                            child: const Text('取消'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.of(ctx).pop(true),
+                            child: const Text('清空'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true) {
+                      await controller.clear();
+                    }
+                  },
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('清空素材'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void initState() {
@@ -31,6 +94,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (!mounted) return;
       ref.read(settingsControllerProvider.notifier).init();
       ref.read(cameraSettingsControllerProvider.notifier).probe();
+      ref.read(capturesStorageControllerProvider.notifier).load();
     });
   }
 
@@ -112,6 +176,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 16),
             const SectionLabel('录屏'),
             const RecordSettingsGroup(),
+            const SizedBox(height: 24),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            const SectionLabel('素材存储'),
+            _CapturesStorageGroup(),
             const SizedBox(height: 24),
             const Divider(height: 1),
             const SizedBox(height: 16),
