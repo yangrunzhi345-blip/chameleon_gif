@@ -55,7 +55,7 @@ void main() {
       ]);
       expect(probe.exitCode, 0, reason: '${d.id} 应可采集(meta 节点已过滤)');
     }
-    expect(port.previewSupported, isFalse, reason: '桌面盲拍');
+    expect(port.previewSupported, isTrue, reason: '桌面流预览(ffmpeg → UDP)');
   });
 
   test('本机:录屏能力探测不抛异常,可用性判定可用', () async {

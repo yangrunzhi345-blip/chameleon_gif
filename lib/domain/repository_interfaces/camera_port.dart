@@ -36,4 +36,19 @@ abstract interface class CameraPort {
   /// 与 [capture] 的 [cancelToken] 取消语义对立:停止 = 正常保存结束,
   /// 取消 = 清理临时产物不落位。
   Future<void> requestStop();
+
+  /// 启动实时预览(docs/18 里程碑 4;桌面流预览:ffmpeg 推 UDP 流,
+  /// media_kit 播放)。
+  ///
+  /// 返回预览流地址(如 `udp://127.0.0.1:PORT?pkt_size=1316`);null =
+  /// 启动失败或不适用(Android 无此路径,恒 null)。幂等:同设备同参数
+  /// 已预览 → 直接返回现有地址。
+  Future<String?> startPreview({
+    required String deviceId,
+    required CaptureParams params,
+  });
+
+  /// 停止实时预览(幂等;录制开始前由 [capture] 内部收敛 —— v4l2 设备
+  /// 独占,预览与采集不可并存)。
+  Future<void> stopPreview();
 }

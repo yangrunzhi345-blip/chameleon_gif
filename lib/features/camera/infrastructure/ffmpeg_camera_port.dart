@@ -53,8 +53,17 @@ class FfmpegCameraPort implements CameraPort {
   /// capture 异步启动期间页面即可按停止;串行拍摄,UI 状态机保证)。
   Completer<CaptureSession?>? _sessionReady;
 
+  /// 预览会话(ffmpeg 推流进程;录制期间暂停,结束后恢复)。
+  CaptureSession? _previewSession;
+
+  /// 预览流地址(当前会话;capture 录制时双 muxer 同地址)。
+  String? _previewUrl;
+
+  /// 预览会话参数(幂等判定 + 录制后恢复)。
+  CaptureParams? _previewParams;
+
   @override
-  bool get previewSupported => false; // 桌面盲拍
+  bool get previewSupported => true; // 桌面流预览(ffmpeg → UDP → media_kit)
 
   @override
   Future<List<CameraDevice>> enumerateDevices() async {
@@ -231,16 +240,34 @@ class FfmpegCameraPort implements CameraPort {
     }
     final fileName = buildCaptureFilename(DateTime.now());
     final tmpPath = '${_adapter.systemTempDir}/$fileName';
-    final args = _commandBuilder.build(
-      params: params,
-      kind: Platform.isWindows ? CameraInputKind.dshow : CameraInputKind.v4l2,
-      input: deviceId,
-      outputPath: tmpPath,
-    );
+    // 预览激活 → 录制命令双 muxer(文件 + 同地址推流,录制中预览持续);
+    // 未预览 → 单文件(现状契约不变)
+    final previewUrl = _previewUrl;
+    final args = previewUrl != null
+        ? _commandBuilder.buildWithPreview(
+            params: params,
+            kind: Platform.isWindows
+                ? CameraInputKind.dshow
+                : CameraInputKind.v4l2,
+            input: deviceId,
+            outputPath: tmpPath,
+            previewUrl: previewUrl,
+          )
+        : _commandBuilder.build(
+            params: params,
+            kind: Platform.isWindows
+                ? CameraInputKind.dshow
+                : CameraInputKind.v4l2,
+            input: deviceId,
+            outputPath: tmpPath,
+          );
     _logger.i('拍摄启动: $deviceId\nffmpeg ${args.join(' ')}');
     final ready = Completer<CaptureSession?>();
     _sessionReady = ready;
     final CaptureSession session;
+    // 录制前停预览:v4l2 设备独占,预览与采集不可并存(录制中由
+    // 录制进程同地址推流);结束后 _restorePreview 恢复
+    if (previewUrl != null) await stopPreview();
     try {
       session = await _runner.start(
         args: args,
@@ -252,6 +279,7 @@ class FfmpegCameraPort implements CameraPort {
       _logger.e('拍摄进程启动失败', error: e, stackTrace: st);
       ready.complete(null);
       await _committer.discardTmp(tmpPath);
+      await _restorePreview();
       throw CaptureException(
         errorCode: 'GIF_CAPTURE_CAMERA_ERROR',
         userMessage: '拍摄启动失败,请确认 FFmpeg 已安装',
@@ -264,22 +292,29 @@ class FfmpegCameraPort implements CameraPort {
       Duration(milliseconds: params.maxDurationMs + 5000),
       () => session.stop(),
     );
-    final outcome = await session.waitExit();
-    watchdog.cancel();
-    _sessionReady = null;
+    final CaptureOutcome outcome;
+    try {
+      outcome = await session.waitExit();
+    } finally {
+      watchdog.cancel();
+      _sessionReady = null;
+    }
     if (outcome.cancelled) {
+      await _restorePreview();
       throw const CaptureCancelledException(); // 半成品已删,不落位
     }
     if (outcome.exitCode != 0 && !outcome.stoppedByRequest) {
       await _committer.discardTmp(tmpPath);
       // 流派发异步:进程已退出,冲刷事件循环确保 stderr 尾部就绪
       await Future<void>.delayed(Duration.zero);
+      await _restorePreview();
       throw _mapCaptureError(session.stderrTail);
     }
     _logger.i(
       '拍摄完成: $tmpPath ${outcome.elapsed.inMilliseconds}ms '
       'exit=${outcome.exitCode}',
     );
+    await _restorePreview();
     return await _committer.commit(
       tmpPath: tmpPath,
       fileName: fileName,
@@ -324,5 +359,78 @@ class FfmpegCameraPort implements CameraPort {
     if (ready == null) return;
     final session = await ready.future;
     await session?.stop(); // SIGTERM 优雅封口(保存)
+  }
+
+  @override
+  Future<String?> startPreview({
+    required String deviceId,
+    required CaptureParams params,
+  }) async {
+    // 参数匹配(同设备同帧率):已在预览 → 复用;进程已停(录制后恢复)
+    // → 复用**同地址**重启(播放器无需重连,实测关键)
+    final match =
+        _previewParams?.deviceId == deviceId &&
+        _previewParams?.fps == params.fps;
+    if (match && _previewSession != null) return _previewUrl;
+    await stopPreview();
+    var url = match ? _previewUrl : null;
+    if (url == null) {
+      // 新设备/首次:空闲端口分配(bind 0 探测后释放;竞态概率极低)
+      final int port;
+      try {
+        final socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+        port = socket.port;
+        await socket.close();
+      } catch (e, st) {
+        _logger.w('预览端口分配失败', error: e, stackTrace: st);
+        return null;
+      }
+      url = 'udp://127.0.0.1:$port?pkt_size=1316';
+    }
+    final args = _commandBuilder.buildPreview(
+      params: params,
+      kind: Platform.isWindows ? CameraInputKind.dshow : CameraInputKind.v4l2,
+      input: deviceId,
+      previewUrl: url,
+    );
+    _logger.i('预览启动: $deviceId → $url\nffmpeg ${args.join(' ')}');
+    try {
+      final session = await _runner.start(
+        args: args,
+        outputPath: '', // 预览无输出文件
+        onLog: (line) => _logger.d('预览 ffmpeg: $line'),
+      );
+      _previewSession = session;
+      _previewUrl = url;
+      // 存储时合并 deviceId(调用方参数可能不含;幂等/恢复判定依赖)
+      _previewParams = params.copyWith(deviceId: deviceId);
+      return url;
+    } catch (e, st) {
+      _logger.e('预览进程启动失败', error: e, stackTrace: st);
+      return null;
+    }
+  }
+
+  @override
+  Future<void> stopPreview() async {
+    final session = _previewSession;
+    _previewSession = null;
+    // 保留 _previewUrl/_previewParams:录制后恢复预览复用同地址
+    // (设备/参数变化时由 startPreview 作废重建)
+    if (session != null) {
+      await session.stop(); // SIGTERM(推流进程无产物,终止即清理)
+    }
+  }
+
+  /// 录制结束后恢复预览(同设备同参;失败仅日志,不阻塞拍摄流程)。
+  Future<void> _restorePreview() async {
+    final params = _previewParams;
+    final deviceId = params?.deviceId;
+    if (params == null || deviceId == null) return;
+    try {
+      await startPreview(deviceId: deviceId, params: params);
+    } catch (e, st) {
+      _logger.w('录制后恢复预览失败', error: e, stackTrace: st);
+    }
   }
 }

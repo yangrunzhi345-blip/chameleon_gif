@@ -40,8 +40,13 @@ class FakeCameraPort implements CameraPort {
   @override
   bool previewSupported;
 
+  /// 预览行为注入:startPreview 返回的 URL(null = 启动失败)。
+  String? previewUrl;
+
   final captureCalls = <CaptureParams>[];
   final requestStopCalls = <int>[];
+  final startPreviewCalls = <String>[];
+  final stopPreviewCalls = <int>[];
   final applyParamsCalls = <CaptureParams>[];
   final enumerateDevicesCalls = <int>[];
   final queryCapabilitiesCalls = <String>[];
@@ -81,5 +86,19 @@ class FakeCameraPort implements CameraPort {
   @override
   Future<void> requestStop() async {
     requestStopCalls.add(1);
+  }
+
+  @override
+  Future<String?> startPreview({
+    required String deviceId,
+    required CaptureParams params,
+  }) async {
+    startPreviewCalls.add(deviceId);
+    return previewUrl;
+  }
+
+  @override
+  Future<void> stopPreview() async {
+    stopPreviewCalls.add(1);
   }
 }

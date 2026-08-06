@@ -136,6 +136,19 @@ class CameraPortImpl implements CameraPort {
   @override
   Future<void> requestStop() => stopCapture();
 
+  @override
+  Future<String?> startPreview({
+    required String deviceId,
+    required domain.CaptureParams params,
+  }) async {
+    return null; // Android 取景经 camera 插件 surface,无流预览路径
+  }
+
+  @override
+  Future<void> stopPreview() async {
+    // Android 无独立预览进程
+  }
+
   bool _devicePortrait = true;
 
   /// 记录拍摄时设备方向(拍摄页 MediaQuery 提供,陀螺仪语义;
