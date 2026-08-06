@@ -18,7 +18,9 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "8.7.0" apply false
+    // 8.9.1:camera_android_camerax 0.7.x 依赖 androidx.camera:camera-camera2-pipe
+    // 1.6.1,要求 AGP >= 8.9.1(对应 Gradle >= 8.11.1,见 gradle-wrapper.properties)
+    id("com.android.application") version "8.9.1" apply false
     id("org.jetbrains.kotlin.android") version "2.2.20" apply false
 }
 
