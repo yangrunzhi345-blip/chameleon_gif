@@ -162,6 +162,35 @@ void main() {
     expect(repo.recordParams?.regionMode, RecordRegion.fullscreen);
   });
 
+  testWidgets('重新进入:选区默认归零(清空上次框选并持久化)', (tester) async {
+    recorderPort.capabilities = const RecordCapabilities(
+      screenCaptureAvailable: true,
+      supportsRegions: true,
+    );
+    final repo = container.read(settingsRepositoryProvider);
+    await repo.setRecordParams(
+      const RecordParams(
+        regionMode: RecordRegion.custom,
+        regionX: 60,
+        regionY: 129,
+        regionWidth: 678,
+        regionHeight: 784,
+      ),
+    );
+    await pumpRecord(tester);
+
+    // 归零:自定义模式保留,但区域数值清空(输入框为空)且持久化
+    expect(repo.recordParams?.regionMode, RecordRegion.custom);
+    expect(repo.recordParams?.regionX, isNull);
+    expect(repo.recordParams?.regionY, isNull);
+    expect(repo.recordParams?.regionWidth, isNull);
+    expect(repo.recordParams?.regionHeight, isNull);
+    final xField = tester.widget<TextField>(
+      find.widgetWithText(TextField, '起点 X'),
+    );
+    expect(xField.controller?.text, isEmpty, reason: '上次框选不残留');
+  });
+
   testWidgets('录屏不可用 → 开始按钮禁用 + hint 文案', (tester) async {
     recorderPort.capabilities = const RecordCapabilities(
       screenCaptureAvailable: false,

@@ -233,9 +233,28 @@ class _RegionSelectorState extends ConsumerState<_RegionSelector> {
   @override
   void initState() {
     super.initState();
-    _params =
-        ref.read(settingsRepositoryProvider).recordParams ??
-        const RecordParams();
+    final repo = ref.read(settingsRepositoryProvider);
+    final current = repo.recordParams ?? const RecordParams();
+    if (current.regionX != null ||
+        current.regionY != null ||
+        current.regionWidth != null ||
+        current.regionHeight != null) {
+      // 需求(2026-08-07):每次重新进入录制页,选区默认归零 —— 清空
+      // 上次框选(仅区域字段;freezed copyWith 传 null 不修改,故重构造)。
+      // 持久化同步,保证「开始录制」读到归零值,不残留旧区域。
+      _params = RecordParams(
+        fps: current.fps,
+        maxDurationMs: current.maxDurationMs,
+        regionMode: current.regionMode,
+        windowTitle: current.windowTitle,
+        drawCursor: current.drawCursor,
+        aspectRatio: current.aspectRatio,
+        outputDir: current.outputDir,
+      );
+      unawaited(repo.setRecordParams(_params));
+    } else {
+      _params = current;
+    }
   }
 
   Future<void> _update(RecordParams next) async {
