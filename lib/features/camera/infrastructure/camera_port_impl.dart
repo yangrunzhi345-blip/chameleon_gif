@@ -175,7 +175,7 @@ class CameraPortImpl implements CameraPort {
     if (probe == null || engine == null) return tmpPath;
     final int? rotation;
     try {
-      rotation = parseRotationDegrees(await probe.run(tmpPath));
+      rotation = parseRotationDegrees((await probe.run(tmpPath)).probeJson);
     } catch (e, st) {
       _logger.w('旋转探测失败(按无需旋转处理)', error: e, stackTrace: st);
       return tmpPath;

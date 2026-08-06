@@ -19,6 +19,5 @@ final timelineControllerProvider =
 /// (回归 0376c13:read 快照只通知兄弟节点,滑块永远禁用)。
 final timelinePreviewReadyProvider = Provider<bool>(
   (ref) =>
-      ref.watch(previewControllerProvider).lifecycle ==
-      PreviewLifecycle.ready,
+      ref.watch(previewControllerProvider).lifecycle == PreviewLifecycle.ready,
 );
