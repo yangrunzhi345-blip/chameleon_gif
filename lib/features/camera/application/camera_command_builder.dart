@@ -25,40 +25,31 @@ enum CameraInputKind {
 class CameraCommandBuilder {
   const CameraCommandBuilder();
 
-  /// 预览流参数(与录制/推流共用):
-  /// - libx264 编码(实时预览低延迟,preset veryfast);
-  /// - 强制关键帧(x264 GOP 30 帧=2s@15fps + 表达式定时关键帧):
-  ///   播放器中途接入/录制切换时 2s 内恢复画面(实测必要);
-  /// - mpegts 封装走 UDP(单播,本地回环,低延迟)。
-  static const previewCodecArgs = [
-    '-c:v',
-    'libx264',
-    '-preset',
-    'veryfast',
-    '-g',
-    '30',
-    '-keyint_min',
-    '30',
-    '-sc_threshold',
-    '0',
-    '-force_key_frames',
-    'expr:gte(t,n_forced*2)',
-    '-pix_fmt',
-    'yuv420p',
-  ];
-
-  /// 预览命令(纯 UDP 推流,不落文件;盲拍 → 实时预览,docs/18 里程碑 4)。
+  /// 预览命令(截帧管道,docs/18 里程碑 4;方案 C 实测定案)。
   ///
-  /// [previewUrl] 形如 `udp://127.0.0.1:PORT?pkt_size=1316`(Process.start
-  /// 直传,`?` 无需转义);命令恒运行(无 -t,由端口层生命周期控制)。
+  /// media_kit 的 libmpv 播放实时流(FIFO/http/UDP)存在库级缺陷
+  /// (No video or audio streams selected,已实测闭环),故预览改用
+  /// ffmpeg 周期性抓帧:`-vf fps=15` 输出独立 JPEG 帧
+  /// (`-f image2pipe -vcodec mjpeg pipe:1`),Dart 侧按 SOI/EOI 切帧
+  /// 经 Image.memory 渲染。命令恒运行(无 -t,生命周期归端口层)。
+  ///
+  /// 帧率 15fps + 中等分辨率(scale 960 宽)+ 高质量 JPEG:
+  /// - 2fps 实测观感严重卡顿(幻灯片感),15fps 画面流畅;
+  /// - 480 宽放大填满窗口时马赛克/模糊,960 接近窗口宽度无明显放大;
+  /// - `-q:v 3` 高质量 JPEG(默认压缩块状伪影明显,实测马赛克)。
+  static const previewFrameRate = 15.0;
+  static const previewScale = 960;
+  static const previewJpegQuality = 3;
+
   List<String> buildPreview({
     required CaptureParams params,
     required CameraInputKind kind,
     required String input,
-    required String previewUrl,
   }) {
     final fps = _formatFps(params.fps);
     final videoSize = _videoSize(params);
+    final vf = 'fps=${_formatFps(previewFrameRate)},scale=$previewScale:-2';
+    const jpegQuality = ['-q:v', '$previewJpegQuality'];
     switch (kind) {
       case CameraInputKind.v4l2:
         return [
@@ -72,10 +63,14 @@ class CameraCommandBuilder {
           '-i',
           input,
           '-an',
-          ...previewCodecArgs,
+          '-vf',
+          vf,
           '-f',
-          'mpegts',
-          previewUrl,
+          'image2pipe',
+          '-vcodec',
+          'mjpeg',
+          ...jpegQuality,
+          'pipe:1',
         ];
       case CameraInputKind.dshow:
         return [
@@ -87,31 +82,38 @@ class CameraCommandBuilder {
           '-i',
           'video="$input"',
           '-an',
-          ...previewCodecArgs,
+          '-vf',
+          vf,
           '-f',
-          'mpegts',
-          previewUrl,
+          'image2pipe',
+          '-vcodec',
+          'mjpeg',
+          ...jpegQuality,
+          'pipe:1',
         ];
     }
   }
 
-  /// 录制命令(预览开启时):同一编码流**双 muxer** —— mp4 文件 +
-  /// UDP 预览流(单编码器双输出,CPU 友好;实测方案)。
+  /// 录制命令(预览激活时):单采集**双编码器双输出** —— mp4 文件 +
+  /// 预览 JPEG 帧管道(录中实时预览:录制进程持续输出帧流,绕开
+  /// media_kit 流播放缺陷,实测方案)。
   ///
-  /// 录制参数与 [build] 同语义(`-t` 输入侧限时 + `-y` 显式),另加
-  /// 强制关键帧保证录制中播放器持续恢复画面。
+  /// 录制参数与 [build] 同语义(`-t` 输入侧限时);预览输出滤镜
+  /// `fps=15,scale=960:-2` + `-q:v 3` 与 [buildPreview] 同构,UI 侧
+  /// 帧分割/渲染逻辑完全复用。
   List<String> buildWithPreview({
     required CaptureParams params,
     required CameraInputKind kind,
     required String input,
     required String outputPath,
-    required String previewUrl,
   }) {
     final fps = _formatFps(params.fps);
     final limit = formatFfmpegTime(
       Duration(milliseconds: params.maxDurationMs),
     );
     final videoSize = _videoSize(params);
+    final previewVf =
+        'fps=${_formatFps(previewFrameRate)},scale=$previewScale:-2';
     switch (kind) {
       case CameraInputKind.v4l2:
         return [
@@ -122,12 +124,15 @@ class CameraCommandBuilder {
           ...videoSize,
           '-framerate',
           fps,
+          '-t',
+          limit,
           '-i',
           input,
           '-an',
-          ...previewCodecArgs,
-          '-t',
-          limit,
+          '-c:v',
+          'libx264',
+          '-preset',
+          'veryfast',
           '-map',
           '0:v',
           '-f',
@@ -136,9 +141,15 @@ class CameraCommandBuilder {
           outputPath,
           '-map',
           '0:v',
+          '-vf',
+          previewVf,
+          '-c:v',
+          'mjpeg',
+          '-q:v',
+          '$previewJpegQuality',
           '-f',
-          'mpegts',
-          previewUrl,
+          'image2pipe',
+          'pipe:1',
         ];
       case CameraInputKind.dshow:
         return [
@@ -147,12 +158,15 @@ class CameraCommandBuilder {
           '-framerate',
           fps,
           ...videoSize,
+          '-t',
+          limit,
           '-i',
           'video="$input"',
           '-an',
-          ...previewCodecArgs,
-          '-t',
-          limit,
+          '-c:v',
+          'libx264',
+          '-preset',
+          'veryfast',
           '-map',
           '0:v',
           '-f',
@@ -161,9 +175,15 @@ class CameraCommandBuilder {
           outputPath,
           '-map',
           '0:v',
+          '-vf',
+          previewVf,
+          '-c:v',
+          'mjpeg',
+          '-q:v',
+          '$previewJpegQuality',
           '-f',
-          'mpegts',
-          previewUrl,
+          'image2pipe',
+          'pipe:1',
         ];
     }
   }

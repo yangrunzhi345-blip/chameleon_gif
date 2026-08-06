@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show SystemChannels;
@@ -116,11 +117,11 @@ void main() {
     expect(find.byTooltip('开始录制'), findsOneWidget);
   });
 
-  testWidgets('桌面流预览 URL 就绪 → DesktopPreviewView 渲染', (tester) async {
-    cameraPort.previewUrl = 'udp://127.0.0.1:5555?pkt_size=1316';
+  testWidgets('桌面截帧预览流就绪 → DesktopPreviewView 渲染', (tester) async {
+    cameraPort.previewFrames = Stream.value(Uint8List.fromList([0xFF, 0xD8]));
     await pumpCapture(tester);
-    // preview.when data(null) + 桌面分支:desktopPreviewUrlProvider
-    // 经 FakeCameraPort.startPreview 返回注入 URL
+    // preview.when data(null) + 桌面分支:desktopPreviewFramesProvider
+    // 经 FakeCameraPort.startPreview 返回注入帧流
     await tester.pump();
     expect(find.byType(DesktopPreviewView), findsOneWidget);
   });

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import '../../domain/repository_interfaces/ffmpeg_engine.dart';
 import 'cancellation_manager.dart';
@@ -51,6 +52,9 @@ class CaptureSession {
 
   static const _stderrTailLimit = 8;
   final _stderrTail = <String>[];
+
+  /// stdout 原始字节监听(截帧预览:JPEG 帧分割;单订阅者)。
+  void Function(Uint8List chunk)? onStdoutBytes;
 
   /// stderr 尾部(错误映射依据;失败后读取,保持非敏感截断)。
   List<String> get stderrTail => List.unmodifiable(_stderrTail);
@@ -122,16 +126,30 @@ class CaptureProcessRunner {
       outputPath,
       DateTime.now(),
     );
-    final lines = const LineSplitter();
-    // stdout(进度信息)消费:仅回调不保留(采集无进度百分比语义)
-    process.stdout
-        .transform(utf8.decoder)
-        .transform(lines)
-        .listen((line) => onLog?.call(line));
-    process.stderr.transform(utf8.decoder).transform(lines).listen((line) {
-      session.addStderrLine(line);
-      onLog?.call(line);
+    // stdout:优先原始字节监听(截帧预览 JPEG 分割);诊断日志按行
+    // 语义(LineSplitter 状态化拼接跨块行);二进制块(JPEG 帧)跳过
+    process.stdout.listen((chunk) {
+      final bytes = Uint8List.fromList(chunk);
+      session.onStdoutBytes?.call(bytes);
+      if (onLog != null) {
+        try {
+          for (final line in const LineSplitter().convert(
+            const Utf8Decoder().convert(bytes),
+          )) {
+            onLog(line);
+          }
+        } on FormatException {
+          // 二进制 stdout(截帧预览):跳过诊断日志
+        }
+      }
     });
+    process.stderr
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen((line) {
+          session.addStderrLine(line);
+          onLog?.call(line);
+        });
     cancelToken?.onCancel(() => unawaited(session.cancel()));
     return session;
   }

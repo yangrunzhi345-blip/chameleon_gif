@@ -1,65 +1,81 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 
-/// 桌面相机流预览视图(media_kit 播放 ffmpeg UDP 推流;docs/18 里程碑 4)。
+/// 桌面相机截帧预览视图(ffmpeg image2pipe JPEG 帧 → Image.memory;
+/// docs/18 里程碑 4,方案 C 实测定案)。
 ///
-/// 纯渲染组件:URL 由 [desktopPreviewUrlProvider] 提供,本组件只负责
-/// 播放器生命周期(创建/open/dispose)与渲染;录制切换由端口层维持
-/// 同地址推流,播放器无需重连(短暂黑屏后恢复)。
+/// 纯渲染组件:帧流由 [desktopPreviewFramesProvider] 提供,本组件只负责
+/// 订阅最新帧与渲染;录制切换期间帧流关闭(设备独占),组件显示占位。
 class DesktopPreviewView extends StatefulWidget {
-  const DesktopPreviewView({super.key, required this.url});
+  const DesktopPreviewView({super.key, required this.frames});
 
-  /// 预览流地址(`udp://127.0.0.1:PORT?pkt_size=1316`)。
-  final String url;
+  /// JPEG 帧流(每帧完整 JPEG)。
+  final Stream<Uint8List> frames;
 
   @override
   State<DesktopPreviewView> createState() => _DesktopPreviewViewState();
 }
 
 class _DesktopPreviewViewState extends State<DesktopPreviewView> {
-  VideoController? _controller;
-  bool _failed = false;
+  Uint8List? _latest;
+  StreamSubscription<Uint8List>? _sub;
 
   @override
   void initState() {
     super.initState();
-    _init();
+    _sub = widget.frames.listen(
+      (frame) {
+        if (mounted) setState(() => _latest = frame);
+      },
+      onError: (_) {}, // 帧流异常静默
+      onDone: () {
+        // 预览暂停(录制中设备独占):保留最后一帧冻结显示,
+        // 避免黑屏(录制中仍有最后取景画面)
+      },
+    );
   }
 
-  Future<void> _init() async {
-    try {
-      final controller = VideoController(Player());
-      // UDP mpegts 自动探测(实测 mpv 无需格式提示);open 失败不抛
-      await controller.player.open(Media(widget.url));
-      if (!mounted) {
-        controller.player.dispose();
-        return;
-      }
-      setState(() => _controller = controller);
-    } catch (_) {
-      // 播放器不可用(测试宿主等):降级空渲染,不崩溃
-      if (mounted) setState(() => _failed = true);
+  @override
+  void didUpdateWidget(DesktopPreviewView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.frames != widget.frames) {
+      // 预览会话重建(录制后恢复):重新订阅;保留旧帧直至新帧到达
+      // (过渡期无黑屏)
+      _sub?.cancel();
+      _sub = widget.frames.listen(
+        (frame) {
+          if (mounted) setState(() => _latest = frame);
+        },
+        onError: (_) {},
+        onDone: () {
+          // 同上:冻结最后一帧
+        },
+      );
     }
   }
 
   @override
   void dispose() {
-    _controller?.player.dispose();
+    _sub?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = _controller;
-    if (controller == null || _failed) {
-      // 播放器未就绪:黑底(与取景底一致),不显示错误打扰
+    final frame = _latest;
+    if (frame == null) {
+      // 首帧未到/预览暂停:黑底(与取景底一致)
       return const ColoredBox(color: Colors.black);
     }
-    return Video(
-      controller: controller,
-      controls: NoVideoControls,
+    return Image.memory(
+      frame,
       fit: BoxFit.cover,
+      gaplessPlayback: true, // 帧间无缝替换,避免闪烁
+      filterQuality: FilterQuality.medium, // 放大平滑(低画质马赛克修复)
+      // 坏帧容错:解码失败显示黑底,不中断预览(真实流偶发坏帧)
+      errorBuilder: (_, _, _) => const ColoredBox(color: Colors.black),
     );
   }
 }

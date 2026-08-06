@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../value_objects/camera_types.dart';
 import '../value_objects/capture_params.dart';
 import '../value_objects/capture_result.dart';
@@ -37,13 +39,13 @@ abstract interface class CameraPort {
   /// 取消 = 清理临时产物不落位。
   Future<void> requestStop();
 
-  /// 启动实时预览(docs/18 里程碑 4;桌面流预览:ffmpeg 推 UDP 流,
-  /// media_kit 播放)。
+  /// 启动实时预览(docs/18 里程碑 4;桌面截帧预览:ffmpeg image2pipe
+  /// 周期性输出 JPEG 帧,经 Image.memory 渲染)。
   ///
-  /// 返回预览流地址(如 `udp://127.0.0.1:PORT?pkt_size=1316`);null =
-  /// 启动失败或不适用(Android 无此路径,恒 null)。幂等:同设备同参数
-  /// 已预览 → 直接返回现有地址。
-  Future<String?> startPreview({
+  /// 返回 JPEG 帧流(每帧独立完整 JPEG);null = 启动失败或不适用
+  /// (Android 取景经插件 surface,恒 null)。幂等:同设备同参数已预览
+  /// → 直接返回现有流。流的生命周期由 [stopPreview] 结束。
+  Future<Stream<Uint8List>?> startPreview({
     required String deviceId,
     required CaptureParams params,
   });

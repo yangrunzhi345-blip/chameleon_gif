@@ -144,16 +144,13 @@ void main() {
     });
   });
 
-  group('buildPreview(纯推流预览)', () {
-    const url = 'udp://127.0.0.1:5567?pkt_size=1316';
-
-    test('v4l2:采集 → libx264 + 强制关键帧 → mpegts/UDP', () {
+  group('buildPreview(截帧预览)', () {
+    test('v4l2:采集 → fps=15 + scale=960 + q:v 3 → image2pipe/mjpeg 管道', () {
       expect(
         builder.buildPreview(
           params: base,
           kind: CameraInputKind.v4l2,
           input: '/dev/video0',
-          previewUrl: url,
         ),
         [
           '-f',
@@ -165,35 +162,27 @@ void main() {
           '-i',
           '/dev/video0',
           '-an',
-          '-c:v',
-          'libx264',
-          '-preset',
-          'veryfast',
-          '-g',
-          '30',
-          '-keyint_min',
-          '30',
-          '-sc_threshold',
-          '0',
-          '-force_key_frames',
-          'expr:gte(t,n_forced*2)',
-          '-pix_fmt',
-          'yuv420p',
+          '-vf',
+          'fps=15,scale=960:-2',
           '-f',
-          'mpegts',
-          url,
+          'image2pipe',
+          '-vcodec',
+          'mjpeg',
+          '-q:v',
+          '3',
+          'pipe:1',
         ],
       );
     });
 
-    test('无 -t(恒运行,生命周期由端口层控制)', () {
+    test('无 -t(恒运行,生命周期由端口层控制);pipe:1 结尾', () {
       final args = builder.buildPreview(
         params: base,
         kind: CameraInputKind.v4l2,
         input: '/dev/video0',
-        previewUrl: url,
       );
       expect(args, isNot(contains('-t')));
+      expect(args.last, 'pipe:1');
     });
 
     test('dshow:设备名整串 + 同尾链', () {
@@ -201,63 +190,54 @@ void main() {
         params: base,
         kind: CameraInputKind.dshow,
         input: 'HD Pro Webcam C920',
-        previewUrl: url,
       );
       expect(args, containsAllInOrder(['-i', 'video="HD Pro Webcam C920"']));
-      expect(args.last, url);
-      expect(
-        args[args.lastIndexOf('-f') + 1],
-        'mpegts',
-        reason: '末端封装 mpegts(首个 -f 是输入类型)',
-      );
+      expect(args, containsAllInOrder(['-vf', 'fps=15,scale=960:-2']));
+      expect(args, containsAllInOrder(['-q:v', '3']));
+      expect(args.last, 'pipe:1');
     });
   });
 
-  group('buildWithPreview(录制 + 同流推流)', () {
-    const url = 'udp://127.0.0.1:5567?pkt_size=1316';
-
-    test('v4l2:单编码流双 muxer(mp4 文件 + mpegts/UDP)', () {
+  group('buildWithPreview(录制 + 预览帧管道)', () {
+    test('v4l2:单采集双编码器(mp4 文件 + image2pipe 预览帧)', () {
       final args = builder.buildWithPreview(
         params: base,
         kind: CameraInputKind.v4l2,
         input: '/dev/video0',
         outputPath: '/tmp/out.mp4',
-        previewUrl: url,
       );
-      // 关键帧参数 + -t 限时 + 双 -map 0:v
-      expect(
-        args,
-        containsAllInOrder(['-force_key_frames', 'expr:gte(t,n_forced*2)']),
-      );
+      // 输入限时 + 双 -map 0:v
       expect(args, containsAllInOrder(['-t', '00:00:30.000']));
       final mapCount = args.where((a) => a == '-map').length;
-      expect(mapCount, 2, reason: '双 muxer 各 -map 0:v');
-      expect(args, containsAllInOrder(['-f', 'mp4', '-y', '/tmp/out.mp4']));
-      expect(args, containsAllInOrder(['-f', 'mpegts', url]));
-    });
-
-    test('缺分辨率:省略 -video_size(与 build 同语义)', () {
-      final args = builder.buildWithPreview(
-        params: base,
-        kind: CameraInputKind.v4l2,
-        input: '/dev/video0',
-        outputPath: '/tmp/out.mp4',
-        previewUrl: url,
+      expect(mapCount, 2, reason: '双输出各 -map 0:v');
+      // 文件输出:libx264 → mp4
+      expect(
+        args,
+        containsAllInOrder([
+          '-c:v',
+          'libx264',
+          '-f',
+          'mp4',
+          '-y',
+          '/tmp/out.mp4',
+        ]),
       );
-      expect(args, isNot(contains('-video_size')));
+      // 预览输出:mjpeg 帧管道(与 buildPreview 同构)
+      expect(args, containsAllInOrder(['-vf', 'fps=15,scale=960:-2']));
+      expect(args, containsAllInOrder(['-c:v', 'mjpeg', '-q:v', '3']));
+      expect(args, containsAllInOrder(['-f', 'image2pipe', 'pipe:1']));
     });
 
-    test('dshow:设备名整串 + 双 muxer', () {
+    test('dshow:设备名整串 + 双输出', () {
       final args = builder.buildWithPreview(
         params: base.copyWith(resolutionWidth: 1280, resolutionHeight: 720),
         kind: CameraInputKind.dshow,
         input: 'Integrated Camera',
         outputPath: r'C:\tmp\out.mp4',
-        previewUrl: url,
       );
       expect(args, containsAllInOrder(['-video_size', '1280x720']));
       expect(args, containsAllInOrder(['-f', 'mp4', '-y', r'C:\tmp\out.mp4']));
-      expect(args, containsAllInOrder(['-f', 'mpegts', url]));
+      expect(args, containsAllInOrder(['-f', 'image2pipe', 'pipe:1']));
     });
   });
 }

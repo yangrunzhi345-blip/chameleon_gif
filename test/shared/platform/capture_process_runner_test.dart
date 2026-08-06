@@ -8,9 +8,19 @@ import 'package:chameleon_gif/shared/platform/capture_process_runner.dart';
 
 /// 可控假进程:kill 时 resolve exitCode(SIGKILL 137 / 其他 255)。
 class FakeProcess implements Process {
-  FakeProcess({int? exitCode, this.stderrData = '', this.stdoutData = ''}) {
-    _stdout.add(utf8.encode(stdoutData));
-    _stdout.close();
+  FakeProcess({
+    int? exitCode,
+    this.stderrData = '',
+    this.stdoutData = '',
+    List<int>? stdoutBytes,
+  }) {
+    // stdout 仅在有初始数据时关闭(留 [emitStdout] 流式输出通道;
+    // 无数据则不 close,进程常驻期间可持续输出)
+    final out = stdoutBytes ?? utf8.encode(stdoutData);
+    if (out.isNotEmpty) {
+      _stdout.add(out);
+      _stdout.close();
+    }
     _stderr.add(utf8.encode(stderrData));
     _stderr.close();
     if (exitCode != null) _exitCode.complete(exitCode);
@@ -22,6 +32,12 @@ class FakeProcess implements Process {
   final String stderrData;
   final String stdoutData;
   final killSignals = <ProcessSignal>[];
+
+  /// 流式输出(模拟持续进程输出;构造时的 [stdoutData]/[stdoutBytes]
+  /// 之外追加)。
+  void emitStdout(List<int> data) {
+    if (!_stdout.isClosed) _stdout.add(data);
+  }
 
   @override
   Future<int> get exitCode => _exitCode.future;

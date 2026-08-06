@@ -134,8 +134,8 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   @override
   Widget build(BuildContext context) {
     final preview = ref.watch(cameraControllerProvider);
-    // 桌面流预览地址(Android null;预览会话生命周期经 provider 收敛)
-    final desktopUrl = ref.watch(desktopPreviewUrlProvider).value;
+    // 桌面截帧预览流(Android null;预览会话生命周期经 provider 收敛)
+    final desktopFrames = ref.watch(desktopPreviewFramesProvider).value;
     final recording = _phase == _CapturePhase.recording;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       // 黑色取景底:状态栏图标恒浅色(自绘顶栏,无 Scaffold.appBar 托管)
@@ -152,11 +152,13 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
               child: preview.when(
                 data: (controller) {
                   final port = ref.read(cameraPortProvider);
-                  // 桌面流预览:URL 就绪 → media_kit 播放 UDP 推流;
+                  // 桌面截帧预览:帧流就绪 → JPEG 帧渲染;
                   // 预览不可用/无设备 → 盲拍兜底(录完回放确认,docs/18 D4)
                   if (port is! CameraPortImpl) {
-                    final url = desktopUrl;
-                    if (url != null) return DesktopPreviewView(url: url);
+                    final frames = desktopFrames;
+                    if (frames != null) {
+                      return DesktopPreviewView(frames: frames);
+                    }
                     return const _BlindPlaceholder();
                   }
                   // Android:插件取景框(activeController 会话重建保护)

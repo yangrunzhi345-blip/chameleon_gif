@@ -38,6 +38,7 @@ List<CameraControlCapability> parseV4l2Controls(String output) {
         final m = RegExp('\\b$key=(-?\\d+)').firstMatch(rest);
         return m == null ? null : int.parse(m.group(1)!);
       }
+
       final flagsMatch = RegExp(r'flags=([\w,\- ]+)$').firstMatch(rest);
       final flags = flagsMatch?.group(1) ?? '';
       final currentValue = intOf('value');

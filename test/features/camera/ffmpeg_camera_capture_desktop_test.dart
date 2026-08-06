@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
@@ -161,5 +162,74 @@ void main() {
     expect(gifFile.lengthSync(), greaterThan(1024), reason: 'GIF 非空产物');
     final header = gifFile.readAsBytesSync().sublist(0, 6);
     expect(String.fromCharCodes(header), 'GIF89a', reason: 'GIF 文件头有效');
+  });
+
+  test('本机实测:预览出帧 → 录制中帧流持续(双输出)→ 产物有效 → 恢复接续', () async {
+    if (!hasCamera()) {
+      markTestSkipped('本机无摄像头');
+      return;
+    }
+    final port = buildPort();
+    // 1. 截帧预览:帧流收到真实 JPEG 帧(15fps,等 2s)
+    final frames = await port.startPreview(
+      deviceId: '/dev/video0',
+      params: const CaptureParams(fps: 15),
+    );
+    expect(frames, isNotNull, reason: '帧流就绪');
+    final received = <Uint8List>[];
+    final sub = frames!.listen(received.add);
+    await Future<void>.delayed(const Duration(seconds: 2));
+    expect(received, isNotEmpty, reason: '预览帧流收到真实帧');
+    final first = received.first;
+    expect(first.length, greaterThan(100), reason: '真实 JPEG 帧非空');
+    expect(first[0], 0xFF);
+    expect(first[1], 0xD8, reason: 'SOI 标记');
+    expect(first[first.length - 2], 0xFF);
+    expect(first[first.length - 1], 0xD9, reason: 'EOI 标记');
+    final framesBeforeRecord = received.length;
+    expect(framesBeforeRecord, greaterThan(5), reason: '15fps 2s 出帧充足');
+
+    // 2. 真实录制 3s(双输出:文件 + 预览帧管道,帧流持续)
+    final result = await port.capture(
+      params: const CaptureParams(
+        deviceId: '/dev/video0',
+        fps: 15,
+        maxDurationMs: 3000,
+      ),
+      cancelToken: null,
+    );
+    expect(File(result.finalPath).existsSync(), isTrue, reason: '产物落位');
+    final probe = Process.runSync('ffprobe', [
+      '-v',
+      'error',
+      '-show_format',
+      result.finalPath,
+    ]);
+    expect(probe.exitCode, 0, reason: '产物可解析');
+    expect(
+      received.length,
+      greaterThan(framesBeforeRecord),
+      reason: '录制中帧流持续输出(实时预览)',
+    );
+    final framesAfterRecord = received.length;
+
+    // 3. 恢复预览(同一帧流接续),继续出帧
+    final restored = await port.startPreview(
+      deviceId: '/dev/video0',
+      params: const CaptureParams(fps: 15),
+    );
+    expect(restored, isNotNull, reason: '恢复预览');
+    await Future<void>.delayed(const Duration(seconds: 2));
+    expect(
+      received.length,
+      greaterThan(framesAfterRecord),
+      reason: '恢复后帧流接续输出',
+    );
+    await sub.cancel();
+
+    // 4. 清理
+    await port.stopPreview();
+    final afterStop = Process.runSync('pgrep', ['-x', 'ffmpeg']);
+    expect(afterStop.exitCode, isNot(0), reason: '预览进程已停止');
   });
 }

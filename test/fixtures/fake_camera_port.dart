@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:chameleon_gif/domain/repository_interfaces/camera_port.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
 import 'package:chameleon_gif/domain/value_objects/camera_types.dart';
@@ -40,8 +42,8 @@ class FakeCameraPort implements CameraPort {
   @override
   bool previewSupported;
 
-  /// 预览行为注入:startPreview 返回的 URL(null = 启动失败)。
-  String? previewUrl;
+  /// 预览行为注入:startPreview 返回的 JPEG 帧流(null = 启动失败)。
+  Stream<Uint8List>? previewFrames;
 
   final captureCalls = <CaptureParams>[];
   final requestStopCalls = <int>[];
@@ -89,12 +91,12 @@ class FakeCameraPort implements CameraPort {
   }
 
   @override
-  Future<String?> startPreview({
+  Future<Stream<Uint8List>?> startPreview({
     required String deviceId,
     required CaptureParams params,
   }) async {
     startPreviewCalls.add(deviceId);
-    return previewUrl;
+    return previewFrames;
   }
 
   @override
