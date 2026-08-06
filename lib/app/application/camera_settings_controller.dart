@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:chameleon_gif/domain/repository_interfaces/camera_port.dart';
 import 'package:chameleon_gif/domain/value_objects/camera_types.dart';
 import 'package:chameleon_gif/domain/value_objects/capture_params.dart';
 import 'package:chameleon_gif/features/camera/infrastructure/camera_port_impl.dart';
@@ -48,16 +49,17 @@ class CameraSettingsState {
 /// 保持相机会话(live apply 体验增强);参数变更即 applyParams;save
 /// 持久化(capture_params / capture_device_id);dispose 释放相机会话。
 class CameraSettingsController extends Notifier<CameraSettingsState> {
-  CameraPortImpl? _port;
+  CameraPort? _port;
   bool _probing = false;
 
   @override
   CameraSettingsState build() {
-    // 会话生命周期内捕获端口引用;dispose 时释放相机(避免 read 已销毁树)
+    // 会话生命周期内捕获端口引用;dispose 时释放相机会话(仅 Android,
+    // 避免 read 已销毁树)
     final port = ref.watch(cameraPortProvider);
-    _port = port is CameraPortImpl ? port : null;
+    _port = port;
     ref.onDispose(() {
-      unawaited(_port?.releaseController());
+      if (port is CameraPortImpl) unawaited(port.releaseController());
     });
     final repo = ref.read(settingsRepositoryProvider);
     return CameraSettingsState(
@@ -93,13 +95,28 @@ class CameraSettingsController extends Notifier<CameraSettingsState> {
 
   /// 参数变更(立即 applyParams 到会话;保存动作由设置页统一触发)。
   Future<void> updateParams(CaptureParams params) async {
+    final prevControls = state.params.v4l2Controls;
+    final nextControls = params.v4l2Controls;
+    // 自动白平衡开关联动:关闭后色温项 active 恢复(应用后重探刷新面板)
+    final wbToggled =
+        prevControls['white_balance_automatic'] !=
+        nextControls['white_balance_automatic'];
     state = state.copyWith(params: params);
     await _port?.applyParams(params);
+    if (wbToggled) await probe();
   }
 
   Future<void> updateDeviceId(String deviceId) async {
     state = state.copyWith(deviceId: deviceId);
-    await _port?.ensureController(deviceId: deviceId);
+    final port = _port;
+    if (port == null) return;
+    if (port is CameraPortImpl) {
+      await port.ensureController(deviceId: deviceId); // Android 会话重建
+    } else {
+      // 桌面:设备即采集输入,切换即应用(枚举能力随之重探)
+      await port.applyParams(state.params.copyWith(deviceId: deviceId));
+      await probe();
+    }
   }
 
   /// 持久化当前参数(设置页「保存设置」统一调用)。

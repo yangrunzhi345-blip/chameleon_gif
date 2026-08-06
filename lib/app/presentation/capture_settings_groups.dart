@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:chameleon_gif/domain/value_objects/camera_types.dart';
 import 'package:chameleon_gif/domain/value_objects/capture_params.dart';
 import 'package:chameleon_gif/features/export/presentation/param_dropdown_field.dart';
 
@@ -83,6 +84,42 @@ class CameraSettingsGroup extends ConsumerWidget {
           onChanged: (v) =>
               controller.updateParams(params.copyWith(flashOn: v)),
         ),
+        // 桌面端分辨率行(能力探测通过才显示;Android 不设分辨率 D3)
+        if (caps?.supportsResolution ?? false) ...[
+          const SizedBox(height: 12),
+          _Row(
+            label: '分辨率',
+            child: ParamDropdownField<CaptureResolution>(
+              value: _currentResolution(params, caps!),
+              items: [
+                for (final r in caps.supportedResolutions)
+                  ParamDropdownItem(r, r.toString()),
+              ],
+              onChanged: (r) => controller.updateParams(
+                params.copyWith(
+                  resolutionWidth: r.width,
+                  resolutionHeight: r.height,
+                ),
+              ),
+            ),
+          ),
+        ],
+        // 桌面第二档控制面板(v4l2 控制项;能力探测驱动,无面板 = 无控制)
+        if (caps?.controls.isNotEmpty ?? false) ...[
+          const SizedBox(height: 16),
+          Text('相机控制', style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 4),
+          for (final control in caps!.controls)
+            _V4l2ControlTile(
+              control: control,
+              value: params.v4l2Controls[control.id] ?? control.value,
+              onChanged: (v) => controller.updateParams(
+                params.copyWith(
+                  v4l2Controls: {...params.v4l2Controls, control.id: v},
+                ),
+              ),
+            ),
+        ],
         // 能力参数(探测通过才显示)
         if (caps?.supportsExposureOffset ?? false) ...[
           _Row(
@@ -145,6 +182,111 @@ class CameraSettingsGroup extends ConsumerWidget {
     FocusMode.continuous => '连续',
     FocusMode.manual => '手动',
   };
+
+  /// 当前分辨率(未设置 → 候选最大项,即列表首个)。
+  static CaptureResolution _currentResolution(
+    CaptureParams params,
+    CameraCapabilities caps,
+  ) {
+    final res = caps.supportedResolutions;
+    if (res.isEmpty) return const CaptureResolution(width: 0, height: 0);
+    return res.firstWhere(
+      (r) =>
+          r.width == params.resolutionWidth &&
+          r.height == params.resolutionHeight,
+      orElse: () => res.first,
+    );
+  }
+}
+
+/// v4l2 控制项中文标签白名单(面板显示友好名称;未收录项显示原始 id)。
+const _controlLabels = <String, String>{
+  'brightness': '亮度',
+  'contrast': '对比度',
+  'saturation': '饱和度',
+  'hue': '色相',
+  'gamma': '伽马',
+  'sharpness': '锐度',
+  'white_balance_automatic': '自动白平衡',
+  'white_balance_temperature': '白平衡色温',
+  'auto_exposure': '自动曝光',
+  'exposure_time_absolute': '曝光时间',
+  'backlight_compensation': '背光补偿',
+  'power_line_frequency': '电源频率',
+};
+
+/// 第二档控制项行(int → Slider / bool → Switch / menu → Dropdown;
+/// inactive 置灰 —— 自动模式联动,如自动白平衡开启时色温项)。
+class _V4l2ControlTile extends StatelessWidget {
+  const _V4l2ControlTile({
+    required this.control,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final CameraControlCapability control;
+  final int? value;
+
+  /// 值变更回调(目标值;面板仅渲染与转发,无业务逻辑)。
+  final void Function(int value) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = control.active && value != null;
+    final label = _controlLabels[control.id] ?? control.id;
+    final opacity = control.active ? 1.0 : 0.5;
+    return Opacity(
+      opacity: opacity,
+      child: switch (control.kind) {
+        CameraControlKind.bool => SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(label),
+          value: value != 0,
+          onChanged: enabled ? (v) => onChanged(v ? 1 : 0) : null,
+        ),
+        CameraControlKind.int => _Row(label: label, child: _buildSlider()),
+        CameraControlKind.menu => _Row(
+          label: label,
+          child: _buildMenu(context),
+        ),
+      },
+    );
+  }
+
+  Widget _buildSlider() {
+    final min = control.min ?? 0;
+    final max = control.max ?? 1;
+    final step = control.step ?? 1;
+    final divisions = step > 0 && max > min
+        ? math.max(1, ((max - min) / step).round())
+        : 1;
+    return Slider(
+      value: (value ?? min).clamp(min, max).toDouble(),
+      min: min.toDouble(),
+      max: max.toDouble(),
+      divisions: divisions,
+      onChanged: control.active && value != null
+          ? (v) => onChanged(v.round())
+          : null,
+    );
+  }
+
+  Widget _buildMenu(BuildContext context) {
+    final choices = control.choices ?? const <int, String>{};
+    return DropdownButton<int>(
+      value: choices.containsKey(value) ? value : choices.keys.firstOrNull,
+      isExpanded: true,
+      items: [
+        for (final e in choices.entries)
+          DropdownMenuItem(value: e.key, child: Text(e.value)),
+      ],
+      onChanged: control.active && value != null
+          ? (v) {
+              if (v != null) onChanged(v);
+            }
+          : null,
+    );
+  }
 }
 
 /// 设置页录屏分组(帧率/时长上限/虚拟显示比例;docs/19 S1-WP4)。

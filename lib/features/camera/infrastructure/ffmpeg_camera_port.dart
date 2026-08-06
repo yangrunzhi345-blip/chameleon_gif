@@ -12,7 +12,9 @@ import 'package:chameleon_gif/domain/value_objects/capture_result.dart';
 import 'package:chameleon_gif/shared/platform/capture_process_runner.dart';
 import 'package:chameleon_gif/shared/platform/platform_adapter.dart';
 import '../application/camera_command_builder.dart';
+import '../application/v4l2_controls_parser.dart';
 import '../application/v4l2_device_parser.dart';
+import '../application/v4l2_formats_parser.dart';
 import 'capture_committer.dart';
 
 /// 桌面相机拍摄实现(ffmpeg 采集 + v4l2-ctl 控制,docs/18 里程碑 2/3)。
@@ -126,15 +128,91 @@ class FfmpegCameraPort implements CameraPort {
     }
   }
 
+  /// 能力缓存(会话级;applyParams 后失效 —— active 联动重探)。
+  CameraCapabilities? _capsCache;
+  String? _capsDeviceId;
+
   @override
   Future<CameraCapabilities> queryCapabilities(String deviceId) async {
-    // WP6 落地:v4l2-ctl -l 控制项 + --list-formats-ext 分辨率/帧率解析
-    return const CameraCapabilities();
+    final cached = _capsCache;
+    if (cached != null && _capsDeviceId == deviceId) return cached;
+    // Windows 第一版无第二档(无 COM 控制插件)→ 默认能力(仅基础档)
+    if (Platform.isWindows) return const CameraCapabilities();
+    try {
+      final controlsResult = await Process.run('v4l2-ctl', [
+        '-d',
+        deviceId,
+        '-L',
+      ]);
+      final formatsResult = await Process.run('v4l2-ctl', [
+        '-d',
+        deviceId,
+        '--list-formats-ext',
+      ]);
+      final controls = controlsResult.exitCode == 0
+          ? parseV4l2Controls(controlsResult.stdout.toString())
+          : const <CameraControlCapability>[];
+      final formats = formatsResult.exitCode == 0
+          ? parseV4l2FormatsExt(formatsResult.stdout.toString())
+          : const <V4l2FormatEntry>[];
+      // 分辨率候选:MJPG 压缩流优先(原始流带宽大,同尺寸低帧率);
+      // 去重(不同格式同尺寸)后按出现顺序(MJPG 最大尺寸在前)
+      final mjpg = formats.where((f) => f.format == 'MJPG').toList();
+      final preferred = mjpg.isNotEmpty ? mjpg : formats;
+      final resolutions = <CaptureResolution>[];
+      for (final f in preferred) {
+        final res = CaptureResolution(width: f.width, height: f.height);
+        if (!resolutions.contains(res)) resolutions.add(res);
+      }
+      final caps = CameraCapabilities(
+        supportsResolution: resolutions.isNotEmpty,
+        supportedResolutions: resolutions,
+        controls: controls,
+      );
+      _capsCache = caps;
+      _capsDeviceId = deviceId;
+      return caps;
+    } on ProcessException catch (e, st) {
+      _logger.w('v4l2 能力探测失败($deviceId)', error: e, stackTrace: st);
+      return const CameraCapabilities();
+    }
   }
 
   @override
   Future<void> applyParams(CaptureParams params) async {
-    // WP6 落地:v4l2-ctl --set-ctrl 批量应用第二档控制项
+    // Windows 第一版无第二档(无 COM)→ 仅采集基础参数
+    if (Platform.isWindows) return;
+    final controls = params.v4l2Controls;
+    final deviceId = params.deviceId;
+    if (controls.isEmpty || deviceId == null) return;
+    // 与能力对齐:跳过设备不存在的控制项与 inactive 项(自动模式联动)
+    final caps = await queryCapabilities(deviceId);
+    final known = {for (final c in caps.controls) c.id: c};
+    final pairs = <String>[];
+    for (final entry in controls.entries) {
+      final cap = known[entry.key];
+      if (cap == null || !cap.active) continue;
+      pairs.add('${entry.key}=${entry.value}');
+    }
+    if (pairs.isEmpty) return;
+    try {
+      final result = await Process.run('v4l2-ctl', [
+        '-d',
+        deviceId,
+        '--set-ctrl',
+        pairs.join(','),
+      ]);
+      if (result.exitCode != 0) {
+        _logger.w('v4l2-ctl --set-ctrl 失败: ${result.stderr}');
+      }
+    } on ProcessException catch (e, st) {
+      _logger.w('v4l2-ctl --set-ctrl 调用失败', error: e, stackTrace: st);
+      return;
+    }
+    // 应用后失效缓存:下次探测刷新 active 联动(如自动白平衡关闭后
+    // 色温项从 inactive 恢复可调)
+    _capsCache = null;
+    _capsDeviceId = null;
   }
 
   @override
