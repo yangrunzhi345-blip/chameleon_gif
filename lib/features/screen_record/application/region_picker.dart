@@ -80,7 +80,9 @@ class ScreenRegionPicker implements RegionPicker {
     this.timeout = const Duration(seconds: 60),
     void Function()? staleCleanup,
   }) : _startProcess = startProcess ?? _run,
-       _sessionType = sessionType ?? Platform.environment['XDG_SESSION_TYPE'],
+       // 会话类型由装配层注入(组合根读 Platform,业务层零平台依赖;
+       // 缺省 null → isAvailable false)
+       _sessionType = sessionType,
        _toolExists = toolExists ?? _which,
        _staleCleanup = staleCleanup ?? _cleanupStaleSlurp;
 

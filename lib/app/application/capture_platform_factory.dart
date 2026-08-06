@@ -81,14 +81,15 @@ class CapturePlatformFactory {
     required Directory tempDir,
   }) {
     if (_isAndroid) return ScreenRegionPicker();
-    final isWayland =
-        Platform.environment['XDG_SESSION_TYPE']?.toLowerCase() == 'wayland';
+    final sessionType = Platform.environment['XDG_SESSION_TYPE'];
+    final isWayland = sessionType?.toLowerCase() == 'wayland';
     final kind = Platform.isWindows
         ? RecordCommandKind.gdigrab
         : RecordCommandKind.x11grab;
     return CompositeRegionPicker(
       wayland: isWayland,
-      slurpPicker: ScreenRegionPicker(),
+      // 会话类型经组合根注入(业务层 ScreenRegionPicker 零平台依赖)
+      slurpPicker: ScreenRegionPicker(sessionType: sessionType),
       overlayPicker: OverlayRegionPicker(
         navigatorKey: navigatorKey,
         tempDir: tempDir,
