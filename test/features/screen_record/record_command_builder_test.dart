@@ -9,7 +9,7 @@ void main() {
   const defaultParams = RecordParams(); // fps 15, 60s, 全屏, 带光标
 
   group('x11grab(Linux X11)', () {
-    test('全屏:省略 -video_size(屏幕原生),带光标', () {
+    test('全屏:省略 -video_size(屏幕原生),带光标;默认不限时长无 -t', () {
       expect(
         builder.build(
           params: defaultParams,
@@ -24,8 +24,6 @@ void main() {
           '15',
           '-draw_mouse',
           '1',
-          '-t',
-          '00:01:00.000',
           '-i',
           ':1',
           '-an',
@@ -34,6 +32,27 @@ void main() {
           '-y',
           '/tmp/out.mp4',
         ],
+      );
+    });
+
+    test('显式时长上限 → -t 前置限时(在 -i 之前)', () {
+      final params = defaultParams.copyWith(maxDurationMs: 60000);
+      final args = builder.build(
+        params: params,
+        kind: RecordCommandKind.x11grab,
+        display: ':1',
+        outputPath: '/tmp/out.mp4',
+      );
+      expect(
+        args,
+        containsAllInOrder([
+          '-draw_mouse',
+          '1',
+          '-t',
+          '00:01:00.000',
+          '-i',
+          ':1',
+        ]),
       );
     });
 
@@ -61,8 +80,6 @@ void main() {
           '640x480',
           '-draw_mouse',
           '1',
-          '-t',
-          '00:01:00.000',
           '-i',
           ':1+100+50',
           '-an',
@@ -135,7 +152,7 @@ void main() {
   });
 
   group('gdigrab(Windows)', () {
-    test('全屏:desktop 输入', () {
+    test('全屏:desktop 输入;默认不限时长无 -t', () {
       expect(
         builder.build(
           params: defaultParams,
@@ -147,8 +164,6 @@ void main() {
           'gdigrab',
           '-framerate',
           '15',
-          '-t',
-          '00:01:00.000',
           '-i',
           'desktop',
           '-an',
@@ -214,6 +229,21 @@ void main() {
         args,
         containsAllInOrder(['-framerate', '15.5', '-t', '00:00:30.000']),
       );
+    });
+
+    test('maxDurationMs 0 = 不限:ffmpeg 分支均无 -t(仅手动停止/取消)', () {
+      for (final kind in [
+        RecordCommandKind.x11grab,
+        RecordCommandKind.gdigrab,
+      ]) {
+        final args = builder.build(
+          params: defaultParams, // 默认 maxDurationMs 0
+          kind: kind,
+          display: kind == RecordCommandKind.x11grab ? ':1' : null,
+          outputPath: '/tmp/out.mp4',
+        );
+        expect(args, isNot(contains('-t')), reason: '$kind 不限时长无 -t');
+      }
     });
 
     test('ffmpeg 分支尾链恒定:-an -pix_fmt yuv420p -y(wfRecorder 除外)', () {

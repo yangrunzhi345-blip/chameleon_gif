@@ -325,6 +325,7 @@ class RecordSettingsGroup extends ConsumerWidget {
           child: ParamDropdownField<int>(
             value: params.maxDurationMs,
             items: const [
+              ParamDropdownItem(0, '不限'),
               ParamDropdownItem(30000, '30 秒'),
               ParamDropdownItem(60000, '60 秒'),
               ParamDropdownItem(120000, '120 秒'),

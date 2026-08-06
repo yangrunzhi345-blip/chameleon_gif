@@ -183,20 +183,23 @@ class ScreenRecordService : Service() {
       stopNormal = true
       startElapsedMs = SystemClock.elapsedRealtime()
 
-      // 超时自动停(500ms 轮询,保存)
-      timeoutTimer = Timer("screen-record-timeout").apply {
-        scheduleAtFixedRate(
-          object : TimerTask() {
-            override fun run() {
-              val elapsed = SystemClock.elapsedRealtime() - startElapsedMs
-              if (recording && elapsed >= maxDurationMs) {
-                requestStop(normal = true)
+      // 超时自动停(500ms 轮询,保存);maxDurationMs 0 = 不限时长,
+      // 不启动定时器(终止仅靠用户手动停止/页面返回取消)
+      if (maxDurationMs > 0) {
+        timeoutTimer = Timer("screen-record-timeout").apply {
+          scheduleAtFixedRate(
+            object : TimerTask() {
+              override fun run() {
+                val elapsed = SystemClock.elapsedRealtime() - startElapsedMs
+                if (recording && elapsed >= maxDurationMs) {
+                  requestStop(normal = true)
+                }
               }
-            }
-          },
-          500,
-          500,
-        )
+            },
+            500,
+            500,
+          )
+        }
       }
 
       drainThread = Thread({ drainLoop(enc, mux) }, "screen-record-drain").also {

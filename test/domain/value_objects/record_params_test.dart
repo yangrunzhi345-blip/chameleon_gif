@@ -6,7 +6,7 @@ void main() {
   test('默认值全量断言', () {
     const p = RecordParams();
     expect(p.fps, 15.0);
-    expect(p.maxDurationMs, 60000);
+    expect(p.maxDurationMs, 0, reason: '默认不限时长');
     expect(p.regionMode, RecordRegion.fullscreen);
     expect(p.windowTitle, isNull);
     expect(p.regionX, isNull);
@@ -23,7 +23,7 @@ void main() {
     final q = p.copyWith(fps: 30, regionMode: RecordRegion.window);
     expect(q.fps, 30);
     expect(q.regionMode, RecordRegion.window);
-    expect(q.maxDurationMs, 60000); // 未改字段保留默认
+    expect(q.maxDurationMs, 0, reason: '未改字段保留默认(不限)');
     expect(q.drawCursor, isTrue);
   });
 
@@ -53,7 +53,7 @@ void main() {
   test('老 JSON 兼容:缺字段读默认值', () {
     final restored = RecordParams.fromJson(const {'fps': 5});
     expect(restored.fps, 5);
-    expect(restored.maxDurationMs, 60000);
+    expect(restored.maxDurationMs, 0, reason: '老 JSON 缺字段读默认(不限)');
     expect(restored.regionMode, RecordRegion.fullscreen);
   });
 }

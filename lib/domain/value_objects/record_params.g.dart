@@ -9,7 +9,7 @@ part of 'record_params.dart';
 _RecordParams _$RecordParamsFromJson(Map<String, dynamic> json) =>
     _RecordParams(
       fps: (json['fps'] as num?)?.toDouble() ?? 15.0,
-      maxDurationMs: (json['maxDurationMs'] as num?)?.toInt() ?? 60000,
+      maxDurationMs: (json['maxDurationMs'] as num?)?.toInt() ?? 0,
       regionMode:
           $enumDecodeNullable(_$RecordRegionEnumMap, json['regionMode']) ??
           RecordRegion.fullscreen,

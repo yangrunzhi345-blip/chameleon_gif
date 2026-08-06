@@ -30,9 +30,11 @@ class RecordCommandBuilder {
     required String outputPath,
   }) {
     final fps = _formatFps(params.fps);
-    final limit = formatFfmpegTime(
-      Duration(milliseconds: params.maxDurationMs),
-    );
+    // 时长上限(毫秒;0 = 不限,不加 -t,录制终止仅靠端口层手动停止/
+    // 取消)
+    final limit = params.maxDurationMs > 0
+        ? formatFfmpegTime(Duration(milliseconds: params.maxDurationMs))
+        : null;
     const suffix = ['-an', '-pix_fmt', 'yuv420p', '-y'];
     final tail = [...suffix, outputPath];
 
@@ -55,8 +57,7 @@ class RecordCommandBuilder {
           ],
           '-draw_mouse',
           params.drawCursor ? '1' : '0',
-          '-t',
-          limit,
+          if (limit != null) ...['-t', limit],
           '-i',
           isCustom
               ? '$dpy+${params.regionX ?? 0}+${params.regionY ?? 0}'
@@ -105,8 +106,7 @@ class RecordCommandBuilder {
             '-video_size',
             '${params.regionWidth}x${params.regionHeight}',
           ],
-          '-t',
-          limit,
+          if (limit != null) ...['-t', limit],
           '-i',
           isWindow ? 'title=${params.windowTitle}' : 'desktop',
           ...tail,

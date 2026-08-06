@@ -285,7 +285,7 @@ void main() {
 
     expect(recorderPort.recordCalls, hasLength(1));
     expect(recorderPort.recordCalls.single.fps, 15.0, reason: '仓储默认参数');
-    expect(recorderPort.recordCalls.single.maxDurationMs, 60000);
+    expect(recorderPort.recordCalls.single.maxDurationMs, 0, reason: '默认不限时长');
 
     completer.complete(
       const CaptureResult(

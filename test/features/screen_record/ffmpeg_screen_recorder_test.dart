@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
 import 'package:chameleon_gif/domain/exceptions/capture_exception.dart';
@@ -193,6 +194,53 @@ void main() {
       capturesDir.existsSync() ? capturesDir.listSync() : const [],
       isEmpty,
     );
+  });
+
+  test('maxDurationMs=0 → 不启动时长 watchdog(无限录制,仅手动停止)', () {
+    final recorder = buildRecorder(
+      method: RecordCaptureMethod.x11grab,
+      display: ':1',
+      runner: fakeRunner(), // 进程常驻(不注入 exitCode,否则启动即退出)
+    );
+    fakeAsync((async) {
+      // record 尾部含真实文件 IO(完成回调走事件循环),fakeAsync 内
+      // 无法推进,故仅断言 kill 信号(watchdog 行为),落位由真实
+      // 异步的"手动停止"用例覆盖
+      recorder.record(
+        params: const RecordParams(maxDurationMs: 0),
+        cancelToken: null,
+      );
+      async.flushMicrotasks();
+      // 推进远超原 60s 上限 + 兜底:进程仍运行(watchdog 未启动)
+      async.elapse(const Duration(minutes: 10));
+      expect(lastProcess.killSignals, isEmpty, reason: '0 = 不限 → 无 watchdog');
+      // 手动停止 → kill 请求生效
+      recorder.requestStop();
+      async.flushMicrotasks();
+      async.elapse(Duration.zero); // 冲刷 terminateProcess 轮询 delayed
+      expect(lastProcess.killSignals, [ProcessSignal.sigterm]);
+    });
+  });
+
+  test('maxDurationMs>0 → watchdog 超时自动停(保存)', () {
+    final recorder = buildRecorder(
+      method: RecordCaptureMethod.x11grab,
+      display: ':1',
+      runner: fakeRunner(), // 进程常驻(watchdog 超时触发 stop)
+    );
+    fakeAsync((async) {
+      recorder.record(
+        params: const RecordParams(maxDurationMs: 1000),
+        cancelToken: null,
+      );
+      async.flushMicrotasks();
+      async.elapse(const Duration(milliseconds: 3000));
+      expect(lastProcess.killSignals, isEmpty, reason: '未到 1000+5000 兜底');
+      async.elapse(const Duration(seconds: 5)); // 越过 watchdog 触发点
+      expect(lastProcess.killSignals, [
+        ProcessSignal.sigterm,
+      ], reason: 'watchdog 超时自动停');
+    });
   });
 
   test('手动停止:requestStop → SIGTERM 保存', () async {

@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 mixin _$RecordParams {
 
 /// 帧率(5–30)
- double get fps;/// 时长上限(毫秒,超时自动停)
+ double get fps;/// 时长上限(毫秒,超时自动停;0 = 不限时长,仅手动停止)
  int get maxDurationMs;/// 区域模式(Windows gdigrab;Android 恒全屏)
  RecordRegion get regionMode;/// 窗口模式:目标窗口标题(gdigrab `title=`)
  String? get windowTitle;/// 自定义区域起点 X(gdigrab offset / x11grab `DISPLAY+x+y`)
@@ -230,12 +230,12 @@ return $default(_that.fps,_that.maxDurationMs,_that.regionMode,_that.windowTitle
 @JsonSerializable()
 
 class _RecordParams extends RecordParams {
-  const _RecordParams({this.fps = 15.0, this.maxDurationMs = 60000, this.regionMode = RecordRegion.fullscreen, this.windowTitle, this.regionX, this.regionY, this.regionWidth, this.regionHeight, this.drawCursor = true, this.aspectRatio, this.outputDir}): super._();
+  const _RecordParams({this.fps = 15.0, this.maxDurationMs = 0, this.regionMode = RecordRegion.fullscreen, this.windowTitle, this.regionX, this.regionY, this.regionWidth, this.regionHeight, this.drawCursor = true, this.aspectRatio, this.outputDir}): super._();
   factory _RecordParams.fromJson(Map<String, dynamic> json) => _$RecordParamsFromJson(json);
 
 /// 帧率(5–30)
 @override@JsonKey() final  double fps;
-/// 时长上限(毫秒,超时自动停)
+/// 时长上限(毫秒,超时自动停;0 = 不限时长,仅手动停止)
 @override@JsonKey() final  int maxDurationMs;
 /// 区域模式(Windows gdigrab;Android 恒全屏)
 @override@JsonKey() final  RecordRegion regionMode;

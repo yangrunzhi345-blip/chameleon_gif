@@ -20,8 +20,8 @@ abstract class RecordParams with _$RecordParams {
     /// 帧率(5–30)
     @Default(15.0) double fps,
 
-    /// 时长上限(毫秒,超时自动停)
-    @Default(60000) int maxDurationMs,
+    /// 时长上限(毫秒,超时自动停;0 = 不限时长,仅手动停止)
+    @Default(0) int maxDurationMs,
 
     /// 区域模式(Windows gdigrab;Android 恒全屏)
     @Default(RecordRegion.fullscreen) RecordRegion regionMode,
