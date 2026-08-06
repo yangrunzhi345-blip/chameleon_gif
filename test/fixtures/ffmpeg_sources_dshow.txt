@@ -1,0 +1,5 @@
+DirectShow video devices (some may be both video and audio devices)
+    "Integrated Camera"
+    "OBS Virtual Camera"
+DirectShow audio devices
+    "Microphone (Realtek High Definition Audio)"
