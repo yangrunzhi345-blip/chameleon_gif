@@ -117,6 +117,36 @@ void main() {
     expect(container.read(exportControllerProvider).height, 0);
   });
 
+  test('try* 文本校验:非法/越界 → false + formError;合法 → true', () async {
+    container = build();
+    final ctl = container.read(exportControllerProvider.notifier);
+    ctl.initForm(video: video);
+    ExportFormState s() => container.read(exportControllerProvider);
+
+    // 循环:非数字 → 错误;合法 → 应用
+    expect(ctl.tryUpdateLoopText('abc'), isFalse);
+    expect(s().formError, contains('循环次数'));
+    expect(ctl.tryUpdateLoopText('5'), isTrue);
+    expect(s().loop, 5);
+
+    // 开始/结束:格式非法 → 错误(失败短路,不触时间轴同步)
+    expect(ctl.tryUpdateStartText('abc'), isFalse);
+    expect(s().formError, contains('开始时间'));
+    expect(ctl.tryUpdateEndText('abc'), isFalse);
+    expect(s().formError, contains('结束时间'));
+
+    // 宽度/高度/缩放倍数:越界 → 错误;合法 → 应用
+    expect(ctl.tryUpdateCustomWidth('0'), isFalse);
+    expect(ctl.tryUpdateCustomWidth('150'), isTrue);
+    expect(s().width, 150);
+    expect(ctl.tryUpdateCustomHeight('9999'), isFalse);
+    expect(ctl.tryUpdateCustomHeight('100'), isTrue);
+    expect(s().height, 100);
+    expect(ctl.tryUpdateCustomScaleMultiplier('0'), isFalse);
+    expect(ctl.tryUpdateCustomScaleMultiplier('2'), isTrue);
+    expect(s().scaleMultiplier, 2.0);
+  });
+
   test('updateScaleMultiplier:源已知(640×360)联动落成具体宽高', () async {
     container = build();
     final ctl = container.read(exportControllerProvider.notifier);

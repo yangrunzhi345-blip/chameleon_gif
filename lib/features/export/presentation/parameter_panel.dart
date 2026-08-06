@@ -108,14 +108,9 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
     super.dispose();
   }
 
-  /// 循环文本提交(解析失败 → formError)。
+  /// 循环文本提交(解析/校验在控制器 tryUpdateLoopText)。
   void _submitLoopText(String text) {
-    final v = int.tryParse(text.trim());
-    if (v == null) {
-      ref.read(exportControllerProvider.notifier).updateFormError('循环次数须为数字');
-    } else {
-      ref.read(exportControllerProvider.notifier).updateLoop(v);
-    }
+    ref.read(exportControllerProvider.notifier).tryUpdateLoopText(text);
   }
 
   /// 未聚焦时从 state 回填文本(时间轴拖动提交后文本随之刷新)。
@@ -135,69 +130,30 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
   }
 
   void _submitStart(String text) {
-    final parsed = parseFfmpegTime(text);
-    if (parsed == null) {
-      ref
-          .read(exportControllerProvider.notifier)
-          .updateFormError('开始时间格式非法(示例 00:03.200)');
-      return;
-    }
-    ref.read(exportControllerProvider.notifier).updateStart(parsed);
+    ref.read(exportControllerProvider.notifier).tryUpdateStartText(text);
   }
 
   void _submitEnd(String text) {
-    if (text.trim().isEmpty) {
-      ref.read(exportControllerProvider.notifier).updateEnd(null);
-      return;
-    }
-    final parsed = parseFfmpegTime(text);
-    if (parsed == null) {
-      ref
-          .read(exportControllerProvider.notifier)
-          .updateFormError('结束时间格式非法(示例 00:09.500)');
-      return;
-    }
-    ref.read(exportControllerProvider.notifier).updateEnd(parsed);
+    ref.read(exportControllerProvider.notifier).tryUpdateEndText(text);
   }
 
   /// 提交未回车的文本字段(循环/开始/结束)到控制器。
   ///
-  /// 先对全部字段做纯解析校验(任一非法 → formError 并返回 false),再
-  /// 逐项提交(update* 内部钳制失败同样中止)。**必须先全量校验再提交**:
-  /// 各 update* 成功后都会清 formError,顺序逐项提交会让前项错误被后项
-  /// 成功清除。调用方(导出入口)在返回 false 时中止动作。
+  /// 短路语义:逐字段调控制器 try*(解析/格式校验/错误文案都在控制器),
+  /// **任一失败立即返回 false** —— 后项成功(update* 清 formError)不会
+  /// 清掉前项错误。调用方(导出入口)在返回 false 时中止动作。
   bool flushPendingInputs() {
-    final loop = int.tryParse(_loopCtrl.text.trim());
-    final start = parseFfmpegTime(_startCtrl.text);
-    final endText = _endCtrl.text.trim();
-    final end = endText.isEmpty ? null : parseFfmpegTime(endText);
-    if (loop == null) {
-      ref.read(exportControllerProvider.notifier).updateFormError('循环次数须为数字');
-      return false;
-    }
-    if (start == null) {
-      ref
-          .read(exportControllerProvider.notifier)
-          .updateFormError('开始时间格式非法(示例 00:03.200)');
-      return false;
-    }
-    if (endText.isNotEmpty && end == null) {
-      ref
-          .read(exportControllerProvider.notifier)
-          .updateFormError('结束时间格式非法(示例 00:09.500)');
-      return false;
-    }
     _loopFocused = false;
     _startFocused = false;
     _endFocused = false;
     final controller = ref.read(exportControllerProvider.notifier);
-    controller.updateLoop(loop);
-    controller.updateStart(start);
-    controller.updateEnd(end);
-    return ref.read(exportControllerProvider).formError == null;
+    if (!controller.tryUpdateLoopText(_loopCtrl.text)) return false;
+    if (!controller.tryUpdateStartText(_startCtrl.text)) return false;
+    if (!controller.tryUpdateEndText(_endCtrl.text)) return false;
+    return true; // 逐字段成功即无错误,不再回读 formError
   }
 
-  /// 自定义宽度:弹输入框,1–4096 校验(非法 → formError)。
+  /// 自定义宽度:弹输入框(校验在控制器 tryUpdateCustomWidth)。
   Future<void> _customWidth() async {
     final text = await showCustomValueDialog(
       context,
@@ -206,17 +162,10 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
       hintText: '1–4096',
     );
     if (text == null) return;
-    final v = int.tryParse(text.trim());
-    if (v == null || v < 1 || v > 4096) {
-      ref
-          .read(exportControllerProvider.notifier)
-          .updateFormError('宽度须为 1–4096 的数字');
-      return;
-    }
-    ref.read(exportControllerProvider.notifier).updateWidth(v);
+    ref.read(exportControllerProvider.notifier).tryUpdateCustomWidth(text);
   }
 
-  /// 自定义高度:弹输入框,1–4096 校验(非法 → formError)。
+  /// 自定义高度:弹输入框(校验在控制器 tryUpdateCustomHeight)。
   Future<void> _customHeight() async {
     final text = await showCustomValueDialog(
       context,
@@ -225,17 +174,10 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
       hintText: '1–4096',
     );
     if (text == null) return;
-    final v = int.tryParse(text.trim());
-    if (v == null || v < 1 || v > 4096) {
-      ref
-          .read(exportControllerProvider.notifier)
-          .updateFormError('高度须为 1–4096 的数字');
-      return;
-    }
-    ref.read(exportControllerProvider.notifier).updateHeight(v);
+    ref.read(exportControllerProvider.notifier).tryUpdateCustomHeight(text);
   }
 
-  /// 自定义缩放倍数:弹输入框,0.1–4 校验(非法 → formError)。
+  /// 自定义缩放倍数:弹输入框(校验在控制器 tryUpdateCustomScaleMultiplier)。
   Future<void> _customScaleMultiplier() async {
     final text = await showCustomValueDialog(
       context,
@@ -245,14 +187,9 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
       hintText: '0.1–4',
     );
     if (text == null) return;
-    final v = double.tryParse(text.trim());
-    if (v == null || v <= 0 || v > 4) {
-      ref
-          .read(exportControllerProvider.notifier)
-          .updateFormError('缩放倍数须为 0.1–4 的数字');
-      return;
-    }
-    ref.read(exportControllerProvider.notifier).updateScaleMultiplier(v);
+    ref
+        .read(exportControllerProvider.notifier)
+        .tryUpdateCustomScaleMultiplier(text);
   }
 
   @override

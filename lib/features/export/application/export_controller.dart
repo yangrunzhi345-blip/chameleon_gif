@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/duration_format.dart';
 import '../../../core/utils/duration_math.dart';
 import '../../../domain/entities/export_task.dart';
 import '../../../domain/entities/video_info.dart';
@@ -208,6 +209,88 @@ class ExportController extends Notifier<ExportFormState>
       playbackSpeed: speed.clamp(0.25, 4),
       formError: null,
     );
+  }
+
+  // ---- 文本输入解析+校验(UI 文本 → 状态,短路语义) ----
+  // 与 image_gif_controller 的 try* 系列同构:解析/范围校验/错误文案下沉
+  // 控制器(去除 UI 层重复实现);任一失败设 formError 返回 false,调用方
+  // 逐字段短路调用(后项成功不清前项错误)。
+
+  /// 循环次数文本:非数字 → formError 返回 false;成功应用清错返回 true。
+  bool tryUpdateLoopText(String text) {
+    if (state.locked) return false;
+    final v = int.tryParse(text.trim());
+    if (v == null) {
+      state = state.copyWith(formError: '循环次数须为数字');
+      return false;
+    }
+    updateLoop(v);
+    return true;
+  }
+
+  /// 开始时间文本:格式非法 → formError 返回 false;成功(含钳制/交换/
+  /// 时间轴同步)返回 true。
+  bool tryUpdateStartText(String text) {
+    if (state.locked) return false;
+    final parsed = parseFfmpegTime(text);
+    if (parsed == null) {
+      state = state.copyWith(formError: '开始时间格式非法(示例 00:03.200)');
+      return false;
+    }
+    updateStart(parsed);
+    return true;
+  }
+
+  /// 结束时间文本:留空 → null(到视频结尾);格式非法 → formError 返回 false。
+  bool tryUpdateEndText(String text) {
+    if (state.locked) return false;
+    if (text.trim().isEmpty) {
+      updateEnd(null);
+      return true;
+    }
+    final parsed = parseFfmpegTime(text);
+    if (parsed == null) {
+      state = state.copyWith(formError: '结束时间格式非法(示例 00:09.500)');
+      return false;
+    }
+    updateEnd(parsed);
+    return true;
+  }
+
+  /// 自定义宽度文本(1–4096;成功时联动倍数回显,同短路语义)。
+  bool tryUpdateCustomWidth(String text) {
+    if (state.locked) return false;
+    final v = int.tryParse(text.trim());
+    if (v == null || v < 1 || v > 4096) {
+      state = state.copyWith(formError: '宽度须为 1–4096 的数字');
+      return false;
+    }
+    updateWidth(v);
+    return true;
+  }
+
+  /// 自定义高度文本(1–4096;成功时联动倍数回显,同短路语义)。
+  bool tryUpdateCustomHeight(String text) {
+    if (state.locked) return false;
+    final v = int.tryParse(text.trim());
+    if (v == null || v < 1 || v > 4096) {
+      state = state.copyWith(formError: '高度须为 1–4096 的数字');
+      return false;
+    }
+    updateHeight(v);
+    return true;
+  }
+
+  /// 自定义缩放倍数文本(0.1–4;成功落成宽高联动,同短路语义)。
+  bool tryUpdateCustomScaleMultiplier(String text) {
+    if (state.locked) return false;
+    final v = double.tryParse(text.trim());
+    if (v == null || v <= 0 || v > 4) {
+      state = state.copyWith(formError: '缩放倍数须为 0.1–4 的数字');
+      return false;
+    }
+    updateScaleMultiplier(v);
+    return true;
   }
 
   /// 表单 → GifSetting(end 保留 null,由 TaskManager 装配视频时长;
