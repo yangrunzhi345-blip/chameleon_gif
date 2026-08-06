@@ -161,9 +161,10 @@ class BatchParameterFormState extends State<BatchParameterForm> {
   /// 提交未回车的文本字段(循环/开始/结束)到控制器。
   ///
   /// 先对全部字段做纯解析校验(任一非法 → formError 并返回 false),再
-  /// 逐项提交(update* 内部钳制失败同样中止)。**必须先全量校验再提交**:
-  /// 各 update* 成功后都会清 formError,顺序逐项提交会让前项错误被后项
-  /// 成功清除。调用方(保存入口)在返回 false 时中止动作。
+  /// 逐项提交。返回恒 true:解析已全过且 [BatchFormMixin] 的 update*
+  /// 从不拒绝(与 export 的 try* 不同),**不读 [widget.state.formError]**
+  /// —— 那是父组件上一次 build 的快照,同步提交后尚未重建,读取无意义;
+  /// formError 非空时保存入口本就被禁用,行为等价。
   bool flushPendingInputs() {
     final loop = int.tryParse(_loopCtrl.text.trim());
     final start = parseFfmpegTime(_startCtrl.text);
@@ -187,7 +188,7 @@ class BatchParameterFormState extends State<BatchParameterForm> {
     widget.actions.updateLoop(loop);
     widget.actions.updateStart(start);
     widget.actions.updateEnd(end);
-    return widget.state.formError == null;
+    return true;
   }
 
   /// 自定义宽度:弹输入框,1–4096 校验(非法 → formError)。
