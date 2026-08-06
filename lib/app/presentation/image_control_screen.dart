@@ -8,7 +8,7 @@ import '../../features/converter/application/control_target.dart';
 import '../../features/export/application/scale_multiplier.dart';
 import '../../features/export/presentation/custom_value_dialog.dart';
 import '../../features/export/presentation/param_dropdown_field.dart';
-import '../../features/import/application/import_providers.dart';
+import '../application/image_control_controller.dart';
 import 'batch_parameter_form.dart' show ParamRow, SectionLabel;
 
 /// 单张图片的精细化控制页(齿轮入口 → 全屏路由页,docs/10 UI 精细控制)。
@@ -63,141 +63,107 @@ class _ImageControlScreenState extends ConsumerState<ImageControlScreen> {
     1920,
   ];
 
-  late double _multiplier;
-  late int _width;
-  late int _height;
-
-  /// 该图源尺寸(探测成功后填充;预览模拟与保存校验依据)。
-  ({int width, int height})? _sourceSize;
-  bool _probeFailed = false;
-
-  bool get _hasCanvas => widget.canvasW > 0 && widget.canvasH > 0;
-
   @override
   void initState() {
     super.initState();
-    final initial = widget.initial;
-    _multiplier = initial?.scaleMultiplier ?? 1.0;
-    _width = initial?.width ?? 0;
-    _height = initial?.height ?? 0;
-    if (widget.path.isEmpty) return;
-    // 探测源尺寸:预览需要"该图在画布中的最终呈现比例"(倍数联动的基础)
-    Future.microtask(_probe);
-  }
-
-  Future<void> _probe() async {
-    try {
-      final size = await ref.read(imageProbePortProvider).probe(widget.path);
+    // 延迟到首帧后初始化:避免 initState 内触发 Notifier 状态写入;
+    // 播种 + 源尺寸探测都在控制器(image_control_controller)
+    Future.microtask(() {
       if (!mounted) return;
-      setState(() => _sourceSize = size);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _probeFailed = true);
-    }
+      ref
+          .read(imageControlControllerProvider.notifier)
+          .init(
+            path: widget.path,
+            canvasW: widget.canvasW,
+            canvasH: widget.canvasH,
+            initial: widget.initial,
+          );
+    });
   }
 
-  /// 最终呈现尺寸(预览用;源尺寸未知 → null 退化为原图 contain)。
-  ({int width, int height})? get _target {
-    final src = _sourceSize;
-    if (!_hasCanvas || src == null) return null;
-    return controlTarget(
-      control: PerImageControl(
-        scaleMultiplier: _multiplier,
-        width: _width,
-        height: _height,
-      ),
-      sourceWidth: src.width,
-      sourceHeight: src.height,
-      canvasWidth: widget.canvasW,
-      canvasHeight: widget.canvasH,
-    );
+  /// 弹 SnackBar(自定义输入是模态弹窗,页面红字不可见,SnackBar 为
+  /// 正确反馈载体;解析/校验/文案在控制器,UI 只呈现)。
+  void _snack(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  /// 保存校验:有控制(非默认)时必须能算出目标(源尺寸未知 → 拒绝,
-  /// 预览无意义且命令构造无画布兜底)。
+  /// 保存:校验(控制器 validateSave)→ pop 返回 [PerImageControl]。
   void _save() {
-    final control = PerImageControl(
-      scaleMultiplier: _multiplier,
-      width: _width,
-      height: _height,
-    );
-    if (!control.isDefault && _sourceSize == null && _hasCanvas) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('无法读取图片尺寸,请更换图片')));
+    final notifier = ref.read(imageControlControllerProvider.notifier);
+    final err = notifier.validateSave();
+    if (err != null) {
+      _snack(err);
       return;
     }
-    Navigator.pop(context, control);
+    Navigator.pop(context, ref.read(imageControlControllerProvider).control);
   }
 
   void _reset() {
-    setState(() {
-      _multiplier = 1.0;
-      _width = 0;
-      _height = 0;
-    });
+    ref.read(imageControlControllerProvider.notifier).reset();
   }
 
   Future<void> _customMultiplier() async {
     final text = await showCustomValueDialog(
       context,
       title: '自定义缩放倍数',
-      initialValue: '$_multiplier',
+      initialValue: '${ref.read(imageControlControllerProvider).multiplier}',
       hintText: '0.1–4',
     );
     if (text == null || !mounted) return;
-    final v = double.tryParse(text.trim());
-    if (v == null || v <= 0 || v > 4) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('缩放倍数须为 0.1–4 的数字')));
-      return;
-    }
-    setState(() => _multiplier = v);
+    final err = ref
+        .read(imageControlControllerProvider.notifier)
+        .tryUpdateCustomScaleMultiplier(text);
+    if (err != null) _snack(err);
   }
 
   Future<void> _customWidth() async {
     final text = await showCustomValueDialog(
       context,
       title: '自定义宽度',
-      initialValue: '$_width',
+      initialValue: '${ref.read(imageControlControllerProvider).width}',
       hintText: '1–4096',
     );
     if (text == null || !mounted) return;
-    final v = int.tryParse(text.trim());
-    if (v == null || v < 1 || v > 4096) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('宽度须为 1–4096 的数字')));
-      return;
-    }
-    setState(() => _width = v);
+    final err = ref
+        .read(imageControlControllerProvider.notifier)
+        .tryUpdateCustomWidth(text);
+    if (err != null) _snack(err);
   }
 
   Future<void> _customHeight() async {
     final text = await showCustomValueDialog(
       context,
       title: '自定义高度',
-      initialValue: '$_height',
+      initialValue: '${ref.read(imageControlControllerProvider).height}',
       hintText: '1–4096',
     );
     if (text == null || !mounted) return;
-    final v = int.tryParse(text.trim());
-    if (v == null || v < 1 || v > 4096) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('高度须为 1–4096 的数字')));
-      return;
-    }
-    setState(() => _height = v);
+    final err = ref
+        .read(imageControlControllerProvider.notifier)
+        .tryUpdateCustomHeight(text);
+    if (err != null) _snack(err);
   }
 
   @override
   Widget build(BuildContext context) {
-    final sourceSize = _sourceSize;
-    final target = _target;
+    final state = ref.watch(imageControlControllerProvider);
+    final notifier = ref.read(imageControlControllerProvider.notifier);
+    final sourceSize = state.sourceSize;
+    final hasCanvas = state.hasCanvas;
+    // 最终呈现尺寸(预览用;源尺寸未知 → null 退化为原图 contain)
+    final target = hasCanvas && sourceSize != null
+        ? controlTarget(
+            control: state.control,
+            sourceWidth: sourceSize.width,
+            sourceHeight: sourceSize.height,
+            canvasWidth: widget.canvasW,
+            canvasHeight: widget.canvasH,
+          )
+        : null;
 
-    final preview = _hasCanvas
+    final preview = hasCanvas
         ? AspectRatio(
             aspectRatio: widget.canvasW / widget.canvasH,
             child: _CanvasPreview(
@@ -216,7 +182,7 @@ class _ImageControlScreenState extends ConsumerState<ImageControlScreen> {
             ),
           );
 
-    final invalid = widget.path.isEmpty || _probeFailed;
+    final invalid = widget.path.isEmpty || state.probeFailed;
     final formPanel = SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -225,9 +191,12 @@ class _ImageControlScreenState extends ConsumerState<ImageControlScreen> {
           ParamRow(
             label: '缩放倍率',
             child: ParamDropdownField<double?>(
-              value: _multiplier == 1.0 && _width == 0 && _height == 0
+              value:
+                  state.multiplier == 1.0 &&
+                      state.width == 0 &&
+                      state.height == 0
                   ? 1.0
-                  : _multiplier,
+                  : state.multiplier,
               enabled: !invalid,
               items: [
                 for (final m in kScaleMultiplierOptions)
@@ -246,14 +215,14 @@ class _ImageControlScreenState extends ConsumerState<ImageControlScreen> {
                   _customMultiplier();
                   return;
                 }
-                setState(() => _multiplier = m);
+                notifier.updateMultiplier(m);
               },
             ),
           ),
           ParamRow(
             label: '宽度',
             child: ParamDropdownField<int>(
-              value: _width,
+              value: state.width,
               enabled: !invalid,
               items: [
                 for (final w in _sizeOptions)
@@ -266,14 +235,14 @@ class _ImageControlScreenState extends ConsumerState<ImageControlScreen> {
                   _customWidth();
                   return;
                 }
-                setState(() => _width = w);
+                notifier.updateWidth(w);
               },
             ),
           ),
           ParamRow(
             label: '高度',
             child: ParamDropdownField<int>(
-              value: _height,
+              value: state.height,
               enabled: !invalid,
               items: [
                 for (final h in _sizeOptions)
@@ -286,7 +255,7 @@ class _ImageControlScreenState extends ConsumerState<ImageControlScreen> {
                   _customHeight();
                   return;
                 }
-                setState(() => _height = h);
+                notifier.updateHeight(h);
               },
             ),
           ),
