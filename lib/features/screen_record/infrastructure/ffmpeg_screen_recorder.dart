@@ -61,6 +61,9 @@ class FfmpegScreenRecorder implements ScreenRecorderPort {
   /// 环境注入(测试);null = 运行时探测。
   final RecordEnvironment? _environmentOverride;
 
+  /// 有效产物最小字节数(0 帧 wf-recorder 产物约 262B,截断 moov 损坏)。
+  static const _minValidBytes = 4096;
+
   /// 环境探测:Windows 恒 gdigrab;Linux 读会话环境变量(XDG_SESSION_TYPE
   /// 判定 X11/Wayland,DISPLAY 供 x11grab 输入)。
   RecordEnvironment get _environment {
@@ -228,6 +231,18 @@ class FfmpegScreenRecorder implements ScreenRecorderPort {
       '录屏完成: $tmpPath ${outcome.elapsed.inMilliseconds}ms '
       'exit=${outcome.exitCode}',
     );
+    // 0 帧产物校验:wf-recorder 极短录制(0 帧)SIGTERM 封口会留下
+    // ftyp+截断 moov 的损坏 mp4(实测 262B,ffprobe 报 Invalid data);
+    // ffmpeg 分支 0 帧自动删空输出,不受影响。删除并友好提示,避免
+    // 自动导入时出现误导性的"文件损坏或格式异常"。
+    final tmpFile = File(tmpPath);
+    if (!await tmpFile.exists() || await tmpFile.length() < _minValidBytes) {
+      await _committer.discardTmp(tmpPath);
+      throw const CaptureException(
+        errorCode: 'GIF_RECORD_TOO_SHORT',
+        userMessage: '录制时间过短,未生成有效内容,请重新录制',
+      );
+    }
     return await _committer.commit(
       tmpPath: tmpPath,
       fileName: fileName,

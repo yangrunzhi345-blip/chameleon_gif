@@ -34,18 +34,20 @@ void main() {
 
   /// 假 runner:[exitCode] 非空 = 启动即退出;空 = 运行中(由停止/取消终止)。
   /// 输出路径:ffmpeg 分支 `-y` 后;wf-recorder 分支 `-f` 后。
-  CaptureProcessRunner fakeRunner({int? exitCode}) => CaptureProcessRunner(
-    startProcess: (exe, args) async {
-      lastExe = exe;
-      lastArgs = args;
-      lastProcess = FakeProcess(exitCode: exitCode);
-      final yIdx = args.indexOf('-y');
-      final fIdx = args.indexOf('-f');
-      final out = yIdx >= 0 ? args[yIdx + 1] : args[fIdx + 1];
-      File(out).writeAsStringSync('partial');
-      return lastProcess;
-    },
-  );
+  /// 产物内容:[bytes] 指定大小(默认 5000B,越过 0 帧校验阈值)。
+  CaptureProcessRunner fakeRunner({int? exitCode, int bytes = 5000}) =>
+      CaptureProcessRunner(
+        startProcess: (exe, args) async {
+          lastExe = exe;
+          lastArgs = args;
+          lastProcess = FakeProcess(exitCode: exitCode);
+          final yIdx = args.indexOf('-y');
+          final fIdx = args.indexOf('-f');
+          final out = yIdx >= 0 ? args[yIdx + 1] : args[fIdx + 1];
+          File(out).writeAsBytesSync(List.filled(bytes, 0x30));
+          return lastProcess;
+        },
+      );
 
   FfmpegScreenRecorder buildRecorder({
     required RecordCaptureMethod method,
@@ -120,6 +122,33 @@ void main() {
     expect(lastArgs, containsAllInOrder(['-r', '15', '-f']));
     expect(lastExe, 'wf-recorder', reason: 'Wayland 用 wf-recorder 可执行');
     expect(File(result.finalPath).existsSync(), isTrue);
+  });
+
+  test('0 帧产物(262B 截断 mp4)→ 删除并提示录制过短', () async {
+    final recorder = buildRecorder(
+      method: RecordCaptureMethod.wfRecorder,
+      runner: fakeRunner(bytes: 262),
+    );
+    final future = recorder.record(
+      params: const RecordParams(),
+      cancelToken: null,
+    );
+    await recorder.requestStop(); // 模拟 0 帧极短录制停止
+    await expectLater(
+      future,
+      throwsA(
+        isA<CaptureException>().having(
+          (e) => e.userMessage,
+          'userMessage',
+          contains('录制时间过短'),
+        ),
+      ),
+    );
+    expect(
+      capturesDir.existsSync() ? capturesDir.listSync() : const [],
+      isEmpty,
+      reason: '无效产物不落位',
+    );
   });
 
   test('wfRecorder 启动失败 → 中文指引(wlr-screencopy 支持)', () async {
