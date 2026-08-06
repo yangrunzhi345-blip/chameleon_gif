@@ -13,6 +13,7 @@ import 'package:chameleon_gif/domain/entities/video_info.dart';
 import 'package:chameleon_gif/domain/exceptions/capture_exception.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/parse_video_port.dart';
 import 'package:chameleon_gif/domain/value_objects/capture_result.dart';
+import 'package:chameleon_gif/domain/value_objects/record_params.dart';
 import 'package:chameleon_gif/domain/value_objects/record_types.dart';
 import 'package:chameleon_gif/features/preview/application/preview_controller.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
@@ -132,6 +133,33 @@ void main() {
     expect(find.text('录制区域'), findsOneWidget);
     expect(find.text('全屏'), findsOneWidget);
     expect(find.text('自定义区域'), findsOneWidget);
+  });
+
+  testWidgets('区域切换:全屏 ↔ 自定义 即时反馈 + 持久化', (tester) async {
+    recorderPort.capabilities = const RecordCapabilities(
+      screenCaptureAvailable: true,
+      supportsRegions: true,
+    );
+    await pumpRecord(tester);
+
+    // 切到自定义:数字输入出现 + 仓储持久化
+    await tester.tap(find.text('自定义区域'));
+    await tester.pump();
+    expect(find.text('起点 X'), findsOneWidget, reason: '自定义输入显示');
+    expect(find.text('宽度'), findsOneWidget);
+    final repo = container.read(settingsRepositoryProvider);
+    expect(repo.recordParams?.regionMode, RecordRegion.custom);
+
+    // 输入宽度:持久化生效
+    await tester.enterText(find.widgetWithText(TextField, '宽度'), '640');
+    await tester.pump();
+    expect(repo.recordParams?.regionWidth, 640);
+
+    // 切回全屏:输入隐藏
+    await tester.tap(find.text('全屏'));
+    await tester.pump();
+    expect(find.text('起点 X'), findsNothing, reason: '全屏隐藏自定义输入');
+    expect(repo.recordParams?.regionMode, RecordRegion.fullscreen);
   });
 
   testWidgets('录屏不可用 → 开始按钮禁用 + hint 文案', (tester) async {

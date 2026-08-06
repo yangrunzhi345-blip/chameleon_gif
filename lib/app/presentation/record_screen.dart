@@ -215,19 +215,36 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
 
 /// 录制区域选择(全屏 / 自定义;桌面 x11grab/gdigrab 能力)。
 ///
-/// 变更即持久化(record_params,与录制页启动读取同源);纯渲染与转发,
-/// 无业务逻辑(数值解析容错除外)。
-class _RegionSelector extends ConsumerWidget {
+/// settingsRepository 非响应式(Provider 不监听内部变化),点击切换后
+/// 无重建驱动 —— 故本地持有选中态(StatefulWidget),变更同步 setState
+/// + 持久化(record_params,与录制页启动读取同源)。
+class _RegionSelector extends ConsumerStatefulWidget {
   const _RegionSelector();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final repo = ref.watch(settingsRepositoryProvider);
-    final params = repo.recordParams ?? const RecordParams();
+  ConsumerState<_RegionSelector> createState() => _RegionSelectorState();
+}
+
+class _RegionSelectorState extends ConsumerState<_RegionSelector> {
+  late RecordParams _params;
+
+  @override
+  void initState() {
+    super.initState();
+    _params =
+        ref.read(settingsRepositoryProvider).recordParams ??
+        const RecordParams();
+  }
+
+  Future<void> _update(RecordParams next) async {
+    setState(() => _params = next); // 立即重建(切换即时反馈)
+    await ref.read(settingsRepositoryProvider).setRecordParams(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final params = _params;
     final custom = params.regionMode == RecordRegion.custom;
-
-    Future<void> save(RecordParams next) => repo.setRecordParams(next);
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -246,7 +263,7 @@ class _RegionSelector extends ConsumerWidget {
               ],
               selected: {params.regionMode},
               onSelectionChanged: (s) =>
-                  save(params.copyWith(regionMode: s.first)),
+                  _update(params.copyWith(regionMode: s.first)),
             ),
             if (custom) ...[
               const SizedBox(height: 12),
@@ -256,7 +273,7 @@ class _RegionSelector extends ConsumerWidget {
                     child: _NumberField(
                       label: '起点 X',
                       value: params.regionX,
-                      onChanged: (v) => save(params.copyWith(regionX: v)),
+                      onChanged: (v) => _update(params.copyWith(regionX: v)),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -264,7 +281,7 @@ class _RegionSelector extends ConsumerWidget {
                     child: _NumberField(
                       label: '起点 Y',
                       value: params.regionY,
-                      onChanged: (v) => save(params.copyWith(regionY: v)),
+                      onChanged: (v) => _update(params.copyWith(regionY: v)),
                     ),
                   ),
                 ],
@@ -276,7 +293,8 @@ class _RegionSelector extends ConsumerWidget {
                     child: _NumberField(
                       label: '宽度',
                       value: params.regionWidth,
-                      onChanged: (v) => save(params.copyWith(regionWidth: v)),
+                      onChanged: (v) =>
+                          _update(params.copyWith(regionWidth: v)),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -284,7 +302,8 @@ class _RegionSelector extends ConsumerWidget {
                     child: _NumberField(
                       label: '高度',
                       value: params.regionHeight,
-                      onChanged: (v) => save(params.copyWith(regionHeight: v)),
+                      onChanged: (v) =>
+                          _update(params.copyWith(regionHeight: v)),
                     ),
                   ),
                 ],
@@ -298,7 +317,10 @@ class _RegionSelector extends ConsumerWidget {
 }
 
 /// 数字输入框(非负整数;空/非法输入不更新,防误改)。
-class _NumberField extends StatelessWidget {
+///
+/// StatefulWidget 持有 [TextEditingController]:父级重建(如区域切换)
+/// 不重建 controller,避免输入光标/焦点丢失。
+class _NumberField extends StatefulWidget {
   const _NumberField({
     required this.label,
     required this.value,
@@ -310,19 +332,38 @@ class _NumberField extends StatelessWidget {
   final ValueChanged<int> onChanged;
 
   @override
+  State<_NumberField> createState() => _NumberFieldState();
+}
+
+class _NumberFieldState extends State<_NumberField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value?.toString() ?? '');
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return TextField(
       keyboardType: TextInputType.number,
       decoration: InputDecoration(
-        labelText: label,
+        labelText: widget.label,
         isDense: true,
         border: const OutlineInputBorder(),
       ),
-      controller: TextEditingController(text: value?.toString() ?? ''),
+      controller: _controller,
       onChanged: (text) {
         final v = int.tryParse(text.trim());
         if (v == null || v < 0) return;
-        onChanged(v);
+        widget.onChanged(v);
       },
     );
   }
