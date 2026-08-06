@@ -123,11 +123,14 @@ class GifCommandBuilder {
     ].join(';');
     final labels = [for (var i = 0; i < n; i++) '[s$i]'].join();
     // 播放速度在 concat 后整体 setpts(帧数不变、时间轴缩放,逐图输入
-    // `-t` 不动 → 无掉帧);speed=1.0 无后缀,链内 [vout] 保持原名
+    // `-t` 不动 → 无掉帧)。**标签规则**:concat 输出显式加 [vout] 后链内
+    // 隐式连接失效(下游 setpts 输入悬空 → 滤镜图绑定失败 exit 234,已
+    // 实证),因此 speed≠1 时 concat 不加标签、由链尾 setpts 统一加 [vout];
+    // speed=1.0 保持 `concat=...[vout]` 原样。
     final speed = _speedFilterArgs(setting);
     final concatChain =
-        '$stages;${labels}concat=n=$n:v=1:a=0[vout]'
-        '${speed.isEmpty ? '' : '$speed[vout]'}';
+        '$stages;${labels}concat=n=$n:v=1:a=0'
+        '${speed.isEmpty ? '[vout]' : '$speed[vout]'}';
     final tail = ['-y', '-loop', '${setting.loop}', outputPath];
 
     if (!usePalette) {

@@ -31,6 +31,13 @@ void main() {
       '[0:v]$chain[s0];[1:v]$chain[s1];[2:v]$chain[s2];'
       '[s0][s1][s2]concat=n=3:v=1:a=0[vout]';
 
+  /// 同 [stages3] 但 concat **无输出标签**(播放速度分支专用:concat 带
+  /// 标签后链内隐式连接失效会致 setpts 输入悬空,链尾由 setpts 统一加
+  /// [vout],见 command_builder 注释与 tool/convert_check_images.dart)。
+  String stages3NoLabel(String chain) =>
+      '[0:v]$chain[s0];[1:v]$chain[s1];[2:v]$chain[s2];'
+      '[s0][s1][s2]concat=n=3:v=1:a=0';
+
   group('默认两遍调色板法', () {
     test('默认参数命令快照逐项相等', () {
       const setting = GifSetting(frameDurationMs: 1000);
@@ -522,20 +529,43 @@ void main() {
         workDir: '/tmp/work',
         outputPath: '/tmp/work/out.gif',
       );
-      // palette 遍:concat 链尾 ',setpts=PTS/2[vout]' 再 palettegen
+      // palette 遍:concat 不加标签(带标签会致 setpts 输入悬空,已实证
+      // exit 234),链尾 ',setpts=PTS/2[vout]' 统一加标签再 palettegen
       expect(
         filterOf(commands[0].args),
-        '${stages3(defaultChain)},setpts=PTS/2[vout];'
+        '${stages3NoLabel(defaultChain)},setpts=PTS/2[vout];'
         '[vout]palettegen=max_colors=256[pal]',
       );
       // encode 遍:setpts 后 [vout][3:v]paletteuse
       expect(
         filterOf(commands[1].args),
-        '${stages3(defaultChain)},setpts=PTS/2[vout];'
+        '${stages3NoLabel(defaultChain)},setpts=PTS/2[vout];'
         '[vout][3:v]paletteuse=dither=bayer:bayer_scale=5[gif]',
       );
       // 逐图输入 -t 不变(每图 1s,不因加速改输入)
       expect(commands[0].args, containsAllInOrder(['-t', '00:00:01.000']));
+    });
+
+    test('speed=2 单遍:concat 无标签、setpts 链尾统一加 [vout](无双标签)', () {
+      const setting = GifSetting(frameDurationMs: 1000, playbackSpeed: 2);
+      final cmd = builder
+          .buildFromImages(
+            setting: setting,
+            source: source,
+            workDir: '/tmp/work',
+            outputPath: '/tmp/work/out.gif',
+            usePalette: false,
+          )
+          .single;
+      expect(
+        filterOf(cmd.args),
+        '${stages3NoLabel(defaultChain)},setpts=PTS/2[vout]',
+      );
+      expect(
+        filterOf(cmd.args),
+        isNot(contains('[vout],setpts')),
+        reason: 'concat 不得带输出标签(speed≠1 时)',
+      );
     });
 
     test('慢放 0.25 → setpts=PTS/0.25', () {
