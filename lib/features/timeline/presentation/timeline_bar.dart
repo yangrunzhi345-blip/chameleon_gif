@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/utils/duration_format.dart';
-import '../../preview/application/preview_providers.dart';
-import '../../preview/application/preview_state.dart';
 import '../application/timeline_controller.dart';
 import '../application/timeline_providers.dart';
 
@@ -71,11 +69,11 @@ class _TimelineBarState extends ConsumerState<TimelineBar> {
   Widget build(BuildContext context) {
     final timeline = ref.watch(timelineControllerProvider);
     final timelineController = ref.read(timelineControllerProvider.notifier);
-    // 预览生命周期**响应式 watch**:预览 loading→ready 的迁移必须触发
-    // 本组件重建以激活滑块 —— 用 read 快照(previewReady)会导致就绪
-    // 只通知兄弟节点(VideoPreviewPanel),滑块永远禁用(回归 0376c13)
-    final previewState = ref.watch(previewControllerProvider);
-    final ready = previewState.lifecycle == PreviewLifecycle.ready;
+    // 预览就绪门控经 application 层派生 provider 响应式 watch(UI 不跨
+    // 模块 import preview):loading→ready 迁移必须触发本组件重建以激活
+    // 滑块 —— 用 read 快照会导致就绪只通知兄弟节点,滑块永远禁用
+    // (回归 0376c13)
+    final ready = ref.watch(timelinePreviewReadyProvider);
 
     return Focus(
       focusNode: _focusNode,
