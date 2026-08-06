@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -113,6 +114,22 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
         // Windows 反斜杠路径兼容(纯字符串处理,不触 IO)
         title: Text(video.path.split(RegExp(r'[\\/]')).last),
         leading: BackButton(onPressed: () => context.pop()),
+        // 重新拍摄/重新录屏(仅 Android 采集能力;pushReplacement 直达,
+        // 不保留工作台栈;桌面无采集能力不显示)
+        actions: [
+          if (defaultTargetPlatform == TargetPlatform.android) ...[
+            IconButton(
+              tooltip: '重新拍摄',
+              icon: const Icon(Icons.photo_camera_outlined),
+              onPressed: () => context.pushReplacement('/capture'),
+            ),
+            IconButton(
+              tooltip: '重新录屏',
+              icon: const Icon(Icons.screen_share_outlined),
+              onPressed: () => context.pushReplacement('/record'),
+            ),
+          ],
+        ],
         shape: largeWindow
             ? RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),

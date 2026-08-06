@@ -54,6 +54,12 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
       setState(() => _elapsed += const Duration(milliseconds: 500));
     });
     final port = ref.read(cameraPortProvider);
+    // 记录设备方向(陀螺仪语义):方向修正据此判断横竖屏拍摄
+    if (port is CameraPortImpl) {
+      port.setDevicePortrait(
+        MediaQuery.orientationOf(context) == Orientation.portrait,
+      );
+    }
     final params =
         ref.read(settingsRepositoryProvider).captureParams ??
         const CaptureParams();
@@ -116,12 +122,22 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
       ),
       body: Stack(
         children: [
-          // 取景区:controller 就绪 → CameraPreview;否则占位三态
+          // 取景区:controller 就绪 → CameraPreview;否则占位三态。
+          // 渲染 activeController ?? provider 值:会话重建(release→new)
+          // 期间 activeController 为 null → 占位,永不渲染已 dispose
+          // controller(真机实测 disposed CameraController 崩溃修复)
           Positioned.fill(
             child: preview.when(
-              data: (controller) => controller == null
-                  ? const _Placeholder(text: '未检测到摄像头,请检查相机权限')
-                  : CameraPreview(controller),
+              data: (controller) {
+                final port = ref.read(cameraPortProvider);
+                final active = port is CameraPortImpl
+                    ? port.activeController
+                    : null;
+                final effective = active ?? controller;
+                return effective == null
+                    ? const _Placeholder(text: '未检测到摄像头,请检查相机权限')
+                    : CameraPreview(effective);
+              },
               loading: () => const _Placeholder(text: '相机启动中…'),
               error: (_, _) => _Placeholder(
                 text: '相机启动失败',

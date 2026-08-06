@@ -97,6 +97,18 @@ class ScreenRecordService : Service() {
         }
         projection =
           mgr.getMediaProjection(intent.getIntExtra(EXTRA_RESULT_CODE, 0), data)
+        // Android 14+(targetSdk 34+)强制:捕获启动前必须先 registerCallback,
+        // 否则 getMediaProjection/start 抛 IllegalStateException(真机实测)
+        projection?.registerCallback(
+          object : MediaProjection.Callback() {
+            override fun onStop() {
+              // 系统停止投影(用户通知栏取消等)兜底:正常保存并结束
+              Log.i(TAG, "投影被系统停止(通知栏取消等)")
+              requestStop(normal = true)
+            }
+          },
+          null,
+        )
         if (startEncoding(intent)) {
           Log.i(TAG, "录制会话启动")
         } else {

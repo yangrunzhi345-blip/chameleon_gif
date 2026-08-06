@@ -83,6 +83,9 @@ Future<void> main() async {
             capturesDir: Directory('${docsDir.path}/chameleon_gif/captures'),
             adapter: adapter,
             logger: logger,
+            // 素材竖屏化(media_kit 不应用 rotation,拍摄素材重编码竖屏)
+            rotationProbe: adapter.createFfprobeExecutor(),
+            rotateEngine: adapter.createFfmpegEngine(),
           ),
         ),
         // Android 录屏(自写 MediaProjection 原生桥;桌面亦注入:

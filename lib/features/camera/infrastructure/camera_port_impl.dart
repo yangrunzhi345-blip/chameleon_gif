@@ -6,6 +6,8 @@ import 'package:flutter/services.dart' show MissingPluginException;
 
 import 'package:chameleon_gif/core/logger/app_logger.dart';
 import 'package:chameleon_gif/core/utils/capture_paths.dart';
+import 'package:chameleon_gif/core/utils/orientation_fix.dart';
+import 'package:chameleon_gif/core/utils/video_rotation.dart';
 import 'package:chameleon_gif/domain/exceptions/capture_exception.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/camera_port.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
@@ -13,6 +15,7 @@ import 'package:chameleon_gif/domain/value_objects/camera_types.dart';
 import 'package:chameleon_gif/domain/value_objects/capture_params.dart'
     as domain;
 import 'package:chameleon_gif/domain/value_objects/capture_result.dart';
+import 'package:chameleon_gif/shared/platform/ffprobe_executor.dart';
 import 'package:chameleon_gif/shared/platform/platform_adapter.dart';
 import 'capture_committer.dart';
 
@@ -36,6 +39,8 @@ class CameraPortImpl implements CameraPort {
     required AppLogger logger,
     Future<List<CameraDescription>> Function()? loadCameras,
     CameraController Function(CameraDescription, int?)? controllerFactory,
+    FfprobeExecutor? rotationProbe,
+    FFmpegEngine? rotateEngine,
   }) : _logger = logger,
        _loadCameras = loadCameras ?? availableCameras,
        _controllerFactory =
@@ -46,6 +51,8 @@ class CameraPortImpl implements CameraPort {
              enableAudio: false,
              fps: fps,
            )),
+       _rotationProbe = rotationProbe,
+       _rotateEngine = rotateEngine,
        _committer = CaptureCommitter(
          adapter: adapter,
          capturesDir: capturesDir,
@@ -58,6 +65,12 @@ class CameraPortImpl implements CameraPort {
   final Future<List<CameraDescription>> Function() _loadCameras;
   final CameraController Function(CameraDescription, int?) _controllerFactory;
   final CaptureCommitter _committer;
+
+  /// 旋转探测(ffprobe;null = 不探测,测试/桌面注入)。
+  final FfprobeExecutor? _rotationProbe;
+
+  /// 旋转转码引擎(ffmpeg;null = 不转码)。
+  final FFmpegEngine? _rotateEngine;
 
   CameraController? _controller;
   String? _deviceId;
@@ -115,6 +128,76 @@ class CameraPortImpl implements CameraPort {
   /// 手动停止当前录制(保存;录制中由页面停止按钮调用)。
   Future<void> stopCapture() async {
     _stopCompleter?.complete();
+  }
+
+  bool _devicePortrait = true;
+
+  /// 记录拍摄时设备方向(拍摄页 MediaQuery 提供,陀螺仪语义;
+  /// docs/18 横竖屏判断,方向修正 [ensureUpright] 使用)。
+  void setDevicePortrait(bool portrait) {
+    _devicePortrait = portrait;
+  }
+
+  /// 素材方向修正(物理旋转;真机实测 media_kit/Android 播放不应用
+  /// rotation 元数据 → 竖屏拍摄素材预览横向;docs/18 陀螺仪方向判断)。
+  ///
+  /// [devicePortrait] 为拍摄时设备方向(拍摄页 MediaQuery 提供):
+  /// 竖拍 → 素材强制竖屏(rotation 非 0 走 autorotate,缺失走 transpose);
+  /// 横拍 → 素材保持横屏(±90 误写元数据反向转回)。
+  /// 命令构造经纯函数 [buildOrientationFixCommand](可单测);
+  /// 探测或转码失败 → 原路径(不阻塞采集流程)。
+  Future<String> ensureUpright(
+    String tmpPath, {
+    required bool devicePortrait,
+  }) async {
+    final probe = _rotationProbe;
+    final engine = _rotateEngine;
+    if (probe == null || engine == null) return tmpPath;
+    final int? rotation;
+    try {
+      rotation = parseRotationDegrees(await probe.run(tmpPath));
+    } catch (e, st) {
+      _logger.w('旋转探测失败(按无需旋转处理)', error: e, stackTrace: st);
+      return tmpPath;
+    }
+    final command = buildOrientationFixCommand(
+      rotation: rotation,
+      devicePortrait: devicePortrait,
+      input: tmpPath,
+      output: '$tmpPath.rotated.mp4',
+    );
+    if (command == null) return tmpPath;
+    _logger.i('方向修正: rotation=$rotation 竖拍=$devicePortrait → $tmpPath');
+    final rotated = command.last;
+    // 失败残留清理(-y 覆盖 + 防残留累积;FFmpegKit 默认不覆盖已存在文件)
+    final rotatedFile = File(rotated);
+    if (rotatedFile.existsSync()) {
+      try {
+        rotatedFile.deleteSync();
+      } on FileSystemException {
+        // 忽略:靠 -y 覆盖
+      }
+    }
+    try {
+      final result = await engine.convert(
+        ConvertRequest(
+          command: command,
+          workDir: File(tmpPath).parent.path,
+          tempFiles: [rotated],
+        ),
+        onLog: (line) => _logger.d('方向修正 ffmpeg: $line'),
+      );
+      if (result.exitCode != 0 || !rotatedFile.existsSync()) {
+        _logger.w('方向修正转码失败(exit=${result.exitCode}),保留原素材');
+        return tmpPath;
+      }
+      // 转码成功:替换原 tmp(原文件删除,修正副本成为素材源)
+      await File(tmpPath).delete();
+      return rotated;
+    } catch (e, st) {
+      _logger.w('方向修正转码异常(保留原素材)', error: e, stackTrace: st);
+      return tmpPath;
+    }
   }
 
   Future<CameraDescription?> _resolveDescription(String? deviceId) async {
@@ -299,8 +382,14 @@ class CameraPortImpl implements CameraPort {
         throw const CaptureCancelledException();
       }
       _logger.i('拍摄完成: ${file.path} ${elapsed.inMilliseconds}ms');
+      // 方向修正:按拍摄时设备方向(陀螺仪语义,MediaQuery)竖屏化/保持
+      // 横屏,无 rotation 元数据(预览/相册/转换统一正确)
+      final upright = await ensureUpright(
+        file.path,
+        devicePortrait: _devicePortrait,
+      );
       return await _committer.commit(
-        tmpPath: file.path,
+        tmpPath: upright,
         fileName: buildCaptureFilename(DateTime.now()),
         durationMs: elapsed.inMilliseconds,
       );
