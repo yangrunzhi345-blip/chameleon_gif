@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:meta/meta.dart';
 
 import '../../../core/utils/duration_format.dart';
 import '../../../core/utils/duration_math.dart';
@@ -398,6 +399,18 @@ class ExportController extends Notifier<ExportFormState>
   /// [TaskSessionLifecycle.resetSession])。
   Future<void> reset() => resetSession();
 
+  /// 完成事件续体落地时能否把状态迁移为 done(任务身份 + 生命周期双复查)。
+  ///
+  /// 事件入口 [TaskSessionLifecycle.isSessionTask] 只校验"事件到达时";
+  /// 续体在异步 IO(readOutputSizeBytes)后落地,期间用户可能已关闭弹窗
+  /// (reset)或开启新任务 —— 必须复查,否则 A 的完成续体在任务 B 进行中
+  /// 落地会把状态写为 done+task=A,页面误弹 A 的完成信息(概率触发)。
+  /// @visibleForTesting:纯逻辑白盒单测覆盖三态(身份匹配 exporting 可
+  /// 迁移 / 身份已变不可 / 已 done 不可)。
+  @visibleForTesting
+  bool canApplyCompleted(ExportTask task) =>
+      isSessionTask(task) && state.lifecycle == ExportLifecycle.exporting;
+
   (Duration, Duration) _normalized(Duration start, Duration? end) {
     final max = _videoDuration ?? Duration.zero;
     final s = start < Duration.zero
@@ -434,9 +447,12 @@ class ExportController extends Notifier<ExportFormState>
       // 功能层读文件大小(UI 层禁止 IO;失败不阻断完成弹窗)
       unawaited(
         readOutputSizeBytes(outputPath).then((size) {
-          // 续体落地时复查:会话销毁或已 done(reset 后未决续体)不复活
+          // 续体落地时任务身份 + 生命周期双复查:事件入口的 isSessionTask
+          // 只校验"到达时",续体在异步 IO 后落地,期间用户可能已关闭弹窗
+          // (reset)或开启新任务 —— 不复查会把状态写为 done+task=A,
+          // 页面误弹 A 的完成信息(概率触发竞态,用户操作越快越易中)
           if (!ref.mounted) return; // autoDispose 会话销毁(页面已离开)
-          if (state.lifecycle == ExportLifecycle.done) return;
+          if (!canApplyCompleted(task)) return;
           state = state.copyWith(
             lifecycle: ExportLifecycle.done,
             task: task,

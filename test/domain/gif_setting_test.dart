@@ -122,7 +122,10 @@ void main() {
       final source = ImageGifSource(paths: List.filled(20, 'a.png'));
       const setting = GifSetting(fps: 15, frameDurationMs: 100);
       // 每图量化段长 133333us × 20 = 2666660us
-      expect(source.totalDuration(setting), const Duration(microseconds: 2666660));
+      expect(
+        source.totalDuration(setting),
+        const Duration(microseconds: 2666660),
+      );
     });
 
     test('20 图 × 1000ms @ 15fps → 20s;速度 2 → 10s', () {

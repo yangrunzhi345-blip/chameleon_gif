@@ -324,6 +324,47 @@ void main() {
     );
   });
 
+  test('BUG 回归:reset 后 A 的 completed 事件不复活 done(入口身份校验)', () async {
+    container = build();
+    final ctl = container.read(exportControllerProvider.notifier);
+    await ctl.submit(setting: const GifSetting(), video: video);
+    final done = await waitForLifecycle(ExportLifecycle.done);
+    final aTask = done.task!;
+
+    await ctl.reset();
+    expect(
+      container.read(exportControllerProvider).lifecycle,
+      ExportLifecycle.idle,
+    );
+
+    // reset 后 A 的延迟 completed 事件再到达:会话身份已清 → 不得复活
+    // done(旧 bug 的竞态面之一:用户关闭弹窗后事件续体落地污染状态)
+    ctl.handleTaskEvent(aTask);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(
+      container.read(exportControllerProvider).lifecycle,
+      ExportLifecycle.idle,
+      reason: 'A 的 completed 事件不得在 reset 后复活 done',
+    );
+  });
+
+  test('canApplyCompleted:exporting 且身份匹配可迁移;已 done 不可', () async {
+    container = build(custom: FakeExportService(blockFirstConvert: true));
+    final ctl = container.read(exportControllerProvider.notifier);
+    await ctl.submit(setting: const GifSetting(), video: video);
+    await waitForLifecycle(ExportLifecycle.exporting);
+    final aTask = (await taskRepo.all()).single;
+    expect(ctl.canApplyCompleted(aTask), isTrue, reason: 'exporting 身份匹配');
+
+    // 解除阻塞 → 完成 → done 后重复事件不可再迁移
+    // (exporting 在 _run 标记 running 后即满足,blocker 要等 convert 才
+    // 创建,先等它就绪再 unblock,否则 no-op 卡死)
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    service.unblock();
+    await waitForLifecycle(ExportLifecycle.done);
+    expect(ctl.canApplyCompleted(aTask), isFalse, reason: '已 done 不可再迁移');
+  });
+
   test('转换失败 → failed 态(用户可读错误,不含原始路径)', () async {
     container = build(
       serviceError: const EncodeException(errorCode: 'GIF_1_ENCODE'),

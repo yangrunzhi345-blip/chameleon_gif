@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ import 'package:chameleon_gif/domain/repository_interfaces/parse_video_port.dart
 import 'package:chameleon_gif/domain/value_objects/gif_setting.dart';
 import 'package:chameleon_gif/domain/value_objects/per_image_control.dart';
 import 'package:chameleon_gif/domain/value_objects/task_progress.dart';
+import 'package:chameleon_gif/domain/value_objects/task_state.dart';
 import 'package:chameleon_gif/features/import/application/import_providers.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_queue_providers.dart';
@@ -387,6 +389,84 @@ void main() {
     expect(state().lifecycle, ImageGifLifecycle.idle);
   });
 
+  test('BUG 回归:A 完成事件续体在任务 B 进行中落地不污染状态', () async {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+
+    // A 转换挂起(gate 控制,避免真实事件流干扰手动注入的时序)
+    service.gate = Completer<void>();
+    await notifier.submit(const ['/img/a.png']);
+    await waitLifecycle(ImageGifLifecycle.exporting);
+
+    // 注入 A 的 completed 事件:续体(readOutputSizeBytes 异步 IO)排队;
+    // 输出目录由 TaskManager._run 异步创建,测试先自建目录保证可写
+    final aTask = (await taskRepo.all()).single;
+    final outA = '${tempRoot.path}/gifforge_${aTask.id}/out.gif';
+    await Directory(File(outA).parent.path).create(recursive: true);
+    await File(outA).writeAsBytes(List.filled(123, 1));
+    notifier.handleTaskEvent(
+      aTask.copyWith(state: TaskState.completed, outputPath: outA),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(state().lifecycle, ImageGifLifecycle.done, reason: 'A 正常完成进入 done');
+
+    // 用户关闭弹窗(reset)+ 开始任务 B(B 转换同样挂起,停在 exporting)
+    await notifier.reset();
+    await notifier.submit(const ['/img/b.png']);
+    await waitLifecycle(ImageGifLifecycle.exporting);
+
+    // A 的延迟 completed 事件再次到达:续体落地时身份已切换为任务 B
+    // (旧 bug:续体只查 lifecycle != done,exporting 态放行 → 状态被写为
+    // done + task=A → 页面误弹 A 的完成信息,概率触发)
+    notifier.handleTaskEvent(
+      aTask.copyWith(state: TaskState.completed, outputPath: outA),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(
+      state().lifecycle,
+      ImageGifLifecycle.exporting,
+      reason: 'A 的完成续体不得把任务 B 的状态污染为 done(task=A)',
+    );
+    expect(state().task, isNull);
+  });
+
+  test('canApplyCompleted:仅 exporting 且身份匹配的任务可迁移 done(三态)', () async {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+
+    // A 挂起在 exporting(gate 控制)
+    service.gate = Completer<void>();
+    await notifier.submit(const ['/img/a.png']);
+    await waitLifecycle(ImageGifLifecycle.exporting);
+    final aTask = (await taskRepo.all()).single;
+
+    // ① 身份匹配 + exporting → 可迁移
+    expect(notifier.canApplyCompleted(aTask), isTrue);
+
+    // ② 身份已变(reset + 新任务 B):A 的续体落地不得迁移
+    await notifier.reset();
+    await notifier.submit(const ['/img/b.png']);
+    await waitLifecycle(ImageGifLifecycle.exporting);
+    expect(notifier.canApplyCompleted(aTask), isFalse, reason: 'A 身份已失效');
+    final bTask = (await taskRepo.all()).last;
+    expect(notifier.canApplyCompleted(bTask), isTrue);
+
+    // ③ 已 done:重复事件不得再次迁移(不 reset:B 仍 exporting,注入
+    // B 的 completed 事件完成它,再验证 done 态不可迁移)
+    final outB = '${tempRoot.path}/gifforge_${bTask.id}/out.gif';
+    await Directory(File(outB).parent.path).create(recursive: true);
+    await File(outB).writeAsBytes(List.filled(123, 1));
+    notifier.handleTaskEvent(
+      bTask.copyWith(state: TaskState.completed, outputPath: outB),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(state().lifecycle, ImageGifLifecycle.done);
+    expect(notifier.canApplyCompleted(bTask), isFalse, reason: '已 done 不可再迁移');
+  });
+
   test('BUG1 回归:done 态重复 completed 事件不重复写 done(通知数不增)', () async {
     container = build();
     final notifier = container.read(imageGifControllerProvider.notifier);
@@ -404,9 +484,7 @@ void main() {
     // 重复推送同一任务的 completed 事件(旧 bug:每次写 done → 页面
     // listener 每次重弹完成弹窗)
     final task = (await taskRepo.all()).single;
-    container
-        .read(imageGifControllerProvider.notifier)
-        .handleTaskEvent(task);
+    container.read(imageGifControllerProvider.notifier).handleTaskEvent(task);
     await Future<void>.delayed(Duration.zero);
 
     expect(notifyCount, before, reason: '已 done 后重复 completed 不得再写状态');
@@ -434,6 +512,9 @@ void main() {
 class _FakeConvertService implements FFmpegService {
   final receivedSources = <ImageGifSource>[];
 
+  /// 非空时转换挂起直到 complete(测试构造"完成事件续体竞态"窗口)。
+  Completer<void>? gate;
+
   @override
   Future<ConvertResult> convert({
     required GifSetting setting,
@@ -445,6 +526,8 @@ class _FakeConvertService implements FFmpegService {
     void Function(TaskProgress)? onProgress,
     void Function(String line)? onLog,
   }) async {
+    final g = gate;
+    if (g != null) await g.future;
     await File(outputPath).writeAsBytes(List.filled(123, 1));
     return const ConvertResult(
       exitCode: 0,
@@ -465,6 +548,8 @@ class _FakeConvertService implements FFmpegService {
     void Function(String line)? onLog,
   }) async {
     receivedSources.add(source);
+    final g = gate;
+    if (g != null) await g.future;
     await File(outputPath).writeAsBytes(List.filled(123, 1));
     return const ConvertResult(
       exitCode: 0,
