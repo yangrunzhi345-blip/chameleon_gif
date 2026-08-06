@@ -171,6 +171,7 @@ lib/
 - **功能层**(`features/<模块>/application/`):用例、控制器、状态逻辑,纯 Dart,禁止 `import 'package:flutter/material.dart'` 与 `widgets.dart`,可独立单测。
 - **UI 层**(`features/<模块>/presentation/` 与 `shared/widgets/`):只渲染与转发事件,禁止业务逻辑(校验/计算/状态转换),禁止直调仓储与基础设施。
 - 依赖单向:`presentation → application`;功能层不感知 UI。跨模块协作经 application 用例(见 docs/04-系统架构.md §4.7)。
+- **组合根豁免(文档化,2026-08-07 批准)**:`lib/app/application/capture_platform_factory.dart` 与 `main.dart` 装配允许 Platform 分支与 flutter/material 依赖——平台选型属组合根职责(GlobalKey/NavigatorState 给录屏遮罩路由;工厂不置于 PlatformAdapter 的结构原因:shared 禁反向依赖 features,见工厂注释),main.dart 平台分支已有先例;业务层(features)保持零 Platform 依赖,平台/会话类型一律由装配层注入。
 
 ## 六、MP4 → GIF 转换设计
 
