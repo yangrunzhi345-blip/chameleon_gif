@@ -410,21 +410,31 @@ class ImageGifController extends Notifier<ImageGifFormState>
         sourceWidth: size.width,
         sourceHeight: size.height,
       );
-      final id = await ref
-          .read(taskQueueControllerProvider.notifier)
-          .submitFromImages(
-            expanded,
-            ImageGifSource(
-              paths: paths,
-              width: size.width,
-              height: size.height,
-              perImageControls: _normalizePerImageControls(
-                paths.length,
-                perImageControls,
+      final int id;
+      try {
+        id = await ref
+            .read(taskQueueControllerProvider.notifier)
+            .submitFromImages(
+              expanded,
+              ImageGifSource(
+                paths: paths,
+                width: size.width,
+                height: size.height,
+                perImageControls: _normalizePerImageControls(
+                  paths.length,
+                  perImageControls,
+                ),
               ),
-            ),
-            outputDir: state.outputDir,
-          );
+              outputDir: state.outputDir,
+            );
+      } catch (e, st) {
+        // 入队失败(Isar 写库等)不直抛给 UI:转表单错误提示并记录
+        ref.read(appLoggerProvider).e('图片任务入队失败', error: e, stackTrace: st);
+        if (ref.mounted) {
+          state = state.copyWith(formError: '任务入队失败,请重试');
+        }
+        return;
+      }
       if (!ref.mounted) return; // autoDispose 会话已销毁(页面离开)
       trackTask(id);
       state = state.copyWith(
@@ -492,6 +502,7 @@ class ImageGifController extends Notifier<ImageGifFormState>
       // 功能层读文件大小(UI 层禁止 IO;失败不阻断完成弹窗)
       unawaited(
         readOutputSizeBytes(outputPath).then((size) {
+          if (!ref.mounted) return; // autoDispose 会话销毁(页面已离开)
           state = state.copyWith(
             lifecycle: ImageGifLifecycle.done,
             task: task,

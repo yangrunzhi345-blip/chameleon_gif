@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chameleon_gif/shared/providers/core_providers.dart';
 import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/entities/export_task.dart';
 import 'package:chameleon_gif/domain/entities/image_gif_source.dart';
 import 'package:chameleon_gif/domain/entities/video_info.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/task_repository.dart';
 import 'package:chameleon_gif/domain/exceptions/encode_exception.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/directory_pick_port.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
@@ -37,7 +39,7 @@ void main() {
     codec: 'h264',
   );
 
-  late InMemoryTaskRepository taskRepo;
+  late TaskRepository taskRepo;
   late FakeExportService service;
   late Directory tempRoot;
   late ProviderContainer container;
@@ -53,13 +55,15 @@ void main() {
     Object? serviceError,
     FakeExportService? custom,
     GallerySaveResult Function()? galleryResult,
+    TaskRepository? taskRepoOverride,
   }) {
     service = custom ?? FakeExportService(error: serviceError);
-    taskRepo = InMemoryTaskRepository();
+    taskRepo = taskRepoOverride ?? InMemoryTaskRepository();
     adapter = _RecordingAdapter(tempRoot.path);
     return ProviderContainer(
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
+        appLoggerProvider.overrideWithValue(AppLogger()),
         directoryPickPortProvider.overrideWithValue(_FakeDirPick(adapter)),
         taskRepositoryProvider.overrideWithValue(taskRepo),
         historyRepositoryProvider.overrideWithValue(
@@ -145,6 +149,18 @@ void main() {
     expect(ctl.tryUpdateCustomScaleMultiplier('0'), isFalse);
     expect(ctl.tryUpdateCustomScaleMultiplier('2'), isTrue);
     expect(s().scaleMultiplier, 2.0);
+  });
+
+  test('submit:入队异常 → formError 提示,不抛给调用方', () async {
+    container = build(taskRepoOverride: _ThrowingTaskRepo());
+    final ctl = container.read(exportControllerProvider.notifier);
+    ctl.initForm(video: video);
+
+    await ctl.submit(video: video);
+
+    final s = container.read(exportControllerProvider);
+    expect(s.lifecycle, ExportLifecycle.idle, reason: '入队失败不入 exporting');
+    expect(s.formError, contains('任务入队失败'));
   });
 
   test('updateScaleMultiplier:源已知(640×360)联动落成具体宽高', () async {
@@ -585,6 +601,12 @@ class FakeExportService implements FFmpegService {
   Completer<void>? _blocker;
 
   void unblock() => _blocker?.complete();
+}
+
+/// 任务入队抛异常的仓储替身(模拟 Isar 写库失败)。
+class _ThrowingTaskRepo extends InMemoryTaskRepository {
+  @override
+  Future<int> add(ExportTask task) async => throw StateError('isar down');
 }
 
 class _TestAdapter extends PlatformAdapter {

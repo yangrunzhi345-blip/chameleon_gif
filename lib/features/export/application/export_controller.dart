@@ -369,9 +369,20 @@ class ExportController extends Notifier<ExportFormState>
         );
         return;
       }
-      final id = await ref
-          .read(taskQueueControllerProvider.notifier)
-          .submit(expanded, video, outputDir: state.outputDir);
+      final int id;
+      try {
+        id = await ref
+            .read(taskQueueControllerProvider.notifier)
+            .submit(expanded, video, outputDir: state.outputDir);
+      } catch (e, st) {
+        // 入队失败(Isar 写库等)不直抛给 UI:转表单错误提示并记录
+        ref.read(appLoggerProvider).e('导出任务入队失败', error: e, stackTrace: st);
+        if (ref.mounted) {
+          state = state.copyWith(formError: '任务入队失败,请重试');
+        }
+        return;
+      }
+      if (!ref.mounted) return; // autoDispose 会话销毁(页面已离开)
       trackTask(id);
       state = state.copyWith(
         lifecycle: ExportLifecycle.exporting,
@@ -420,6 +431,8 @@ class ExportController extends Notifier<ExportFormState>
       // 功能层读文件大小(UI 层禁止 IO;失败不阻断完成弹窗)
       unawaited(
         readOutputSizeBytes(outputPath).then((size) {
+          if (!ref.mounted) return; // autoDispose 会话销毁(页面已离开)
+
           state = state.copyWith(
             lifecycle: ExportLifecycle.done,
             task: task,

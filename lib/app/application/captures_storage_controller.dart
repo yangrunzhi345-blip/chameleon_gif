@@ -58,7 +58,9 @@ class CapturesStorageController extends Notifier<CapturesStorageState> {
       }
       state = CapturesStorageState(totalBytes: bytes, fileCount: count);
     } finally {
-      state = state.copyWith(loading: false);
+      if (ref.mounted) {
+        state = state.copyWith(loading: false);
+      }
     }
   }
 
