@@ -1,7 +1,7 @@
 /// 录屏环境探测(docs/19 S3-WP1;纯函数,可单测)。
 ///
-/// 环境判定仅基于会话类型与 DISPLAY,不跑进程;pipewire demuxer 等
-/// 能力探测归 FfmpegScreenRecorder.queryCapabilities(轻量子进程)。
+/// 环境判定仅基于会话类型与 DISPLAY,不跑进程;wf-recorder/x11grab
+/// 等能力探测归 FfmpegScreenRecorder.queryCapabilities(轻量子进程)。
 library;
 
 import '../../../domain/value_objects/record_types.dart';
@@ -19,8 +19,8 @@ class RecordEnvironment {
 
 /// 会话类型判定:
 ///
-/// - `wayland` → [RecordCaptureMethod.pipewire](ffmpeg 6.1+ 输入,需
-///   xdg-desktop-portal 授权,权限弹窗属系统共享选择);
+/// - `wayland` → [RecordCaptureMethod.wfRecorder](wlr-screencopy 直接
+///   抓屏,无 portal 弹窗;ffmpeg pipewire 输入已在新版移除);
 /// - `x11` → [RecordCaptureMethod.x11grab],display 透传;
 /// - 无 session 类型但 display 非空 → 兜底视为 X11(测试/无桌面注入
 ///   场景,如 CI);两者皆缺 → none(Windows 由实现层另行选 gdigrab)。
@@ -30,7 +30,7 @@ RecordEnvironment detectRecordEnvironment({
 }) {
   switch (sessionType?.toLowerCase()) {
     case 'wayland':
-      return const RecordEnvironment(method: RecordCaptureMethod.pipewire);
+      return const RecordEnvironment(method: RecordCaptureMethod.wfRecorder);
     case 'x11':
       return RecordEnvironment(
         method: RecordCaptureMethod.x11grab,

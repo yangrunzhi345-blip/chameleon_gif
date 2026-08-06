@@ -12,8 +12,13 @@ enum RecordCaptureMethod {
   /// Linux X11 会话,`ffmpeg -f x11grab`。
   x11grab,
 
-  /// Linux Wayland 会话,`ffmpeg -f pipewire`(依赖 portal 授权)。
-  pipewire,
+  /// Linux Wayland 会话,`wf-recorder`(wlr-screencopy 协议直接抓屏,
+  /// 无 portal 授权弹窗;niri 等 wlroots 合成器原生支持,实测定案)。
+  ///
+  /// ffmpeg 的 pipewire 输入已在 ffmpeg 9.0 移除(实测 configure 无
+  /// libpipewire),Arch 官方亦无带 pipewire 的 ffmpeg —— Wayland
+  /// 录屏改走 wf-recorder(独立进程,产物 mp4,架构与 ffmpeg 同型)。
+  wfRecorder,
 
   /// Windows,`ffmpeg -f gdigrab`。
   gdigrab,

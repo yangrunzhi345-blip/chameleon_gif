@@ -2,8 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:chameleon_gif/domain/value_objects/record_params.dart';
 import 'package:chameleon_gif/features/screen_record/application/record_command_builder.dart';
 
-/// 录屏命令装配快照(x11grab/pipewire/gdigrab 三分支精确数组断言;
-/// pipewire 分支无真机环境,本测试是其唯一契约锁定点)。
+/// 录屏命令装配快照(x11grab/wfRecorder/gdigrab 分支精确数组断言;
+/// wfRecorder 分支本机可实测(niri 支持 wlr-screencopy)。
 void main() {
   const builder = RecordCommandBuilder();
   const defaultParams = RecordParams(); // fps 15, 60s, 全屏, 带光标
@@ -102,35 +102,34 @@ void main() {
     });
   });
 
-  group('pipewire(Linux Wayland)', () {
-    test('仅全屏:忽略区域/光标参数', () {
+  group('wfRecorder(Linux Wayland)', () {
+    test('全屏:-r 帧率 + -f 输出(无 -t,进程常驻)', () {
+      expect(
+        builder.build(
+          params: defaultParams,
+          kind: RecordCommandKind.wfRecorder,
+          outputPath: '/tmp/out.mp4',
+        ),
+        ['-r', '15', '-f', '/tmp/out.mp4'],
+      );
+    });
+
+    test('自定义区域:-g WxH+X+Y;光标关:无 -c', () {
       final params = defaultParams.copyWith(
         regionMode: RecordRegion.custom,
-        regionX: 10,
-        regionY: 20,
-        regionWidth: 320,
-        regionHeight: 240,
+        regionX: 100,
+        regionY: 50,
+        regionWidth: 640,
+        regionHeight: 480,
         drawCursor: false,
       );
       expect(
         builder.build(
           params: params,
-          kind: RecordCommandKind.pipewire,
+          kind: RecordCommandKind.wfRecorder,
           outputPath: '/tmp/out.mp4',
         ),
-        [
-          '-f',
-          'pipewire',
-          '-i',
-          'auto',
-          '-t',
-          '00:01:00.000',
-          '-an',
-          '-pix_fmt',
-          'yuv420p',
-          '-y',
-          '/tmp/out.mp4',
-        ],
+        ['-r', '15', '-g', '640x480+100+50', '-f', '/tmp/out.mp4'],
       );
     });
   });
@@ -217,8 +216,9 @@ void main() {
       );
     });
 
-    test('尾链恒定:-an -pix_fmt yuv420p -y', () {
+    test('ffmpeg 分支尾链恒定:-an -pix_fmt yuv420p -y(wfRecorder 除外)', () {
       for (final kind in RecordCommandKind.values) {
+        if (kind == RecordCommandKind.wfRecorder) continue;
         final args = builder.build(
           params: defaultParams,
           kind: kind,

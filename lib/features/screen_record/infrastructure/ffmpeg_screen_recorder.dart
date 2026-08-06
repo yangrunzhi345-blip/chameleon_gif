@@ -88,6 +88,16 @@ class FfmpegScreenRecorder implements ScreenRecorderPort {
     }
   }
 
+  /// 独立工具可用性(wf-recorder 等;PATH 探测,轻量)。
+  static Future<bool> _toolAvailable(String name) async {
+    try {
+      final result = await Process.run('which', [name]);
+      return result.exitCode == 0;
+    } on ProcessException {
+      return false;
+    }
+  }
+
   @override
   Future<List<RecordTarget>> enumerateTargets() async {
     // MVP 全屏单目标(窗口枚举延后,依赖 Windows 原生代码)
@@ -110,18 +120,21 @@ class FfmpegScreenRecorder implements ScreenRecorderPort {
                 captureMethod: RecordCaptureMethod.x11grab,
                 hint: '系统 ffmpeg 缺少 x11grab 输入,请安装完整版 ffmpeg',
               );
-      case RecordCaptureMethod.pipewire:
-        return await _ffmpegHasDevice('pipewire')
+      case RecordCaptureMethod.wfRecorder:
+        // Wayland:wlr-screencopy 直接抓屏(无 portal 弹窗);探测
+        // wf-recorder 二进制存在;光标恒带(无开关)
+        return await _toolAvailable('wf-recorder')
             ? const RecordCapabilities(
-                captureMethod: RecordCaptureMethod.pipewire,
+                captureMethod: RecordCaptureMethod.wfRecorder,
+                supportsRegions: true,
+                supportsCursorToggle: false,
               )
             : const RecordCapabilities(
                 screenCaptureAvailable: false,
-                captureMethod: RecordCaptureMethod.pipewire,
+                captureMethod: RecordCaptureMethod.wfRecorder,
                 hint:
-                    '当前 Wayland 会话缺少屏幕共享支持:系统 ffmpeg 未编译 '
-                    'pipewire 输入。请安装支持 pipewire 的 ffmpeg 与 '
-                    'xdg-desktop-portal,或切换到 X11 会话',
+                    '当前 Wayland 会话缺少屏幕录制工具:请安装 '
+                    'wf-recorder(支持 wlr-screencopy 的合成器,如 niri)',
               );
       case RecordCaptureMethod.gdigrab:
         return await _ffmpegHasDevice('gdigrab')
@@ -150,15 +163,19 @@ class FfmpegScreenRecorder implements ScreenRecorderPort {
     final env = _environment;
     final kind = switch (env.method) {
       RecordCaptureMethod.x11grab => RecordCommandKind.x11grab,
-      RecordCaptureMethod.pipewire => RecordCommandKind.pipewire,
+      RecordCaptureMethod.wfRecorder => RecordCommandKind.wfRecorder,
       RecordCaptureMethod.gdigrab => RecordCommandKind.gdigrab,
       RecordCaptureMethod.none => throw const CaptureException(
         errorCode: 'GIF_RECORD_UNAVAILABLE',
         userMessage:
-            '当前环境不支持屏幕录制:请切换到 X11 会话,'
-            '或安装并运行 xdg-desktop-portal 后重试',
+            '当前环境不支持屏幕录制,请切换到 X11 会话或安装 '
+            'wf-recorder 后重试',
       ),
     };
+    // 可执行名:Wayland 走 wf-recorder,其余 ffmpeg
+    final executable = kind == RecordCommandKind.wfRecorder
+        ? 'wf-recorder'
+        : 'ffmpeg';
     final fileName = buildCaptureFilename(DateTime.now());
     final tmpPath = '${tempDir.path}/$fileName';
     final args = _commandBuilder.build(
@@ -167,7 +184,7 @@ class FfmpegScreenRecorder implements ScreenRecorderPort {
       display: env.display,
       outputPath: tmpPath,
     );
-    _logger.i('录屏启动: ${env.method}\nffmpeg ${args.join(' ')}');
+    _logger.i('录屏启动: ${env.method}\n$executable ${args.join(' ')}');
     final ready = Completer<CaptureSession?>();
     _sessionReady = ready;
     final CaptureSession session;
@@ -175,8 +192,9 @@ class FfmpegScreenRecorder implements ScreenRecorderPort {
       session = await _runner.start(
         args: args,
         outputPath: tmpPath,
+        executable: executable,
         cancelToken: cancelToken,
-        onLog: (line) => _logger.d('录屏 ffmpeg: $line'),
+        onLog: (line) => _logger.d('录屏 $executable: $line'),
       );
     } catch (e, st) {
       _logger.e('录屏进程启动失败', error: e, stackTrace: st);
@@ -184,7 +202,7 @@ class FfmpegScreenRecorder implements ScreenRecorderPort {
       await _committer.discardTmp(tmpPath);
       throw CaptureException(
         errorCode: 'GIF_RECORD_ERROR',
-        userMessage: '录屏启动失败,请确认 FFmpeg 已安装',
+        userMessage: '录屏启动失败,请确认 $executable 已安装',
         cause: e,
       );
     }
@@ -224,10 +242,10 @@ class FfmpegScreenRecorder implements ScreenRecorderPort {
   ) {
     final tail = stderrTail.join('\n');
     String userMessage;
-    if (method == RecordCaptureMethod.pipewire) {
+    if (method == RecordCaptureMethod.wfRecorder) {
       userMessage =
-          'Wayland 录屏失败:请确认已安装并运行 xdg-desktop-portal'
-          '(录屏需系统授权),或切换到 X11 会话';
+          'Wayland 录屏失败:请确认当前合成器支持 '
+          'wlr-screencopy(如 niri/wlroots),且 wf-recorder 已安装';
     } else if (tail.contains('Could not open display') ||
         tail.contains('cannot open display')) {
       userMessage = '无法连接显示器,请确认桌面环境可用后重试';

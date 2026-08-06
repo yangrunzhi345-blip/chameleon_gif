@@ -110,16 +110,19 @@ class CaptureProcessRunner {
 
   /// 启动采集会话。
   ///
+  /// [executable] 采集可执行名(默认 ffmpeg;Wayland 录屏用
+  /// `wf-recorder`,见 record_command_builder);
   /// [cancelToken] 取消协商:[onCancel] 注册会话取消(终止 + 删半成品);
-  /// [onLog] 收到 ffmpeg 输出行(诊断日志)。stdout/stderr 双流必消费,
+  /// [onLog] 收到进程输出行(诊断日志)。stdout/stderr 双流必消费,
   /// 防管道缓冲填满阻塞进程。
   Future<CaptureSession> start({
     required List<String> args,
     required String outputPath,
+    String executable = 'ffmpeg',
     CancelToken? cancelToken,
     void Function(String line)? onLog,
   }) async {
-    final process = await _startProcess('ffmpeg', args);
+    final process = await _startProcess(executable, args);
     final session = CaptureSession._(
       process,
       ProcessHandleImpl(process),

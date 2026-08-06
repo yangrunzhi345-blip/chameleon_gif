@@ -34,18 +34,18 @@ void main() {
     logger: AppLogger(),
   );
 
-  test('本机实测:能力探测(wayland → pipewire 分支可用性判定)', () async {
+  test('本机实测:能力探测(wayland → wf-recorder 分支可用性判定)', () async {
     final recorder = buildRecorder();
     final caps = await recorder.queryCapabilities();
     expect(caps.captureMethod, isA<RecordCaptureMethod>());
-    // wayland + 无 pipewire demuxer → 置灰 + 指引(本机现状)
-    if (caps.captureMethod == RecordCaptureMethod.pipewire) {
+    // wayland 分支:本机 wf-recorder 已装 → 可用(录屏入口常亮)
+    if (caps.captureMethod == RecordCaptureMethod.wfRecorder) {
       expect(
         caps.screenCaptureAvailable,
-        isFalse,
-        reason: '本机 ffmpeg 无 pipewire',
+        isTrue,
+        reason: 'wf-recorder 已安装,wlr-screencopy 可用',
       );
-      expect(caps.hint, isNotEmpty);
+      expect(caps.supportsRegions, isTrue);
     }
   });
 
