@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:camera/camera.dart' show CameraPreview;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
@@ -7,26 +5,20 @@ import 'package:flutter/services.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:chameleon_gif/domain/exceptions/capture_exception.dart';
-import 'package:chameleon_gif/domain/exceptions/file_pick_exception.dart';
-import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
-import 'package:chameleon_gif/domain/value_objects/capture_params.dart';
-import 'package:chameleon_gif/domain/value_objects/capture_source.dart';
 import 'package:chameleon_gif/features/camera/infrastructure/camera_port_impl.dart';
 import 'package:chameleon_gif/features/camera/infrastructure/camera_preview_providers.dart';
 import 'package:chameleon_gif/features/camera/infrastructure/desktop_preview_providers.dart';
 import 'package:chameleon_gif/features/camera/presentation/desktop_preview_view.dart';
 import 'package:chameleon_gif/shared/providers/core_providers.dart';
-import '../application/providers.dart';
-
-/// 拍摄页状态机(初始即 ready:取景异步加载不阻塞录制)。
-enum _CapturePhase { ready, recording, finishing }
+import '../application/capture_session_controller.dart';
 
 /// 相机拍摄页(路由 /capture;docs/18 C1-WP3)。
 ///
 /// 壳只做渲染与转发:取景经 [cameraControllerProvider](null → 占位),
-/// 编排(授权/录制)经 [cameraPortProvider];录制完成 → CaptureImportUseCase
-/// 自动导入 /preview(预览返回回拍摄页,可连拍)。
+/// 状态机/计时/异常映射在 [CaptureSessionController](application 层);
+/// **SystemChrome 锁向/解锁留本页**(方向判定依赖 MediaQuery,且
+/// flutter/services 禁入功能层),结束/dispose 恢复自由旋转。
+/// 录制完成 → CaptureImportUseCase 自动导入 /preview(预览返回回拍摄页)。
 class CaptureScreen extends ConsumerStatefulWidget {
   const CaptureScreen({super.key});
 
@@ -35,19 +27,28 @@ class CaptureScreen extends ConsumerStatefulWidget {
 }
 
 class _CaptureScreenState extends ConsumerState<CaptureScreen> {
-  // 初始即就绪:取景异步加载不阻塞录制(capture 内部会 ensureController)
-  _CapturePhase _phase = _CapturePhase.ready;
-  final _cancelToken = CancelToken();
-  Timer? _ticker;
-  Duration _elapsed = Duration.zero;
+  @override
+  void initState() {
+    super.initState();
+    // 一次性错误文案 → SnackBar(消费后 clearError)
+    ref.listenManual<CaptureSessionState>(captureSessionControllerProvider, (
+      _,
+      state,
+    ) {
+      if (!mounted) return;
+      final message = state.errorMessage;
+      if (message == null) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+      ref.read(captureSessionControllerProvider.notifier).clearError();
+    }, fireImmediately: false);
+  }
 
   @override
   void dispose() {
-    // 取消录制(不保存);相机会话释放由 cameraControllerProvider 的
-    // autoDispose onDispose 收敛(dispose 内不可用 ref,见 provider 注释)
-    _cancelToken.cancel();
-    _ticker?.cancel();
-    // 恢复自由旋转(录制锁定向兜底,防全局泄漏)
+    // 恢复自由旋转(录制锁定向兜底,防全局泄漏);取消录制/计时在
+    // 控制器 onDispose(autoDispose 随页面销毁收敛)
     SystemChrome.setPreferredOrientations([]);
     super.dispose();
   }
@@ -56,7 +57,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
     // 录制中锁定当前屏幕方向:旋转手机屏幕不跟随 → 录制键物理位置
     // 固定(用户要求"始终保持在竖屏位置",横屏不跑到横屏底部中央);
     // 锁 portraitUp/landscapeLeft,180° 翻转对底部中央按钮无影响。
-    // 结束/dispose 恢复自由旋转。方向判定在 await 前完成(context 安全)。
+    // 方向判定在 await 前完成(context 安全);锁向/解锁留 UI。
     final isLandscape =
         MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
     final devicePortrait =
@@ -66,77 +67,29 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
           ? DeviceOrientation.landscapeLeft
           : DeviceOrientation.portraitUp,
     ]);
-    setState(() {
-      _phase = _CapturePhase.recording;
-      _elapsed = Duration.zero;
-    });
-    _ticker = Timer.periodic(const Duration(milliseconds: 500), (_) {
-      if (!mounted) return;
-      setState(() => _elapsed += const Duration(milliseconds: 500));
-    });
-    final port = ref.read(cameraPortProvider);
-    // 记录设备方向(陀螺仪语义):方向修正据此判断横竖屏拍摄
-    if (port is CameraPortImpl) {
-      port.setDevicePortrait(devicePortrait);
-    }
-    final params =
-        ref.read(settingsRepositoryProvider).captureParams ??
-        const CaptureParams();
     try {
-      final result = await port.capture(
-        params: params,
-        cancelToken: _cancelToken,
-      );
-      if (!mounted) return;
-      // 自动导入:素材 → ffprobe 解析 → /preview(预览返回回拍摄页)
       await ref
-          .read(captureImportUseCaseProvider)
-          .execute(result.finalPath, source: CaptureSource.camera);
-    } on CaptureCancelledException {
-      // 静默:取消不提示
-    } on CaptureException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.userMessage)));
-      }
-    } on FilePickException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.userMessage)));
-      }
+          .read(captureSessionControllerProvider.notifier)
+          .start(portrait: devicePortrait);
     } finally {
-      _ticker?.cancel();
-      // 恢复自由旋转(录制锁定向解除)
+      // 恢复自由旋转(录制锁定向解除;录制结束或异常均恢复)
       await SystemChrome.setPreferredOrientations([]);
-      if (mounted) {
-        setState(() {
-          _phase = _CapturePhase.ready;
-          _elapsed = Duration.zero;
-        });
-      }
     }
   }
 
   Future<void> _stop() async {
-    setState(() => _phase = _CapturePhase.finishing);
-    final port = ref.read(cameraPortProvider);
-    await port.requestStop(); // 保存信号(接口统一:Android/桌面同语义)
-  }
-
-  String get _countdown {
-    final s = _elapsed.inSeconds;
-    return '${(s ~/ 60).toString().padLeft(2, '0')}:'
-        '${(s % 60).toString().padLeft(2, '0')}';
+    await ref.read(captureSessionControllerProvider.notifier).stop();
   }
 
   @override
   Widget build(BuildContext context) {
+    final session = ref.watch(captureSessionControllerProvider);
+    final phase = session.phase;
+    final countdown = session.countdown;
     final preview = ref.watch(cameraControllerProvider);
     // 桌面截帧预览流(Android null;预览会话生命周期经 provider 收敛)
     final desktopFrames = ref.watch(desktopPreviewFramesProvider).value;
-    final recording = _phase == _CapturePhase.recording;
+    final recording = phase == CapturePhase.recording;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       // 黑色取景底:状态栏图标恒浅色(自绘顶栏,无 Scaffold.appBar 托管)
       value: SystemUiOverlayStyle.light,
@@ -227,7 +180,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
                     child: Padding(
                       padding: const EdgeInsets.only(top: 12),
                       child: Text(
-                        _countdown,
+                        countdown,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 32,
@@ -249,9 +202,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
                     ? _RecordButton(recording: true, onPressed: _stop)
                     : _RecordButton(
                         recording: false,
-                        onPressed: _phase == _CapturePhase.ready
-                            ? _start
-                            : null,
+                        onPressed: phase == CapturePhase.ready ? _start : null,
                       ),
               ),
             ),

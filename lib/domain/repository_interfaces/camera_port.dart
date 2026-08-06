@@ -39,6 +39,12 @@ abstract interface class CameraPort {
   /// 取消 = 清理临时产物不落位。
   Future<void> requestStop();
 
+  /// 设置竖屏拍摄方向(Android 素材竖屏化;桌面无方向概念,no-op)。
+  ///
+  /// 业务层零 `port is CameraPortImpl` 类型分支:方向能力提升为接口
+  /// 成员,平台实现各取所需。
+  Future<void> setDevicePortrait(bool portrait);
+
   /// 启动实时预览(docs/18 里程碑 4;桌面截帧预览:ffmpeg image2pipe
   /// 周期性输出 JPEG 帧,经 Image.memory 渲染)。
   ///

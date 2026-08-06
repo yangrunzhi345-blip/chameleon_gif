@@ -47,6 +47,7 @@ class FakeCameraPort implements CameraPort {
 
   final captureCalls = <CaptureParams>[];
   final requestStopCalls = <int>[];
+  final setDevicePortraitCalls = <bool>[];
   final startPreviewCalls = <String>[];
   final stopPreviewCalls = <int>[];
   final applyParamsCalls = <CaptureParams>[];
@@ -88,6 +89,11 @@ class FakeCameraPort implements CameraPort {
   @override
   Future<void> requestStop() async {
     requestStopCalls.add(1);
+  }
+
+  @override
+  Future<void> setDevicePortrait(bool portrait) async {
+    setDevicePortraitCalls.add(portrait);
   }
 
   @override

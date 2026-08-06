@@ -380,6 +380,11 @@ class FfmpegCameraPort implements CameraPort {
   }
 
   @override
+  Future<void> setDevicePortrait(bool portrait) async {
+    // 桌面无方向概念(ffmpeg 采集不应用 rotation),no-op
+  }
+
+  @override
   Future<Stream<Uint8List>?> startPreview({
     required String deviceId,
     required CaptureParams params,

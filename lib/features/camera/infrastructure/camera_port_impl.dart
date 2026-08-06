@@ -153,8 +153,9 @@ class CameraPortImpl implements CameraPort {
   bool _devicePortrait = true;
 
   /// 记录拍摄时设备方向(拍摄页 MediaQuery 提供,陀螺仪语义;
-  /// docs/18 横竖屏判断,方向修正 [ensureUpright] 使用)。
-  void setDevicePortrait(bool portrait) {
+  /// docs/18 横竖屏判断,方向修正 [ensureUpright] 使用;接口成员)。
+  @override
+  Future<void> setDevicePortrait(bool portrait) async {
     _devicePortrait = portrait;
   }
 
