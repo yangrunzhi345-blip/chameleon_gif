@@ -166,11 +166,53 @@ class _FakeProc implements Process {
   Stream<List<int>> get stderr => const Stream.empty();
 
   @override
-  IOSink get stdin => throw UnimplementedError();
+  IOSink get stdin => _FakeIOSink();
 
   @override
   int get pid => 1;
 
   @override
   bool kill([ProcessSignal signal = ProcessSignal.sigterm]) => true;
+}
+
+/// 空操作 IOSink(pick() 关闭 slurp stdin 用;EOF 语义)。
+class _FakeIOSink implements IOSink {
+  @override
+  void add(List<int> data) {}
+
+  @override
+  void addError(Object error, [StackTrace? stackTrace]) {}
+
+  @override
+  Future<void> addStream(Stream<List<int>> stream) async {}
+
+  @override
+  Future<void> close() async {}
+
+  @override
+  Encoding get encoding => utf8;
+
+  @override
+  set encoding(Encoding value) {}
+
+  @override
+  Future<void> flush() async {}
+
+  @override
+  Future<void> get done async {}
+
+  @override
+  Future<void> write(Object? object) async {}
+
+  @override
+  Future<void> writeAll(
+    Iterable<Object?> objects, [
+    String separator = '',
+  ]) async {}
+
+  @override
+  Future<void> writeCharCode(int charCode) async {}
+
+  @override
+  Future<void> writeln([Object? object = '']) async {}
 }

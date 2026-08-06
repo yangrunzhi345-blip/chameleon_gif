@@ -99,6 +99,11 @@ class ScreenRegionPicker implements RegionPicker {
   @override
   Future<RegionGeometry?> pick() async {
     final process = await _startProcess(['slurp', '-f', '%wx%h+%x+%y']);
+    // slurp 的 stdin 非 TTY 时进入"预定义框读取"模式(main.c 的
+    // getline 循环阻塞读框,见 `-r` 选择框功能);应用内启动 stdin 为
+    // 管道 → 立即关闭令 EOF,否则 slurp 挂起在读取、遮罩永不显示
+    // (实测:niri 终端 TTY 正常、管道挂起、EOF 恢复显示)。
+    process.stdin.close();
     final output = await process.stdout
         .transform(utf8.decoder)
         .join()
