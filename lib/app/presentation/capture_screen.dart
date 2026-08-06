@@ -14,6 +14,8 @@ import 'package:chameleon_gif/domain/value_objects/capture_params.dart';
 import 'package:chameleon_gif/domain/value_objects/capture_source.dart';
 import 'package:chameleon_gif/features/camera/infrastructure/camera_port_impl.dart';
 import 'package:chameleon_gif/features/camera/infrastructure/camera_preview_providers.dart';
+import 'package:chameleon_gif/features/camera/infrastructure/desktop_preview_providers.dart';
+import 'package:chameleon_gif/features/camera/presentation/desktop_preview_view.dart';
 import 'package:chameleon_gif/shared/providers/core_providers.dart';
 import '../application/providers.dart';
 
@@ -132,6 +134,8 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   @override
   Widget build(BuildContext context) {
     final preview = ref.watch(cameraControllerProvider);
+    // 桌面流预览地址(Android null;预览会话生命周期经 provider 收敛)
+    final desktopUrl = ref.watch(desktopPreviewUrlProvider).value;
     final recording = _phase == _CapturePhase.recording;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       // 黑色取景底:状态栏图标恒浅色(自绘顶栏,无 Scaffold.appBar 托管)
@@ -148,14 +152,15 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
               child: preview.when(
                 data: (controller) {
                   final port = ref.read(cameraPortProvider);
-                  // 盲拍(桌面):无实时取景,静态占位 —— 录完在工作台
-                  // 回放确认(docs/18 D4);能力驱动,不写平台分支
-                  if (!port.previewSupported) {
+                  // 桌面流预览:URL 就绪 → media_kit 播放 UDP 推流;
+                  // 预览不可用/无设备 → 盲拍兜底(录完回放确认,docs/18 D4)
+                  if (port is! CameraPortImpl) {
+                    final url = desktopUrl;
+                    if (url != null) return DesktopPreviewView(url: url);
                     return const _BlindPlaceholder();
                   }
-                  final active = port is CameraPortImpl
-                      ? port.activeController
-                      : null;
+                  // Android:插件取景框(activeController 会话重建保护)
+                  final active = port.activeController;
                   final effective = active ?? controller;
                   return effective == null
                       ? const _Placeholder(text: '未检测到摄像头,请检查相机权限')
@@ -255,8 +260,8 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   }
 }
 
-/// 桌面盲拍占位(docs/18 D4):无实时取景,录制完成后自动导入工作台
-/// 回放确认;恒静态(无重试 —— 桌面无取景会话可重建)。
+/// 预览不可用兜底占位(docs/18 D4):流预览启动失败/无设备时,录制
+/// 完成后自动导入工作台回放确认;恒静态(无重试)。
 class _BlindPlaceholder extends StatelessWidget {
   const _BlindPlaceholder();
 
@@ -275,7 +280,7 @@ class _BlindPlaceholder extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 32),
             child: Text(
-              '桌面盲拍:无实时预览\n录制完成后自动导入工作台回放确认',
+              '相机预览不可用\n录制完成后自动导入工作台回放确认',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white70),
             ),

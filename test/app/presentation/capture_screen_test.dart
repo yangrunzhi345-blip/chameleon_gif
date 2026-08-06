@@ -15,6 +15,7 @@ import 'package:chameleon_gif/domain/exceptions/capture_exception.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/parse_video_port.dart';
 import 'package:chameleon_gif/domain/value_objects/capture_result.dart';
 import 'package:chameleon_gif/features/camera/infrastructure/camera_preview_providers.dart';
+import 'package:chameleon_gif/features/camera/presentation/desktop_preview_view.dart';
 import 'package:chameleon_gif/features/preview/application/preview_controller.dart';
 import 'package:chameleon_gif/shared/platform/platform_adapter.dart';
 import 'package:chameleon_gif/shared/providers/core_providers.dart';
@@ -108,22 +109,20 @@ void main() {
     expect(find.byType(CaptureScreen), findsOneWidget);
   }
 
-  testWidgets('取景不可用(controller null)→ 占位文案', (tester) async {
+  testWidgets('桌面预览不可用(无流地址)→ 盲拍兜底占位', (tester) async {
     await pumpCapture(tester);
-    expect(find.text('未检测到摄像头,请检查相机权限'), findsOneWidget);
+    expect(find.textContaining('相机预览不可用'), findsOneWidget);
+    expect(find.text('重试'), findsNothing, reason: '兜底恒静态,无重试');
     expect(find.byTooltip('开始录制'), findsOneWidget);
   });
 
-  testWidgets('桌面盲拍(previewSupported=false)→ 盲拍占位,无重试', (tester) async {
-    cameraPort.previewSupported = false;
+  testWidgets('桌面流预览 URL 就绪 → DesktopPreviewView 渲染', (tester) async {
+    cameraPort.previewUrl = 'udp://127.0.0.1:5555?pkt_size=1316';
     await pumpCapture(tester);
-    expect(
-      find.textContaining('桌面盲拍'),
-      findsOneWidget,
-      reason: '盲拍提示(无实时预览,录完回放确认)',
-    );
-    expect(find.text('重试'), findsNothing, reason: '盲拍恒静态,无重试');
-    expect(find.byTooltip('开始录制'), findsOneWidget);
+    // preview.when data(null) + 桌面分支:desktopPreviewUrlProvider
+    // 经 FakeCameraPort.startPreview 返回注入 URL
+    await tester.pump();
+    expect(find.byType(DesktopPreviewView), findsOneWidget);
   });
 
   testWidgets('点录制 → FakeCameraPort 收到仓储参数 + 录制中态(停止钮+倒计时)', (tester) async {
