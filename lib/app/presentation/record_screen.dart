@@ -49,6 +49,14 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         ref.read(settingsRepositoryProvider).recordParams ??
         const RecordParams();
     try {
+      // 录制中态:record 阻塞期间显示停止按钮(awaitingConsent 仅
+      // 瞬态 —— record 内部授权+录制无"开始"回调,统一按录制中渲染;
+      // 授权拒绝/失败由 record 抛异常回 idle)
+      setState(() => _phase = _RecordPhase.recording);
+      _ticker = Timer.periodic(const Duration(milliseconds: 500), (_) {
+        if (!mounted) return;
+        setState(() => _elapsed += const Duration(milliseconds: 500));
+      });
       // record 阻塞:系统授权 → 录制 → 手动停止/超时自动停 → 返回
       final result = await port.record(
         params: params,

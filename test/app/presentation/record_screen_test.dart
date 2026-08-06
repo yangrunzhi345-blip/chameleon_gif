@@ -154,13 +154,21 @@ void main() {
     expect(find.text('当前 Wayland 会话缺少屏幕共享支持'), findsOneWidget);
   });
 
-  testWidgets('开始录制 → FakeScreenRecorderPort 收到仓储参数(挂起中)', (tester) async {
+  testWidgets('开始录制 → 录制中态(停止按钮 + 倒计时),收到仓储参数(挂起中)', (tester) async {
     final completer = Completer<CaptureResult>();
     recorderPort.onRecord = (params, token) => completer.future;
     await pumpRecord(tester);
 
     await tester.tap(find.text('开始录制'));
     await tester.pump();
+
+    // 录制中态:停止按钮可点 + 倒计时渲染(record 挂起期间)
+    final stopBtn = tester.widget<FilledButton>(
+      find.ancestor(of: find.text('停止录制'), matching: find.byType(FilledButton)),
+    );
+    expect(stopBtn.onPressed, isNotNull, reason: '录制中显示可停止');
+    expect(find.text('开始录制'), findsNothing);
+    expect(find.textContaining(':'), findsWidgets, reason: '倒计时渲染');
 
     expect(recorderPort.recordCalls, hasLength(1));
     expect(recorderPort.recordCalls.single.fps, 15.0, reason: '仓储默认参数');
