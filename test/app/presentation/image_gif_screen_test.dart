@@ -432,6 +432,64 @@ void main() {
     expect(find.text('导出完成'), findsOneWidget);
   });
 
+  testWidgets('BUG1 回归:完成弹窗打开后输入框失焦提交不叠加弹窗', (tester) async {
+    final svc = FakeFfmpegService(writeOutput: false);
+    final (app, router, _) = buildApp(service: svc);
+    await pumpApp(tester, app);
+    await enterScreen(tester, router);
+
+    await tester.runAsync(() async {
+      await tester.tap(find.text('开始转换'));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await settleRealAsync(tester);
+    expect(find.byType(ExportCompleteDialog), findsOneWidget);
+
+    // 模拟弹窗弹出瞬间输入框失焦(旧 bug:blur 提交写状态 → done 监听
+    // 无守卫重进 showDialog → 叠加第二层弹窗,背景逐层变黑、需点多次
+    // 关闭)
+    final focusNode = tester
+        .widget<TextField>(find.byType(TextField).first)
+        .focusNode!;
+    focusNode.requestFocus();
+    await tester.pump();
+    focusNode.unfocus();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byType(ExportCompleteDialog),
+      findsOneWidget,
+      reason: 'done 态失焦提交不得叠加弹窗(BUG1)',
+    );
+  });
+
+  testWidgets('BUG1 回归:完成弹窗连点关闭不 double pop 页面', (tester) async {
+    final svc = FakeFfmpegService(writeOutput: false);
+    final (app, router, _) = buildApp(service: svc);
+    await pumpApp(tester, app);
+    await enterScreen(tester, router);
+
+    await tester.runAsync(() async {
+      await tester.tap(find.text('开始转换'));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await settleRealAsync(tester);
+    expect(find.byType(ExportCompleteDialog), findsOneWidget);
+
+    // 同帧连点关闭(旧 bug:onReset 未 await + pop 无条件,第二次 pop
+    // 弹出页面路由回首页)
+    await tester.tap(find.text('关闭'));
+    await tester.tap(find.text('关闭'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ExportCompleteDialog), findsNothing);
+    expect(
+      find.text('图片制作 GIF'),
+      findsOneWidget,
+      reason: '连点关闭不得 pop 页面(BUG1)',
+    );
+  });
+
   testWidgets('回归:每图时长输入 100 不回车,直接转换生效', (tester) async {
     final svc = FakeFfmpegService(writeOutput: false);
     final (app, router, _) = buildApp(service: svc);

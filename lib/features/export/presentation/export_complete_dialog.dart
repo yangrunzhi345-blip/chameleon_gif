@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/utils/duration_format.dart';
@@ -30,7 +32,7 @@ class ExportCompleteActions {
 /// UI 仅格式化展示与转发动作(视频预览页与图片制作页共用)。
 /// 相册三态:已保存 → 显示相册路径 + [打开相册];保存失败 → 保留文件行 +
 /// 失败提示 + [分享];桌面(unsupported)→ 现状 [打开文件夹]。
-class ExportCompleteDialog extends StatelessWidget {
+class ExportCompleteDialog extends StatefulWidget {
   const ExportCompleteDialog({
     super.key,
     required this.task,
@@ -43,7 +45,30 @@ class ExportCompleteDialog extends StatelessWidget {
   final ExportCompleteActions actions;
 
   @override
+  State<ExportCompleteDialog> createState() => _ExportCompleteDialogState();
+}
+
+class _ExportCompleteDialogState extends State<ExportCompleteDialog> {
+  /// 关闭/再转一次一次性守卫:防连点导致多余 pop 弹出页面路由
+  /// (修复:未 await 的 onReset + 无条件 pop,快速连点会 pop 掉弹窗
+  /// 下方的页面,BUG1)。
+  bool _closing = false;
+
+  /// 关闭动作:先 pop 关弹窗,再 unawaited 执行异步 reset(不阻塞弹窗
+  /// 退场动画,也不因未决 Future 造成重复 pop)。
+  void _close() {
+    if (_closing) return;
+    _closing = true;
+    final actions = widget.actions;
+    Navigator.of(context).pop();
+    unawaited(actions.onReset());
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final task = widget.task;
+    final actions = widget.actions;
+    final outputSizeBytes = widget.outputSizeBytes;
     final elapsed = task.finishedAt?.difference(
       task.startedAt ?? task.createdAt,
     );
@@ -102,17 +127,11 @@ class ExportCompleteDialog extends StatelessWidget {
           child: Text(saved ? '打开相册' : (failed ? '分享' : '打开文件夹')),
         ),
         TextButton(
-          onPressed: () {
-            actions.onReset();
-            Navigator.of(context).pop();
-          },
+          onPressed: _closing ? null : _close,
           child: const Text('再转一次'),
         ),
         FilledButton(
-          onPressed: () {
-            actions.onReset();
-            Navigator.of(context).pop();
-          },
+          onPressed: _closing ? null : _close,
           child: const Text('关闭'),
         ),
       ],

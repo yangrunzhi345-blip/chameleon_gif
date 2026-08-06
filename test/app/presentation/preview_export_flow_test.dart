@@ -132,6 +132,40 @@ void main() {
     );
   });
 
+  testWidgets('BUG1 回归:完成弹窗打开后参数面板失焦提交不叠加弹窗', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final (app, svc) = buildApp();
+    svc.result = const _FlowResult.success();
+    await tester.pumpWidget(app);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('导入 MP4'));
+    await tester.pumpAndSettle();
+
+    await tester.runAsync(() async {
+      await tester.tap(find.text('导出 GIF'));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await tester.pumpAndSettle();
+    expect(find.byType(ExportCompleteDialog), findsOneWidget);
+
+    // 模拟弹窗弹出瞬间参数面板输入框失焦(旧 bug:blur 提交写状态 →
+    // done 监听无守卫重进 showDialog → 叠加第二层弹窗)
+    final focusNode = tester
+        .widget<TextField>(find.byType(TextField).first)
+        .focusNode!;
+    focusNode.requestFocus();
+    await tester.pump();
+    focusNode.unfocus();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byType(ExportCompleteDialog),
+      findsOneWidget,
+      reason: 'done 态失焦提交不得叠加弹窗(BUG1)',
+    );
+  });
+
   testWidgets('导出失败 → SnackBar 展示用户文案,无弹窗', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1280, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));

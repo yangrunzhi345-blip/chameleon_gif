@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/utils/duration_format.dart';
+import '../../domain/value_objects/gif_setting.dart';
 import '../../domain/value_objects/per_image_control.dart';
 import '../../features/export/application/scale_multiplier.dart';
 import '../../features/export/presentation/custom_value_dialog.dart';
@@ -40,6 +41,10 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
 
   /// 每图精细化控制(与 [_paths] 索引对齐,null = 该图未操作)。
   late List<PerImageControl?> _perControls = [];
+
+  /// 完成弹窗已开守卫:done 态任何状态写入(如输入框失焦提交)都会重进
+  /// listener,不加守卫会叠加多层弹窗(背景逐层变黑,需点多次关闭)。
+  bool _dialogOpen = false;
 
   final _frameDurationCtrl = TextEditingController();
   final _loopCtrl = TextEditingController();
@@ -109,21 +114,14 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
       if (!mounted) return;
       switch (state.lifecycle) {
         case ImageGifLifecycle.done:
+          // 弹窗守卫:done 态任何状态写入都会重进本分支,已开则不重弹
+          // (修复:弹窗弹出瞬间输入框失焦提交 → 叠加多层弹窗,背景逐层
+          // 变黑、需点多次关闭,BUG1)
+          if (_dialogOpen) return;
           final task = state.task;
           if (task != null) {
-            final notifier = ref.read(imageGifControllerProvider.notifier);
-            showDialog<void>(
-              context: context,
-              builder: (_) => ExportCompleteDialog(
-                task: task,
-                outputSizeBytes: state.outputSizeBytes ?? 0,
-                actions: ExportCompleteActions(
-                  onOpen: notifier.openOutputFolder,
-                  onShare: notifier.shareGif,
-                  onReset: notifier.reset,
-                ),
-              ),
-            );
+            _dialogOpen = true;
+            _showCompleteDialog(state);
           }
         case ImageGifLifecycle.failed:
           ScaffoldMessenger.of(context)
@@ -138,6 +136,25 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
     }, fireImmediately: false);
   }
 
+  /// 显示导出完成弹窗(listener 内不可 await,抽独立 async 方法;
+  /// 弹窗关闭后复位守卫,允许下一次 done 再弹)。
+  Future<void> _showCompleteDialog(ImageGifFormState state) async {
+    final notifier = ref.read(imageGifControllerProvider.notifier);
+    await showDialog<void>(
+      context: context,
+      builder: (_) => ExportCompleteDialog(
+        task: state.task!,
+        outputSizeBytes: state.outputSizeBytes ?? 0,
+        actions: ExportCompleteActions(
+          onOpen: notifier.openOutputFolder,
+          onShare: notifier.shareGif,
+          onReset: notifier.reset,
+        ),
+      ),
+    );
+    if (mounted) _dialogOpen = false;
+  }
+
   @override
   void dispose() {
     _frameDurationFocusNode.removeListener(_onFrameDurationBlur);
@@ -149,8 +166,18 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
     super.dispose();
   }
 
+  /// 终态(完成/失败/取消)不响应失焦提交:弹窗弹出瞬间输入框失焦会写入
+  /// 状态 → done 监听重进弹窗分支 → 叠加多层弹窗(背景逐层变黑、需点
+  /// 多次关闭,BUG1)。
+  bool get _atTerminalLifecycle {
+    final lifecycle = ref.read(imageGifControllerProvider).lifecycle;
+    return lifecycle != ImageGifLifecycle.idle &&
+        lifecycle != ImageGifLifecycle.exporting;
+  }
+
   /// 每图时长输入框失焦 → 提交(不回车也生效)。
   void _onFrameDurationBlur() {
+    if (_atTerminalLifecycle) return;
     if (!_frameDurationFocusNode.hasFocus) {
       _submitFrameDuration(_frameDurationCtrl.text);
     }
@@ -158,6 +185,7 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
 
   /// 循环输入框失焦 → 提交(不回车也生效)。
   void _onLoopBlur() {
+    if (_atTerminalLifecycle) return;
     if (!_loopFocusNode.hasFocus) _submitLoop(_loopCtrl.text);
   }
 
@@ -331,10 +359,20 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
     final notifier = ref.read(imageGifControllerProvider.notifier);
     _syncTextFields(state);
     final exporting = state.locked;
-    // 总输出时长 = 每图时长 × 图片数 ÷ 播放速度(setpts 输出时间轴)
+    // 总输出时长 = 每图实际段长(整帧量化)× 图片数 ÷ 播放速度;量化收敛
+    // domain(GifSetting.quantizedFrameDuration),与进度分母/产物实际时长
+    // 一致(如 100ms @ 15fps 实际 133ms/图 → 20 图 2.67s,而非 2s)
+    final setting = GifSetting(
+      fps: state.fps,
+      frameDurationMs: state.frameDurationMs,
+      playbackSpeed: state.playbackSpeed,
+    );
     final total = Duration(
-      milliseconds:
-          (state.frameDurationMs * _paths.length / state.playbackSpeed).round(),
+      microseconds:
+          (setting.quantizedFrameDuration.inMicroseconds *
+                  _paths.length /
+                  state.playbackSpeed)
+              .round(),
     );
 
     final listPanel = Column(

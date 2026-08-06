@@ -66,4 +66,17 @@ abstract class GifSetting with _$GifSetting {
         Duration(microseconds: (1e6 / fps).round()).inMilliseconds;
     return Duration(milliseconds: ms < 1 ? 1 : ms);
   }
+
+  /// 图片模式每图**实际**段长(按整帧量化,与 ffmpeg 行为一致)。
+  ///
+  /// ffmpeg 图片输入 `-loop 1 -t D -framerate F` 按整帧读取:PTS < D 的
+  /// 帧全部读入,段内帧数 = `ceil(D×F/1000)`,实际段长 = 帧数/F。
+  /// 例:每图 100ms @ 15fps → 2 帧 → 133ms(而非 100ms);每图 1000ms →
+  /// 15 帧 → 1000ms。低于 2 帧间隔的时长无法精确表达,属帧率语义固有
+  /// 边界(见 CLAUDE.md §6.4),进度分母/UI 总时长均以此为准,避免与
+  /// 产物时长偏差。
+  Duration get quantizedFrameDuration {
+    final frames = (effectiveFrameDuration.inMilliseconds * fps / 1000).ceil();
+    return Duration(microseconds: (frames / fps * 1e6).round());
+  }
 }

@@ -225,6 +225,13 @@ ffmpeg -i in.mp4 -i palette.png -lavfi "fps=15,scale=480:-1:flags=lanczos[x];[x]
 - 首图尺寸由 UI 解码探测填充(未知时退化:仅控制 scale,无 pad);不同
   宽高比的图经 `setsar=1` 归一(ffmpeg 8 已实证);pad 前必须
   `format=rgba` 否则透明色变不透明黑(已实证)。
+- **帧量化边界(2026-08-07 实证,勿改命令语义)**:图片输入 `-loop 1 -t D
+  -framerate F` 按**整帧**读取(PTS < D 的帧全读入),段内帧数 =
+  `ceil(D×F/1000)`,实际段长 = 帧数/F。每图 100ms @ 15fps → 2 帧 →
+  **133ms/图**(产物 20 图 2.67s,非 2s);低于 2 帧间隔的时长无法精确
+  表达,属帧率语义固有边界。进度分母/UI 总时长以
+  `GifSetting.quantizedFrameDuration`(整帧量化)为准,与产物实际时长
+  自洽(修复:进度条不再提前 100%、footer 显示与实际一致)。
 
 ## 七、常用命令
 

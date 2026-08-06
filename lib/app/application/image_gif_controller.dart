@@ -499,12 +499,17 @@ class ImageGifController extends Notifier<ImageGifFormState>
   void handleTaskEvent(ExportTask task) {
     if (!isSessionTask(task)) return;
     if (task.state == TaskState.completed) {
+      // 已 done 去重:重复 completed 事件(或 done 态期间的事件)不得
+      // 再次写 done —— 每次写入都会让页面 listener 重弹完成弹窗(BUG1)
+      if (state.lifecycle == ImageGifLifecycle.done) return;
       final outputPath = task.outputPath;
       if (outputPath == null) return;
       // 功能层读文件大小(UI 层禁止 IO;失败不阻断完成弹窗)
       unawaited(
         readOutputSizeBytes(outputPath).then((size) {
+          // 续体落地时复查:会话销毁或已 done(reset 后未决续体)不复活
           if (!ref.mounted) return; // autoDispose 会话销毁(页面已离开)
+          if (state.lifecycle == ImageGifLifecycle.done) return;
           state = state.copyWith(
             lifecycle: ImageGifLifecycle.done,
             task: task,

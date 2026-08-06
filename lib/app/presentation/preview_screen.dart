@@ -34,6 +34,11 @@ class PreviewScreen extends ConsumerStatefulWidget {
 }
 
 class _PreviewScreenState extends ConsumerState<PreviewScreen> {
+  /// 完成弹窗已开守卫:done 态任何状态写入(如参数面板输入框失焦提交)
+  /// 都会重进 listener,不加守卫会叠加多层弹窗(背景逐层变黑,需点多次
+  /// 关闭)。
+  bool _dialogOpen = false;
+
   /// 右侧控制面板靠上对齐的高度阈值:右栏 maxHeight >= 此值视为
   /// 全屏/大窗口(面板加 Spacer 顶到顶部);否则保持原布局。
   static const double _outputPanelTopThreshold = 800;
@@ -67,21 +72,14 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
       if (!mounted) return;
       switch (state.lifecycle) {
         case ExportLifecycle.done:
+          // 弹窗守卫:done 态任何状态写入都会重进本分支,已开则不重弹
+          // (修复:弹窗弹出瞬间参数面板输入框失焦提交 → 叠加多层弹窗,
+          // 背景逐层变黑、需点多次关闭,BUG1)
+          if (_dialogOpen) return;
           final task = state.task;
           if (task != null) {
-            final notifier = ref.read(exportControllerProvider.notifier);
-            showDialog<void>(
-              context: context,
-              builder: (_) => ExportCompleteDialog(
-                task: task,
-                outputSizeBytes: state.outputSizeBytes ?? 0,
-                actions: ExportCompleteActions(
-                  onOpen: notifier.openOutputFolder,
-                  onShare: notifier.shareGif,
-                  onReset: notifier.reset,
-                ),
-              ),
-            );
+            _dialogOpen = true;
+            _showCompleteDialog(state);
           }
         case ExportLifecycle.failed:
           ScaffoldMessenger.of(context)
@@ -94,6 +92,25 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
           break;
       }
     }, fireImmediately: false);
+  }
+
+  /// 显示导出完成弹窗(listener 内不可 await,抽独立 async 方法;
+  /// 弹窗关闭后复位守卫,允许下一次 done 再弹)。
+  Future<void> _showCompleteDialog(ExportFormState state) async {
+    final notifier = ref.read(exportControllerProvider.notifier);
+    await showDialog<void>(
+      context: context,
+      builder: (_) => ExportCompleteDialog(
+        task: state.task!,
+        outputSizeBytes: state.outputSizeBytes ?? 0,
+        actions: ExportCompleteActions(
+          onOpen: notifier.openOutputFolder,
+          onShare: notifier.shareGif,
+          onReset: notifier.reset,
+        ),
+      ),
+    );
+    if (mounted) _dialogOpen = false;
   }
 
   @override

@@ -49,18 +49,30 @@ class _ParameterPanelState extends ConsumerState<ParameterPanel> {
     _endFocusNode.addListener(_onEndBlur);
   }
 
+  /// 终态(完成/失败/取消)不响应失焦提交:弹窗弹出瞬间输入框失焦会写入
+  /// 状态 → done 监听重进弹窗分支 → 叠加多层弹窗(背景逐层变黑、需点
+  /// 多次关闭,BUG1)。
+  bool get _atTerminalLifecycle {
+    final lifecycle = ref.read(exportControllerProvider).lifecycle;
+    return lifecycle != ExportLifecycle.idle &&
+        lifecycle != ExportLifecycle.exporting;
+  }
+
   /// 循环输入框失焦 → 提交(不回车也生效)。
   void _onLoopBlur() {
+    if (_atTerminalLifecycle) return;
     if (!_loopFocusNode.hasFocus) _submitLoopText(_loopCtrl.text);
   }
 
   /// 开始时间输入框失焦 → 提交(不回车也生效)。
   void _onStartBlur() {
+    if (_atTerminalLifecycle) return;
     if (!_startFocusNode.hasFocus) _submitStart(_startCtrl.text);
   }
 
   /// 结束时间输入框失焦 → 提交(不回车也生效)。
   void _onEndBlur() {
+    if (_atTerminalLifecycle) return;
     if (!_endFocusNode.hasFocus) _submitEnd(_endCtrl.text);
   }
 

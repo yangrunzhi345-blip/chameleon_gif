@@ -35,11 +35,13 @@ class ImageGifSource {
     return controls[i];
   }
 
-  /// 总输出时长 = 每图时长 × 图片数 ÷ 播放速度(供进度分母/历史快照
-  /// 使用;速度 1.0 不缩放,setpts 压缩/拉伸输出时间轴后即为实际时长)。
+  /// 总输出时长 = 每图实际段长(整帧量化)× 图片数 ÷ 播放速度(供进度
+  /// 分母/历史快照/UI 总时长使用;速度 1.0 不缩放,setpts 压缩/拉伸
+  /// 输出时间轴后即为实际时长)。量化见 [GifSetting.quantizedFrameDuration]:
+  /// 每图 100ms @ 15fps 实际 133ms,产物 20 图 = 2.67s(非 2s)。
   Duration totalDuration(GifSetting setting) {
     final us =
-        setting.effectiveFrameDuration.inMicroseconds *
+        setting.quantizedFrameDuration.inMicroseconds *
         paths.length /
         setting.playbackSpeed;
     return Duration(microseconds: us.round());

@@ -386,6 +386,47 @@ void main() {
     await notifier.reset();
     expect(state().lifecycle, ImageGifLifecycle.idle);
   });
+
+  test('BUG1 回归:done 态重复 completed 事件不重复写 done(通知数不增)', () async {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+
+    var notifyCount = 0;
+    container.listen<ImageGifFormState>(imageGifControllerProvider, (_, _) {
+      notifyCount++;
+    });
+    await notifier.submit(const ['/img/a.png']);
+    await waitLifecycle(ImageGifLifecycle.done);
+    await Future<void>.delayed(Duration.zero); // .then 续体落地完成
+    final before = notifyCount;
+
+    // 重复推送同一任务的 completed 事件(旧 bug:每次写 done → 页面
+    // listener 每次重弹完成弹窗)
+    final task = (await taskRepo.all()).single;
+    container
+        .read(imageGifControllerProvider.notifier)
+        .handleTaskEvent(task);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(notifyCount, before, reason: '已 done 后重复 completed 不得再写状态');
+    expect(state().lifecycle, ImageGifLifecycle.done);
+  });
+
+  test('BUG1 回归:reset 后未决输出大小续体不复活 done', () async {
+    container = build();
+    final notifier = container.read(imageGifControllerProvider.notifier);
+    notifier.init();
+
+    await notifier.submit(const ['/img/a.png']);
+    await waitLifecycle(ImageGifLifecycle.done);
+    await notifier.reset();
+    expect(state().lifecycle, ImageGifLifecycle.idle);
+
+    // reset 后未决续体(读文件大小的 .then)落地:不得把状态复活 done
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(state().lifecycle, ImageGifLifecycle.idle);
+  });
 }
 
 // ---- 测试替身 ----

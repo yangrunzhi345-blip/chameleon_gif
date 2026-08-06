@@ -10,9 +10,11 @@ String formatFfmpegTime(Duration d) {
   return '$h:$m:$s.$ms';
 }
 
-/// 人读时长格式化(「N 分 M 秒」,<1 分钟显示秒;导出完成弹窗/进度面板复用)。
+/// 人读时长格式化(「N 分 M 秒」,<1 分钟显示秒;导出完成弹窗/进度面板
+/// 复用)。秒数四舍五入:2.67s → "3 秒",避免量化时长显示偏小
+/// (图片模式每图 100ms 产物实际 2.67s,截断显示 2 秒与实际不符)。
 String formatHumanDuration(Duration d) {
-  final s = d.inSeconds;
+  final s = d.inSeconds + (d.inMilliseconds % 1000 >= 500 ? 1 : 0);
   if (s < 60) return '$s 秒';
   return '${s ~/ 60} 分 ${s % 60} 秒';
 }
