@@ -66,14 +66,9 @@ class BatchParameterFormState extends State<BatchParameterForm> {
     if (!_endFocusNode.hasFocus) _submitEnd(_endCtrl.text);
   }
 
-  /// 循环文本提交(解析失败 → formError)。
+  /// 循环文本提交(解析/校验在控制器 tryUpdateLoopText)。
   void _submitLoopText(String text) {
-    final v = int.tryParse(text.trim());
-    if (v == null) {
-      widget.actions.updateFormError('循环次数须为数字');
-    } else {
-      widget.actions.updateLoop(v);
-    }
+    widget.actions.tryUpdateLoopText(text);
   }
 
   static const _fpsOptions = [
@@ -137,61 +132,31 @@ class BatchParameterFormState extends State<BatchParameterForm> {
   }
 
   void _submitStart(String text) {
-    final parsed = parseFfmpegTime(text);
-    if (parsed == null) {
-      widget.actions.updateFormError('开始时间格式非法(示例 00:03.200)');
-      return;
-    }
-    widget.actions.updateStart(parsed);
+    widget.actions.tryUpdateStartText(text);
   }
 
   void _submitEnd(String text) {
-    if (text.trim().isEmpty) {
-      widget.actions.updateEnd(null);
-      return;
-    }
-    final parsed = parseFfmpegTime(text);
-    if (parsed == null) {
-      widget.actions.updateFormError('结束时间格式非法(示例 00:09.500)');
-      return;
-    }
-    widget.actions.updateEnd(parsed);
+    widget.actions.tryUpdateEndText(text);
   }
 
   /// 提交未回车的文本字段(循环/开始/结束)到控制器。
   ///
-  /// 先对全部字段做纯解析校验(任一非法 → formError 并返回 false),再
-  /// 逐项提交。返回恒 true:解析已全过且 [BatchFormMixin] 的 update*
-  /// 从不拒绝(与 export 的 try* 不同),**不读 [widget.state.formError]**
-  /// —— 那是父组件上一次 build 的快照,同步提交后尚未重建,读取无意义;
-  /// formError 非空时保存入口本就被禁用,行为等价。
+  /// 短路语义:逐字段调控制器 try*(解析/格式校验/错误文案都在控制器),
+  /// **任一失败立即返回 false** —— 后项成功(update* 清 formError)不会
+  /// 清掉前项错误。不读 [widget.state.formError](父组件 build 快照,
+  /// 同步提交后尚未重建);formError 非空时保存入口本就被禁用。
   bool flushPendingInputs() {
-    final loop = int.tryParse(_loopCtrl.text.trim());
-    final start = parseFfmpegTime(_startCtrl.text);
-    final endText = _endCtrl.text.trim();
-    final end = endText.isEmpty ? null : parseFfmpegTime(endText);
-    if (loop == null) {
-      widget.actions.updateFormError('循环次数须为数字');
-      return false;
-    }
-    if (start == null) {
-      widget.actions.updateFormError('开始时间格式非法(示例 00:03.200)');
-      return false;
-    }
-    if (endText.isNotEmpty && end == null) {
-      widget.actions.updateFormError('结束时间格式非法(示例 00:09.500)');
-      return false;
-    }
     _loopFocused = false;
     _startFocused = false;
     _endFocused = false;
-    widget.actions.updateLoop(loop);
-    widget.actions.updateStart(start);
-    widget.actions.updateEnd(end);
+    final actions = widget.actions;
+    if (!actions.tryUpdateLoopText(_loopCtrl.text)) return false;
+    if (!actions.tryUpdateStartText(_startCtrl.text)) return false;
+    if (!actions.tryUpdateEndText(_endCtrl.text)) return false;
     return true;
   }
 
-  /// 自定义宽度:弹输入框,1–4096 校验(非法 → formError)。
+  /// 自定义宽度:弹输入框(校验在控制器 tryUpdateCustomWidth)。
   Future<void> _customWidth() async {
     final text = await showCustomValueDialog(
       context,
@@ -200,15 +165,10 @@ class BatchParameterFormState extends State<BatchParameterForm> {
       hintText: '1–4096',
     );
     if (text == null) return;
-    final v = int.tryParse(text.trim());
-    if (v == null || v < 1 || v > 4096) {
-      widget.actions.updateFormError('宽度须为 1–4096 的数字');
-      return;
-    }
-    widget.actions.updateWidth(v);
+    widget.actions.tryUpdateCustomWidth(text);
   }
 
-  /// 自定义高度:弹输入框,1–4096 校验(非法 → formError)。
+  /// 自定义高度:弹输入框(校验在控制器 tryUpdateCustomHeight)。
   Future<void> _customHeight() async {
     final text = await showCustomValueDialog(
       context,
@@ -217,12 +177,7 @@ class BatchParameterFormState extends State<BatchParameterForm> {
       hintText: '1–4096',
     );
     if (text == null) return;
-    final v = int.tryParse(text.trim());
-    if (v == null || v < 1 || v > 4096) {
-      widget.actions.updateFormError('高度须为 1–4096 的数字');
-      return;
-    }
-    widget.actions.updateHeight(v);
+    widget.actions.tryUpdateCustomHeight(text);
   }
 
   /// 宽高收起态文案:当前为原图等比(0)且选了倍数(非 1)时,显示
@@ -245,12 +200,7 @@ class BatchParameterFormState extends State<BatchParameterForm> {
       hintText: '0.1–4',
     );
     if (text == null) return;
-    final v = double.tryParse(text.trim());
-    if (v == null || v <= 0 || v > 4) {
-      widget.actions.updateFormError('缩放倍数须为 0.1–4 的数字');
-      return;
-    }
-    widget.actions.updateScaleMultiplier(v);
+    widget.actions.tryUpdateCustomScaleMultiplier(text);
   }
 
   @override

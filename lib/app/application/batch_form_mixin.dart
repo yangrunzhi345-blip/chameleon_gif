@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/utils/duration_format.dart';
 import '../../core/utils/duration_math.dart';
 import '../../domain/value_objects/gif_setting.dart';
 // 别名:顶层函数与混入的抽象成员同名,须经别名调用
@@ -48,6 +49,29 @@ abstract interface class BatchFormActions {
 
   /// 清除表单级错误(输入修正后)。
   void clearFormError();
+
+  // ---- 文本输入解析+校验(UI 文本 → 状态,短路语义) ----
+  // 与 export/image_gif 的 try* 系列同构:解析/范围校验/错误文案下沉
+  // 控制器,UI 只转发;任一失败设 formError 返回 false,调用方逐字段
+  // 短路调用(后项成功不清前项错误)。
+
+  /// 循环次数文本:非数字 → formError 返回 false;成功应用返回 true。
+  bool tryUpdateLoopText(String text);
+
+  /// 开始时间文本:格式非法 → formError 返回 false;成功应用返回 true。
+  bool tryUpdateStartText(String text);
+
+  /// 结束时间文本:留空 → null(到结尾);格式非法 → formError 返回 false。
+  bool tryUpdateEndText(String text);
+
+  /// 自定义宽度文本(1–4096)。
+  bool tryUpdateCustomWidth(String text);
+
+  /// 自定义高度文本(1–4096)。
+  bool tryUpdateCustomHeight(String text);
+
+  /// 自定义缩放倍数文本(0.1–4)。
+  bool tryUpdateCustomScaleMultiplier(String text);
 }
 
 /// 批量参数表单公共实现(功能层纯 Dart,无 Flutter 依赖)。
@@ -135,6 +159,78 @@ mixin BatchFormMixin on Notifier<BatchImportFormState>
       outputDir: (dir == null || dir.isEmpty) ? null : dir,
       formError: null,
     );
+  }
+
+  // ---- 文本输入解析+校验(短路语义,见接口注释) ----
+
+  @override
+  bool tryUpdateLoopText(String text) {
+    final v = int.tryParse(text.trim());
+    if (v == null) {
+      state = state.copyWith(formError: '循环次数须为数字');
+      return false;
+    }
+    updateLoop(v);
+    return true;
+  }
+
+  @override
+  bool tryUpdateStartText(String text) {
+    final parsed = parseFfmpegTime(text);
+    if (parsed == null) {
+      state = state.copyWith(formError: '开始时间格式非法(示例 00:03.200)');
+      return false;
+    }
+    updateStart(parsed);
+    return true;
+  }
+
+  @override
+  bool tryUpdateEndText(String text) {
+    if (text.trim().isEmpty) {
+      updateEnd(null);
+      return true;
+    }
+    final parsed = parseFfmpegTime(text);
+    if (parsed == null) {
+      state = state.copyWith(formError: '结束时间格式非法(示例 00:09.500)');
+      return false;
+    }
+    updateEnd(parsed);
+    return true;
+  }
+
+  @override
+  bool tryUpdateCustomWidth(String text) {
+    final v = int.tryParse(text.trim());
+    if (v == null || v < 1 || v > 4096) {
+      state = state.copyWith(formError: '宽度须为 1–4096 的数字');
+      return false;
+    }
+    updateWidth(v);
+    return true;
+  }
+
+  @override
+  bool tryUpdateCustomHeight(String text) {
+    final v = int.tryParse(text.trim());
+    if (v == null || v < 1 || v > 4096) {
+      state = state.copyWith(formError: '高度须为 1–4096 的数字');
+      return false;
+    }
+    updateHeight(v);
+    return true;
+  }
+
+  @override
+  bool tryUpdateCustomScaleMultiplier(String text) {
+    final v = double.tryParse(text.trim());
+    if (v == null || v <= 0 || v > 4) {
+      state = state.copyWith(formError: '缩放倍数须为 0.1–4 的数字');
+      return false;
+    }
+    updateScaleMultiplier(v);
+    return true;
   }
 
   @override

@@ -164,6 +164,45 @@ void main() {
     expect(state().start, const Duration(seconds: 10), reason: 'start 保留');
   });
 
+  test('try* 文本校验:非法 → false + formError;合法 → true 应用', () {
+    ctl().init();
+
+    expect(ctl().tryUpdateLoopText('abc'), isFalse);
+    expect(state().formError, contains('循环次数'));
+    expect(ctl().tryUpdateLoopText('5'), isTrue);
+    expect(state().loop, 5);
+
+    expect(ctl().tryUpdateStartText('abc'), isFalse);
+    expect(state().formError, contains('开始时间'));
+    expect(ctl().tryUpdateStartText('00:02.000'), isTrue);
+    expect(state().start, const Duration(seconds: 2));
+
+    expect(ctl().tryUpdateEndText('abc'), isFalse);
+    expect(state().formError, contains('结束时间'));
+    expect(ctl().tryUpdateEndText('00:05.000'), isTrue);
+    expect(state().end, const Duration(seconds: 5));
+    expect(ctl().tryUpdateEndText(''), isTrue, reason: '留空 = 全长');
+    expect(state().end, isNull);
+
+    expect(ctl().tryUpdateCustomWidth('0'), isFalse);
+    expect(ctl().tryUpdateCustomWidth('150'), isTrue);
+    expect(state().width, 150);
+    expect(ctl().tryUpdateCustomHeight('9999'), isFalse);
+    expect(ctl().tryUpdateCustomHeight('100'), isTrue);
+    expect(state().height, 100);
+    expect(ctl().tryUpdateCustomScaleMultiplier('0'), isFalse);
+    expect(ctl().tryUpdateCustomScaleMultiplier('2'), isTrue);
+    expect(state().scaleMultiplier, 2);
+  });
+
+  test('短路契约:前项失败后错误保留(flush 逐字段短路)', () {
+    ctl().init();
+
+    expect(ctl().tryUpdateLoopText('5'), isTrue);
+    expect(ctl().tryUpdateStartText('abc'), isFalse);
+    expect(state().formError, isNotNull);
+  });
+
   test('start:setting/outputDir/paths 透传,结果回传', () async {
     ctl().init();
     ctl().updateFps(30);
