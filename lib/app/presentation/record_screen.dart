@@ -1,27 +1,17 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:chameleon_gif/domain/exceptions/capture_exception.dart';
-import 'package:chameleon_gif/domain/exceptions/file_pick_exception.dart';
-import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
-import 'package:chameleon_gif/domain/value_objects/capture_source.dart';
 import 'package:chameleon_gif/domain/value_objects/record_params.dart';
 import 'package:chameleon_gif/features/screen_record/application/region_picker.dart';
-import 'package:chameleon_gif/shared/providers/core_providers.dart';
+import '../application/record_session_controller.dart';
 import '../application/capture_entry_providers.dart';
-import '../application/providers.dart';
-
-/// 录制页状态机。
-enum _RecordPhase { idle, awaitingConsent, recording, finishing }
 
 /// 屏幕录制页(路由 /record;docs/19 S1-WP3)。
 ///
 /// 启动即敏感内容确认横幅(19 号"录制范围确认提示放录制页启动时");
-/// 开始 → [ScreenRecorderPort.record](系统授权对话框,Result 挂起至结束);
-/// 停止/超时 → 自动导入 /preview;授权拒绝 → 提示回 idle;返回取消兜底
-/// (cancelRecording,防前台服务泄漏)。
+/// 状态机/计时/异常映射全部在 [RecordSessionController](application 层),
+/// 本页只 watch 状态 + 转发事件;授权拒绝 → 控制器 errorMessage →
+/// SnackBar 回 idle;返回取消兜底在控制器 onDispose。
 class RecordScreen extends ConsumerStatefulWidget {
   const RecordScreen({super.key});
 
@@ -30,85 +20,35 @@ class RecordScreen extends ConsumerStatefulWidget {
 }
 
 class _RecordScreenState extends ConsumerState<RecordScreen> {
-  _RecordPhase _phase = _RecordPhase.idle;
-  final _cancelToken = CancelToken();
-  Timer? _ticker;
-  Duration _elapsed = Duration.zero;
-
   @override
-  void dispose() {
-    // 取消兜底(防前台服务泄漏;原生侧删 tmp)
-    _cancelToken.cancel();
-    _ticker?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _start() async {
-    setState(() => _phase = _RecordPhase.awaitingConsent);
-    final port = ref.read(screenRecorderPortProvider);
-    final params =
-        ref.read(settingsRepositoryProvider).recordParams ??
-        const RecordParams();
-    try {
-      // 录制中态:record 阻塞期间显示停止按钮(awaitingConsent 仅
-      // 瞬态 —— record 内部授权+录制无"开始"回调,统一按录制中渲染;
-      // 授权拒绝/失败由 record 抛异常回 idle)
-      setState(() => _phase = _RecordPhase.recording);
-      _ticker = Timer.periodic(const Duration(milliseconds: 500), (_) {
-        if (!mounted) return;
-        setState(() => _elapsed += const Duration(milliseconds: 500));
-      });
-      // record 阻塞:系统授权 → 录制 → 手动停止/超时自动停 → 返回
-      final result = await port.record(
-        params: params,
-        cancelToken: _cancelToken,
-      );
+  void initState() {
+    super.initState();
+    // 选区归零与参数载入(2026-08-07 需求,控制器内写库)
+    Future.microtask(() {
       if (!mounted) return;
-      // 自动导入:素材 → ffprobe 解析 → /preview(预览返回回录制页)
-      await ref
-          .read(captureImportUseCaseProvider)
-          .execute(result.finalPath, source: CaptureSource.screenRecord);
-    } on CaptureCancelledException {
-      // 静默:取消不提示
-    } on CaptureException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.userMessage)));
-      }
-    } on FilePickException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.userMessage)));
-      }
-    } finally {
-      _ticker?.cancel();
-      if (mounted) {
-        setState(() {
-          _phase = _RecordPhase.idle;
-          _elapsed = Duration.zero;
-        });
-      }
-    }
-  }
-
-  /// 停止按钮:经端口 requestStop(保存);record 的挂起 Result 由
-  /// 结束信号驱动返回(接口统一:Android 原生通道 / 桌面 SIGTERM)。
-  Future<void> _stop() async {
-    setState(() => _phase = _RecordPhase.finishing);
-    final port = ref.read(screenRecorderPortProvider);
-    await port.requestStop();
-  }
-
-  String get _countdown {
-    final s = _elapsed.inSeconds;
-    return '${(s ~/ 60).toString().padLeft(2, '0')}:'
-        '${(s % 60).toString().padLeft(2, '0')}';
+      ref.read(recordSessionControllerProvider.notifier).init();
+    });
+    // 一次性错误文案 → SnackBar(消费后 clearError)
+    ref.listenManual<RecordSessionState>(recordSessionControllerProvider, (
+      _,
+      state,
+    ) {
+      if (!mounted) return;
+      final message = state.errorMessage;
+      if (message == null) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+      ref.read(recordSessionControllerProvider.notifier).clearError();
+    }, fireImmediately: false);
   }
 
   @override
   Widget build(BuildContext context) {
+    final session = ref.watch(recordSessionControllerProvider);
+    final notifier = ref.read(recordSessionControllerProvider.notifier);
+    final phase = session.phase;
+    final countdown = session.countdown;
     // 能力驱动渲染(区域 UI/授权文案/开始可用性);loading 按禁用防闪亮
     final caps = ref.watch(recordCapabilitiesProvider).value;
     final available = caps?.screenCaptureAvailable ?? false;
@@ -151,10 +91,10 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
             ],
             const Spacer(),
             // 录制中:顶部倒计时 + 停止按钮;否则开始按钮
-            if (_phase == _RecordPhase.recording) ...[
+            if (phase == RecordPhase.recording) ...[
               Center(
                 child: Text(
-                  _countdown,
+                  countdown,
                   style: TextStyle(
                     fontSize: 32,
                     fontFeatures: const [FontFeature.tabularFigures()],
@@ -164,7 +104,9 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
               const SizedBox(height: 16),
               Center(
                 child: FilledButton.icon(
-                  onPressed: _phase == _RecordPhase.finishing ? null : _stop,
+                  onPressed: phase == RecordPhase.finishing
+                      ? null
+                      : notifier.stop,
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.red,
                     padding: const EdgeInsets.symmetric(
@@ -186,8 +128,8 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
             ] else ...[
               Center(
                 child: FilledButton.icon(
-                  onPressed: _phase == _RecordPhase.idle && available
-                      ? _start
+                  onPressed: phase == RecordPhase.idle && available
+                      ? notifier.start
                       : null,
                   icon: const Icon(Icons.screen_share_outlined),
                   label: const Text('开始录制'),
@@ -233,50 +175,28 @@ class _RegionSelectorState extends ConsumerState<_RegionSelector> {
   @override
   void initState() {
     super.initState();
-    final repo = ref.read(settingsRepositoryProvider);
-    final current = repo.recordParams ?? const RecordParams();
-    if (current.regionX != null ||
-        current.regionY != null ||
-        current.regionWidth != null ||
-        current.regionHeight != null) {
-      // 需求(2026-08-07):每次重新进入录制页,选区默认归零 —— 清空
-      // 上次框选(仅区域字段;freezed copyWith 传 null 不修改,故重构造)。
-      // 持久化同步,保证「开始录制」读到归零值,不残留旧区域。
-      _params = RecordParams(
-        fps: current.fps,
-        maxDurationMs: current.maxDurationMs,
-        regionMode: current.regionMode,
-        windowTitle: current.windowTitle,
-        drawCursor: current.drawCursor,
-        aspectRatio: current.aspectRatio,
-        outputDir: current.outputDir,
-      );
-      unawaited(repo.setRecordParams(_params));
-    } else {
-      _params = current;
-    }
+    // 播种值 = 控制器载入并归零后的参数(选区归零写库在控制器 init,
+    // 2026-08-07 需求;settingsRepository 非响应式,本地持有选中态)
+    _params =
+        ref.read(recordSessionControllerProvider).recordParams ??
+        const RecordParams();
   }
 
   Future<void> _update(RecordParams next) async {
     setState(() => _params = next); // 立即重建(切换即时反馈)
-    await ref.read(settingsRepositoryProvider).setRecordParams(next);
+    await ref
+        .read(recordSessionControllerProvider.notifier)
+        .updateRecordParams(next);
   }
 
-  /// 鼠标框选录制范围(真实屏幕;slurp 交互选区)。
+  /// 鼠标框选录制范围(真实屏幕;slurp 交互选区;经控制器,回填同步)。
   Future<void> _pickRegion() async {
-    final picker = ref.read(screenRegionPickerProvider);
     setState(() => _picking = true);
     try {
-      final region = await picker.pick();
-      if (region == null || !mounted) return; // 取消/失败:不更新
-      await _update(
-        _params.copyWith(
-          regionX: region.x,
-          regionY: region.y,
-          regionWidth: region.width,
-          regionHeight: region.height,
-        ),
-      );
+      final next = await ref
+          .read(recordSessionControllerProvider.notifier)
+          .pickRegion();
+      if (next != null && mounted) setState(() => _params = next);
     } finally {
       if (mounted) setState(() => _picking = false);
     }
