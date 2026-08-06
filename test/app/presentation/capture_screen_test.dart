@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemChannels;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chameleon_gif/app/app.dart';
@@ -39,6 +40,13 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    // mock SystemChrome 平台通道(录制锁定向;测试环境无真实通道,
+    // 不 mock 则 await 挂起导致录制态不出现)
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async => null,
+        );
     tempRoot = await Directory.systemTemp.createTemp('capture_screen_');
     cameraPort = FakeCameraPort();
     final adapter = _TestAdapter(tempRoot.path);
@@ -77,6 +85,8 @@ void main() {
 
   tearDown(() {
     container.dispose();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null);
     if (tempRoot.existsSync()) tempRoot.deleteSync(recursive: true);
   });
 

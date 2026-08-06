@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:camera/camera.dart' show CameraPreview;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show SystemUiOverlayStyle;
+import 'package:flutter/services.dart'
+    show DeviceOrientation, SystemChrome, SystemUiOverlayStyle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -44,10 +45,25 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
     // autoDispose onDispose 收敛(dispose 内不可用 ref,见 provider 注释)
     _cancelToken.cancel();
     _ticker?.cancel();
+    // 恢复自由旋转(录制锁定向兜底,防全局泄漏)
+    SystemChrome.setPreferredOrientations([]);
     super.dispose();
   }
 
   Future<void> _start() async {
+    // 录制中锁定当前屏幕方向:旋转手机屏幕不跟随 → 录制键物理位置
+    // 固定(用户要求"始终保持在竖屏位置",横屏不跑到横屏底部中央);
+    // 锁 portraitUp/landscapeLeft,180° 翻转对底部中央按钮无影响。
+    // 结束/dispose 恢复自由旋转。方向判定在 await 前完成(context 安全)。
+    final isLandscape =
+        MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
+    final devicePortrait =
+        MediaQuery.orientationOf(context) == Orientation.portrait;
+    await SystemChrome.setPreferredOrientations([
+      isLandscape
+          ? DeviceOrientation.landscapeLeft
+          : DeviceOrientation.portraitUp,
+    ]);
     setState(() {
       _phase = _CapturePhase.recording;
       _elapsed = Duration.zero;
@@ -59,9 +75,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
     final port = ref.read(cameraPortProvider);
     // 记录设备方向(陀螺仪语义):方向修正据此判断横竖屏拍摄
     if (port is CameraPortImpl) {
-      port.setDevicePortrait(
-        MediaQuery.orientationOf(context) == Orientation.portrait,
-      );
+      port.setDevicePortrait(devicePortrait);
     }
     final params =
         ref.read(settingsRepositoryProvider).captureParams ??
@@ -92,6 +106,8 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
       }
     } finally {
       _ticker?.cancel();
+      // 恢复自由旋转(录制锁定向解除)
+      await SystemChrome.setPreferredOrientations([]);
       if (mounted) {
         setState(() {
           _phase = _CapturePhase.ready;
