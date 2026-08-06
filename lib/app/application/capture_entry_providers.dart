@@ -26,3 +26,10 @@ final recordEntryAvailableProvider =
     FutureProvider.autoDispose<RecordCapabilities>(
       (ref) => ref.watch(screenRecorderPortProvider).queryCapabilities(),
     );
+
+/// 录制页能力(区域 UI 显隐 / 授权文案 / 开始按钮可用性渲染依据)。
+///
+/// 非 autoDispose:录制页内跨重建稳定(与入口探测分离,各自失效策略)。
+final recordCapabilitiesProvider = FutureProvider<RecordCapabilities>(
+  (ref) => ref.watch(screenRecorderPortProvider).queryCapabilities(),
+);

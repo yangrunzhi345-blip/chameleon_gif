@@ -19,8 +19,8 @@ class FakeScreenRecorderPort implements ScreenRecorderPort {
   /// 枚举返回的目标列表。
   final List<RecordTarget> targets;
 
-  /// 环境能力返回值。
-  final RecordCapabilities capabilities;
+  /// 环境能力返回值(可变:测试中途改字段无需重建容器)。
+  RecordCapabilities capabilities;
 
   /// 行为回调:注入"夹具拷贝 + 真实命名"等场景;缺省返回空结果。
   /// 非 final:测试在容器装配后动态注入(闭包引用测试适配器)。

@@ -1,0 +1,190 @@
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:chameleon_gif/core/logger/app_logger.dart';
+import 'package:chameleon_gif/domain/exceptions/capture_exception.dart';
+import 'package:chameleon_gif/domain/repository_interfaces/ffmpeg_engine.dart';
+import 'package:chameleon_gif/domain/value_objects/record_params.dart';
+import 'package:chameleon_gif/domain/value_objects/record_types.dart';
+import 'package:chameleon_gif/features/screen_record/application/record_environment_detector.dart';
+import 'package:chameleon_gif/features/screen_record/infrastructure/ffmpeg_screen_recorder.dart';
+import 'package:chameleon_gif/shared/platform/capture_process_runner.dart';
+import 'package:chameleon_gif/shared/platform/platform_adapter.dart';
+
+import '../../shared/platform/capture_process_runner_test.dart'
+    show FakeProcess;
+
+/// FfmpegScreenRecorder 集成测试(环境注入 + FakeProcess 驱动的 runner;
+/// 覆盖:三分支命令透传 / 成功落位 / 取消 / 手动停止 / none 环境拒绝)。
+void main() {
+  late Directory tempRoot;
+  late Directory capturesDir;
+  late FakeProcess lastProcess;
+  late List<String> lastArgs;
+
+  setUp(() async {
+    tempRoot = await Directory.systemTemp.createTemp('record_');
+    capturesDir = Directory('${tempRoot.path}/captures');
+  });
+
+  tearDown(() async {
+    await tempRoot.delete(recursive: true);
+  });
+
+  /// 假 runner:[exitCode] 非空 = 启动即退出;空 = 运行中(由停止/取消终止)。
+  CaptureProcessRunner fakeRunner({int? exitCode}) => CaptureProcessRunner(
+    startProcess: (exe, args) async {
+      lastArgs = args;
+      lastProcess = FakeProcess(exitCode: exitCode);
+      final out = args[args.indexOf('-y') + 1];
+      File(out).writeAsStringSync('partial');
+      return lastProcess;
+    },
+  );
+
+  FfmpegScreenRecorder buildRecorder({
+    required RecordCaptureMethod method,
+    String? display,
+    CaptureProcessRunner? runner,
+  }) {
+    final tmpDir = Directory('${tempRoot.path}/tmp')
+      ..createSync(recursive: true);
+    return FfmpegScreenRecorder(
+      capturesDir: capturesDir,
+      tempDir: tmpDir,
+      adapter: PlatformAdapter(),
+      logger: AppLogger(),
+      runner: runner ?? fakeRunner(exitCode: 0),
+      environment: RecordEnvironment(method: method, display: display),
+    );
+  }
+
+  test('none 环境 → CaptureException(不支持)', () async {
+    final recorder = buildRecorder(method: RecordCaptureMethod.none);
+    await expectLater(
+      recorder.record(params: const RecordParams(), cancelToken: null),
+      throwsA(
+        isA<CaptureException>().having(
+          (e) => e.userMessage,
+          'userMessage',
+          contains('当前环境不支持屏幕录制'),
+        ),
+      ),
+    );
+  });
+
+  test('x11grab:命令透传 display + 全屏输入,成功落位', () async {
+    final recorder = buildRecorder(
+      method: RecordCaptureMethod.x11grab,
+      display: ':1',
+    );
+    final result = await recorder.record(
+      params: const RecordParams(maxDurationMs: 1000),
+      cancelToken: null,
+    );
+    expect(lastArgs, containsAllInOrder(['-f', 'x11grab', '-i', ':1']));
+    expect(File(result.finalPath).existsSync(), isTrue);
+  });
+
+  test('gdigrab:desktop 输入 + 区域参数透传', () async {
+    final recorder = buildRecorder(method: RecordCaptureMethod.gdigrab);
+    final result = await recorder.record(
+      params: const RecordParams(
+        regionMode: RecordRegion.custom,
+        regionX: 10,
+        regionY: 20,
+        regionWidth: 640,
+        regionHeight: 480,
+      ),
+      cancelToken: null,
+    );
+    expect(lastArgs, containsAllInOrder(['-f', 'gdigrab', '-i', 'desktop']));
+    expect(
+      lastArgs,
+      containsAllInOrder(['-offset_x', '10', '-video_size', '640x480']),
+    );
+    expect(File(result.finalPath).existsSync(), isTrue);
+  });
+
+  test('pipewire:auto 输入,成功落位', () async {
+    final recorder = buildRecorder(method: RecordCaptureMethod.pipewire);
+    final result = await recorder.record(
+      params: const RecordParams(maxDurationMs: 1000),
+      cancelToken: null,
+    );
+    expect(lastArgs, containsAllInOrder(['-f', 'pipewire', '-i', 'auto']));
+    expect(File(result.finalPath).existsSync(), isTrue);
+  });
+
+  test('pipewire 启动失败(portal 缺失)→ 中文指引', () async {
+    final recorder = buildRecorder(
+      method: RecordCaptureMethod.pipewire,
+      runner: CaptureProcessRunner(
+        startProcess: (exe, args) async {
+          lastProcess = FakeProcess(
+            exitCode: 1,
+            stderrData: 'Failed to connect to PipeWire\n',
+          );
+          return lastProcess;
+        },
+      ),
+    );
+    await expectLater(
+      recorder.record(params: const RecordParams(), cancelToken: null),
+      throwsA(
+        isA<CaptureException>().having(
+          (e) => e.userMessage,
+          'userMessage',
+          contains('xdg-desktop-portal'),
+        ),
+      ),
+    );
+  });
+
+  test('取消:cancelToken → 半成品清理', () async {
+    final recorder = buildRecorder(
+      method: RecordCaptureMethod.x11grab,
+      display: ':1',
+      runner: fakeRunner(),
+    );
+    final token = CancelToken();
+    final future = recorder.record(
+      params: const RecordParams(),
+      cancelToken: token,
+    );
+    token.cancel();
+    await expectLater(future, throwsA(isA<CaptureCancelledException>()));
+    expect(
+      capturesDir.existsSync() ? capturesDir.listSync() : const [],
+      isEmpty,
+    );
+  });
+
+  test('手动停止:requestStop → SIGTERM 保存', () async {
+    final recorder = buildRecorder(
+      method: RecordCaptureMethod.x11grab,
+      display: ':1',
+      runner: fakeRunner(),
+    );
+    final future = recorder.record(
+      params: const RecordParams(),
+      cancelToken: null,
+    );
+    await recorder.requestStop();
+    final result = await future;
+    expect(File(result.finalPath).existsSync(), isTrue);
+    expect(lastProcess.killSignals, [ProcessSignal.sigterm]);
+  });
+
+  test('queryCapabilities:环境注入 → 能力映射正确', () async {
+    final recorder = buildRecorder(
+      method: RecordCaptureMethod.x11grab,
+      display: ':1',
+    );
+    final caps = await recorder.queryCapabilities();
+    expect(caps.captureMethod, RecordCaptureMethod.x11grab);
+    expect(caps.supportsRegions, isTrue);
+    expect(caps.supportsCursorToggle, isTrue);
+    expect(caps.screenCaptureAvailable, isTrue);
+  });
+}

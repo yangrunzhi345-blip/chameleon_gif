@@ -13,6 +13,7 @@ import 'package:chameleon_gif/domain/entities/video_info.dart';
 import 'package:chameleon_gif/domain/exceptions/capture_exception.dart';
 import 'package:chameleon_gif/domain/repository_interfaces/parse_video_port.dart';
 import 'package:chameleon_gif/domain/value_objects/capture_result.dart';
+import 'package:chameleon_gif/domain/value_objects/record_types.dart';
 import 'package:chameleon_gif/features/preview/application/preview_controller.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_manager.dart';
 import 'package:chameleon_gif/features/task_queue/application/task_queue_providers.dart';
@@ -102,8 +103,55 @@ void main() {
   testWidgets('启动即敏感内容确认横幅 + 开始按钮', (tester) async {
     await pumpRecord(tester);
 
-    expect(find.textContaining('将录制整个屏幕'), findsOneWidget);
+    expect(find.textContaining('将录制屏幕内容'), findsOneWidget);
     expect(find.text('开始录制'), findsOneWidget);
+  });
+
+  testWidgets('桌面能力(无系统授权)→ 回放确认文案,无区域 UI', (tester) async {
+    await pumpRecord(tester);
+    expect(find.text('录制完成后自动导入工作台回放确认'), findsOneWidget);
+    expect(find.text('录制区域'), findsNothing, reason: '无区域能力不显示');
+  });
+
+  testWidgets('Android 能力(requiresSystemConsent)→ 授权引导文案', (tester) async {
+    recorderPort.capabilities = const RecordCapabilities(
+      screenCaptureAvailable: true,
+      requiresSystemConsent: true,
+    );
+    await pumpRecord(tester);
+    expect(find.textContaining('每次录制需系统授权'), findsOneWidget);
+    expect(find.text('录制区域'), findsNothing);
+  });
+
+  testWidgets('支持区域(gdigrab/x11grab)→ 区域选择 UI 显示', (tester) async {
+    recorderPort.capabilities = const RecordCapabilities(
+      screenCaptureAvailable: true,
+      supportsRegions: true,
+    );
+    await pumpRecord(tester);
+    expect(find.text('录制区域'), findsOneWidget);
+    expect(find.text('全屏'), findsOneWidget);
+    expect(find.text('自定义区域'), findsOneWidget);
+  });
+
+  testWidgets('录屏不可用 → 开始按钮禁用 + hint 文案', (tester) async {
+    recorderPort.capabilities = const RecordCapabilities(
+      screenCaptureAvailable: false,
+      hint: '当前 Wayland 会话缺少屏幕共享支持',
+    );
+    // 首页入口已置灰(不可用),直接 pump 录制页验证页内态
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: RecordScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final button = tester.widget<FilledButton>(
+      find.ancestor(of: find.text('开始录制'), matching: find.byType(FilledButton)),
+    );
+    expect(button.onPressed, isNull, reason: '不可用禁用');
+    expect(find.text('当前 Wayland 会话缺少屏幕共享支持'), findsOneWidget);
   });
 
   testWidgets('开始录制 → FakeScreenRecorderPort 收到仓储参数(挂起中)', (tester) async {
