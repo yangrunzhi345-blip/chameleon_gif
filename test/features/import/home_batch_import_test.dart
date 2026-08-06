@@ -112,10 +112,10 @@ void main() {
     expect(find.text('c.mp4'), findsOneWidget);
   });
 
-  testWidgets('首页批量导入设置按钮 → 直接进入设置界面', (tester) async {
+  testWidgets('首页应用设置按钮 → 直接进入设置界面', (tester) async {
     await pumpApp(tester, buildApp());
 
-    await tester.tap(find.text('批量导入设置'));
+    await tester.tap(find.text('应用设置'));
     await tester.pumpAndSettle();
 
     expect(find.byType(SettingsScreen), findsOneWidget);

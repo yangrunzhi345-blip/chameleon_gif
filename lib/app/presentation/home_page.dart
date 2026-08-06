@@ -58,19 +58,19 @@ class HomePage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // 品牌区:Logo + 应用名 + 标语,整体上移(顶部留白 24;
-            // 视频来源组两按钮加入后收窄顶部留白防溢出)
-            const SizedBox(height: 24),
+            // 品牌区:Logo + 应用名 + 标语,整体上移(顶部留白 8;
+            // 视频来源组纵向按钮加入后收窄顶部留白防小视口溢出)
+            const SizedBox(height: 8),
             ClipRRect(
               borderRadius: BorderRadius.circular(24),
               child: Image.asset(
                 'assets/images/chameleon.jpg',
-                width: 96,
-                height: 96,
+                width: 72,
+                height: 72,
                 fit: BoxFit.cover,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             const Text(
               'Chameleon Gif',
               textAlign: TextAlign.center,
@@ -80,32 +80,25 @@ class HomePage extends ConsumerWidget {
             const Text('基础架构就绪', textAlign: TextAlign.center),
             // 按钮区下沉到底部
             const Spacer(),
-            // 视频来源组:相机拍摄 / 屏幕录制(Android 常亮;桌面置灰 +
-            // tooltip,采集能力属平台态,UI 层 defaultTargetPlatform 判定)
-            Row(
-              children: [
-                Expanded(
-                  child: _SourceEntry(
-                    icon: Icons.photo_camera_outlined,
-                    label: '相机拍摄',
-                    subtitle: '拍一段→转GIF',
-                    enabled: isAndroid,
-                    tooltip: '未检测到摄像头(桌面采集将在后续版本开放)',
-                    onPressed: () => openCaptureScreen(context, ref),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _SourceEntry(
-                    icon: Icons.screen_share_outlined,
-                    label: '屏幕录制',
-                    subtitle: '录一段→转GIF',
-                    enabled: isAndroid,
-                    tooltip: '桌面采集将在后续版本开放',
-                    onPressed: () => openRecordScreen(context, ref),
-                  ),
-                ),
-              ],
+            // 视频来源组:相机拍摄 / 屏幕录制(纵向排列,与其他入口同列;
+            // Android 常亮;桌面置灰 + tooltip,采集能力属平台态,
+            // UI 层 defaultTargetPlatform 判定)
+            _SourceEntry(
+              icon: Icons.photo_camera_outlined,
+              label: '相机拍摄',
+              subtitle: '拍一段→转GIF',
+              enabled: isAndroid,
+              tooltip: '未检测到摄像头(桌面采集将在后续版本开放)',
+              onPressed: () => openCaptureScreen(context, ref),
+            ),
+            const SizedBox(height: 12),
+            _SourceEntry(
+              icon: Icons.screen_share_outlined,
+              label: '屏幕录制',
+              subtitle: '录一段→转GIF',
+              enabled: isAndroid,
+              tooltip: '桌面采集将在后续版本开放',
+              onPressed: () => openRecordScreen(context, ref),
             ),
             const SizedBox(height: 12),
             // 图片制作 GIF:入口位于「导入 MP4」上方,样式一致
@@ -127,11 +120,11 @@ class HomePage extends ConsumerWidget {
               label: const Text('批量导入'),
             ),
             const SizedBox(height: 8),
-            // 批量导入默认参数设置(直接进设置界面,返回回首页)
+            // 应用设置(主题/批量导入默认参数/拍摄/录屏,返回回首页)
             TextButton.icon(
               onPressed: () => context.push('/settings'),
               icon: const Icon(Icons.settings_outlined),
-              label: const Text('批量导入设置'),
+              label: const Text('应用设置'),
             ),
             const SizedBox(height: 32),
           ],
