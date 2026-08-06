@@ -35,9 +35,10 @@ class FakeCameraPort implements CameraPort {
   /// 常错注入(模拟授权拒绝等);非空时 capture 直接抛。
   Object? error;
 
-  /// 取景能力(盲拍测试注入 false)。
+  /// 取景能力(盲拍测试置 false;可变 —— 容器持有对象引用,
+  /// 测试中途改字段无需重建容器)。
   @override
-  final bool previewSupported;
+  bool previewSupported;
 
   final captureCalls = <CaptureParams>[];
   final requestStopCalls = <int>[];

@@ -120,9 +120,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   Future<void> _stop() async {
     setState(() => _phase = _CapturePhase.finishing);
     final port = ref.read(cameraPortProvider);
-    if (port is CameraPortImpl) {
-      await port.stopCapture(); // 保存信号
-    }
+    await port.requestStop(); // 保存信号(接口统一:Android/桌面同语义)
   }
 
   String get _countdown {
@@ -150,6 +148,11 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
               child: preview.when(
                 data: (controller) {
                   final port = ref.read(cameraPortProvider);
+                  // 盲拍(桌面):无实时取景,静态占位 —— 录完在工作台
+                  // 回放确认(docs/18 D4);能力驱动,不写平台分支
+                  if (!port.previewSupported) {
+                    return const _BlindPlaceholder();
+                  }
                   final active = port is CameraPortImpl
                       ? port.activeController
                       : null;
@@ -247,6 +250,44 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 桌面盲拍占位(docs/18 D4):无实时取景,录制完成后自动导入工作台
+/// 回放确认;恒静态(无重试 —— 桌面无取景会话可重建)。
+class _BlindPlaceholder extends StatelessWidget {
+  const _BlindPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.videocam_off_outlined,
+            color: Colors.white70,
+            size: 48,
+          ),
+          const SizedBox(height: 12),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              '桌面盲拍:无实时预览\n录制完成后自动导入工作台回放确认',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '相机参数可在应用设置中调整',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.white54),
+          ),
+        ],
       ),
     );
   }
