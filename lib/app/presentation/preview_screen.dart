@@ -116,7 +116,10 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
       appBar: AppBar(
         // Windows 反斜杠路径兼容(纯字符串处理,不触 IO)
         title: Text(video.path.split(RegExp(r'[\\/]')).last),
-        leading: BackButton(onPressed: () => context.pop()),
+        // 返回直达首页(go 替换整个栈):采集/导入进入预览后一键回首页,
+        // 不再逐级返回拍摄页(重新拍摄入口已提供直达);深链空 video 由
+        // initState pop 兜底
+        leading: BackButton(onPressed: () => context.go('/')),
         // 来源专属入口:拍摄来的仅「重新拍摄」,录屏来的仅「重新录屏」,
         // 普通导入(无 from)不显示;pushReplacement 直达不保留工作台栈
         actions: [
