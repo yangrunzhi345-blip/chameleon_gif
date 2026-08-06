@@ -37,10 +37,18 @@ class FfmpegKitEngine implements FFmpegEngine {
   FfmpegKitEngine({
     this.executeAsync = FFmpegKit.executeAsync,
     this.cancel = FFmpegKit.cancel,
+    this.timeout = kKitCommandTimeout,
   });
 
   final KitExecuteAsync executeAsync;
   final KitCancel cancel;
+
+  /// 命令超时兜底(原生侧回调永不触发时防任务永久 running 占槽;
+  /// 桌面 ProcessEngine 已有 exitCode + 3s 强杀双保险,本类仅 Android)。
+  static const kKitCommandTimeout = Duration(minutes: 30);
+
+  /// 超时时长(可注入,测试用短值触发)。
+  final Duration timeout;
 
   @override
   Future<ConvertResult> convert(
@@ -80,7 +88,19 @@ class FfmpegKitEngine implements FFmpegEngine {
       // CancelToken 已取消时 onCancel 立即执行(覆盖执行中取消窗口)
       if (sessionId != null) cancel(sessionId);
     });
-    return completer.future;
+    // 超时兜底:原生回调永不触发(executeAsync 异常/会话丢失)→ 取消会话
+    // 并按取消语义返回(上层走 cancelled 终态),避免任务永久 running
+    return completer.future.timeout(
+      timeout,
+      onTimeout: () {
+        if (sessionId != null) unawaited(cancel(sessionId));
+        return ConvertResult(
+          exitCode: -1,
+          elapsed: sw.elapsed,
+          cancelled: true,
+        );
+      },
+    );
   }
 
   /// 装配 Kit 契约命令串:空格拼接(P8 起为纯函数,单测锁定)。

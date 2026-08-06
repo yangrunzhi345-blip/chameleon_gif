@@ -244,5 +244,20 @@ void main() {
       await future;
       expect(lines.first, 'out_time_us=1234567');
     });
+
+    test('超时兜底:原生回调永不触发 → 取消会话并返回 cancelled', () async {
+      final kit = _FakeKit();
+      final engine = FfmpegKitEngine(
+        executeAsync: kit.executeAsync,
+        cancel: kit.cancel,
+        timeout: const Duration(milliseconds: 20),
+      );
+
+      final result = await engine.convert(_request);
+
+      expect(result.cancelled, isTrue, reason: '超时按取消语义返回');
+      expect(result.exitCode, -1);
+      expect(kit.cancelCalls, [42], reason: '超时主动取消原生会话');
+    });
   });
 }
