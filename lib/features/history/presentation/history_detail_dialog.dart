@@ -97,6 +97,15 @@ class HistoryDetailDialog extends ConsumerWidget {
   }
 
   void _confirmDelete(BuildContext context, HistoryController controller) {
+    // 一次性守卫:连点删除会第二次走 pop 链(确认弹窗 → 详情弹窗 →
+    // 历史页),把页面也弹掉;取消/删除共用,首次点击后其余按钮失效
+    var tapped = false;
+    void guard(VoidCallback action) {
+      if (tapped) return;
+      tapped = true;
+      action();
+    }
+
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -104,15 +113,15 @@ class HistoryDetailDialog extends ConsumerWidget {
         content: const Text('仅删除记录,不影响已生成的 GIF 文件。'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
+            onPressed: () => guard(() => Navigator.of(dialogContext).pop()),
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () {
+            onPressed: () => guard(() {
               Navigator.of(dialogContext).pop();
               Navigator.of(context).pop(); // 关闭详情框
               controller.delete(history.id);
-            },
+            }),
             child: const Text('删除'),
           ),
         ],

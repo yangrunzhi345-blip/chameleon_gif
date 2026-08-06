@@ -41,6 +41,14 @@ class HistoryPage extends ConsumerWidget {
   }
 
   void _confirmClear(BuildContext context, WidgetRef ref) {
+    // 一次性守卫:连点清空会第二次 pop,弹掉历史页路由
+    var tapped = false;
+    void guard(VoidCallback action) {
+      if (tapped) return;
+      tapped = true;
+      action();
+    }
+
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -48,14 +56,14 @@ class HistoryPage extends ConsumerWidget {
         content: const Text('该操作不可撤销,仅删除记录,不影响已生成的 GIF 文件。'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
+            onPressed: () => guard(() => Navigator.of(dialogContext).pop()),
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () {
+            onPressed: () => guard(() {
               Navigator.of(dialogContext).pop();
               ref.read(historyControllerProvider.notifier).clear();
-            },
+            }),
             child: const Text('清空'),
           ),
         ],

@@ -51,6 +51,14 @@ class _CapturesStorageGroup extends ConsumerWidget {
             onPressed: state.fileCount == 0
                 ? null
                 : () async {
+                    // 一次性守卫:连点清空会第二次 pop,弹掉设置页路由
+                    var tapped = false;
+                    void guard(VoidCallback action) {
+                      if (tapped) return;
+                      tapped = true;
+                      action();
+                    }
+
                     final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
@@ -62,11 +70,13 @@ class _CapturesStorageGroup extends ConsumerWidget {
                         ),
                         actions: [
                           TextButton(
-                            onPressed: () => Navigator.of(ctx).pop(false),
+                            onPressed: () =>
+                                guard(() => Navigator.of(ctx).pop(false)),
                             child: const Text('取消'),
                           ),
                           FilledButton(
-                            onPressed: () => Navigator.of(ctx).pop(true),
+                            onPressed: () =>
+                                guard(() => Navigator.of(ctx).pop(true)),
                             child: const Text('清空'),
                           ),
                         ],

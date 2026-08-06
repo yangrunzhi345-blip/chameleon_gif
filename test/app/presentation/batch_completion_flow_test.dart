@@ -162,6 +162,24 @@ void main() {
     expect(find.text('所有的任务已经完成'), findsNothing);
   });
 
+  testWidgets('BUG 回归:完成弹窗连点"返回首页"不二次 pop 出根栈', (tester) async {
+    final (app, router, _) = buildApp(
+      service: FakeFfmpegService(writeOutput: false),
+    );
+    await pumpApp(tester, app);
+    await enterBatch(tester, router);
+    await startBatch(tester);
+    expect(find.text('所有的任务已经完成'), findsOneWidget);
+
+    // 同帧连点(旧 bug:第二次 pop 弹掉首页,回到更早路由或崩溃)
+    await tester.tap(find.text('返回首页'));
+    await tester.tap(find.text('返回首页'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomePage), findsOneWidget, reason: '仍停留首页');
+    expect(find.text('所有的任务已经完成'), findsNothing, reason: '弹窗已关闭');
+  });
+
   testWidgets('部分失败 → 失败弹窗列失败项;点"否" → 最终弹窗统计含失败', (tester) async {
     final (app, router, _) = buildApp(
       service: FakeFfmpegService(

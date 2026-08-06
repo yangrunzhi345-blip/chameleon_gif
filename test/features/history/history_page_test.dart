@@ -159,6 +159,68 @@ void main() {
     expect(find.textContaining('00:00:03.000'), findsOneWidget);
   });
 
+  testWidgets('BUG 回归:删除确认连点不 double pop 出历史页', (tester) async {
+    for (final h in [history(1)]) {
+      await historyRepo.add(h);
+    }
+    // 完整路由栈(首页 → 历史页可 pop):连点删除的第二次 pop 若发生,
+    // 会把历史页弹掉回首页 —— 单路由 home 无法体现,必须用真实栈
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          appLoggerProvider.overrideWithValue(AppLogger()),
+          platformAdapterProvider.overrideWithValue(_TestAdapter()),
+          taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
+          historyRepositoryProvider.overrideWithValue(historyRepo),
+          ffmpegServiceProvider.overrideWithValue(_NoopFfmpegService()),
+          taskManagerProvider.overrideWith(
+            (ref) => TaskManager(
+              taskRepository: ref.read(taskRepositoryProvider),
+              historyRepository: ref.read(historyRepositoryProvider),
+              ffmpegService: _NoopFfmpegService(),
+              platformAdapter: _TestAdapter(),
+              logger: AppLogger(),
+              retryDelay: (_) async {},
+            ),
+          ),
+          thumbnailExtractorProvider.overrideWithValue(extractor),
+        ],
+        child: ChameleonGifApp(router: GoRouter(routes: buildRoutes())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 首页 → 历史页 → 详情弹窗 → 删除 → 确认弹窗
+    await tester.tap(find.byIcon(Icons.history));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('demo.mp4'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除'));
+    await tester.pumpAndSettle();
+    expect(find.text('删除该历史记录?'), findsOneWidget);
+
+    // 确认弹窗内快速双击"删除"(间隔 50ms 模拟真实双击,退场动画约
+    // 200ms 内按钮仍可命中;旧 bug:第二次 pop 链多弹一层,把历史页
+    // 弹掉回首页);详情弹窗与确认弹窗叠加,取最上层 AlertDialog
+    final deleteBtn = find.descendant(
+      of: find.byType(AlertDialog).last,
+      matching: find.text('删除'),
+    );
+    await tester.tap(deleteBtn);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(deleteBtn, warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byType(HistoryPage),
+      findsOneWidget,
+      reason: '连点删除不得把历史页也弹掉回首页',
+    );
+    expect(find.byType(HistoryDetailDialog), findsNothing);
+    expect(await historyRepo.list(), isEmpty, reason: '记录已删除');
+  });
+
   testWidgets('列表按 createdAt 倒序(seed 乱序)', (tester) async {
     await pumpHistoryPage(tester, seed: [history(1), history(3), history(2)]);
 

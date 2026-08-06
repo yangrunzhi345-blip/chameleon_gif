@@ -34,6 +34,10 @@ class _BatchCompletionHostState extends ConsumerState<BatchCompletionHost> {
   /// 弹窗打开守卫:同一时刻只弹一个,防重复触发/嵌套竞态。
   bool _dialogOpen = false;
 
+  /// 弹窗关闭动作一次性守卫:连点按钮会再次走 [_dismiss]/[_finish],
+  /// 第二次 pop 会弹掉弹窗下方的页面路由(与导出完成弹窗同根)。
+  bool _dismissing = false;
+
   @override
   void initState() {
     super.initState();
@@ -112,6 +116,7 @@ class _BatchCompletionHostState extends ConsumerState<BatchCompletionHost> {
   void _showDialog(Widget Function(BuildContext) builder) {
     final ctx = rootNavigatorKey.currentContext;
     if (ctx == null) return;
+    _dismissing = false; // 新弹窗重置关闭守卫
     _dialogOpen = true;
     showDialog<void>(
       context: ctx,
@@ -121,7 +126,12 @@ class _BatchCompletionHostState extends ConsumerState<BatchCompletionHost> {
   }
 
   /// 关闭弹窗 + 释放守卫 + 执行动作(失败弹窗按钮)。
+  ///
+  /// 一次性守卫 [_dismissing]:连点按钮第二次进入会再次 pop,弹掉弹窗
+  /// 下方的页面路由(与导出完成弹窗同根,见 export_complete_dialog)。
   void _dismiss(BuildContext dialogCtx, VoidCallback action) {
+    if (_dismissing) return;
+    _dismissing = true;
     Navigator.of(dialogCtx).pop();
     _dialogOpen = false;
     action();
@@ -129,6 +139,8 @@ class _BatchCompletionHostState extends ConsumerState<BatchCompletionHost> {
 
   /// 关闭弹窗 + 清理批次(防重复弹)+ 导航(最终弹窗任一按钮)。
   void _finish(BuildContext dialogCtx, VoidCallback action) {
+    if (_dismissing) return;
+    _dismissing = true;
     Navigator.of(dialogCtx).pop();
     _dialogOpen = false;
     ref.read(batchSessionProvider.notifier).clear();
