@@ -393,6 +393,45 @@ void main() {
     expect(find.textContaining('共 3 张'), findsOneWidget);
   });
 
+  testWidgets('数量上限:extra 超 40 张 → 截取前 40 + SnackBar 提示', (tester) async {
+    final (app, router, _) = buildApp();
+    await pumpApp(tester, app);
+    unawaited(
+      router.push(
+        '/image-gif',
+        extra: [for (var i = 1; i <= 45; i++) '/img/$i.png'],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('共 40 张'), findsOneWidget);
+    expect(find.text('1.png'), findsOneWidget, reason: '前 40 张保留');
+    expect(find.text('45.png'), findsNothing, reason: '超出部分截断');
+    expect(find.textContaining('最多支持 40 张'), findsOneWidget);
+  });
+
+  testWidgets('数量上限:追加超限 → 拒绝并提示,列表不变', (tester) async {
+    final (app, router, _) = buildApp();
+    await pumpApp(tester, app);
+    await enterScreen(tester, router);
+    // 当前 2 张,追加 39 张 → 超 40 → 拒绝
+    pickPort.moreImages = [for (var i = 1; i <= 39; i++) '/img/add_$i.png'];
+
+    await tester.tap(find.text('追加图片'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('共 2 张'), findsOneWidget, reason: '列表不变');
+    expect(find.textContaining('最多支持 40 张'), findsOneWidget);
+    // 拒绝提示的 SnackBar 4 秒后才自动消失(遮挡底部追加按钮),先推进
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    // 精确边界:当前 2 张追加 38 张 = 40 → 允许
+    pickPort.moreImages = [for (var i = 1; i <= 38; i++) '/img/add_$i.png'];
+    await tester.tap(find.text('追加图片'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('共 40 张'), findsOneWidget, reason: '恰 40 允许');
+  });
+
   testWidgets('图片列表缩略图按 cacheWidth 解码(禁 2048² 全尺寸解码)', (tester) async {
     final (app, router, _) = buildApp();
     await pumpApp(tester, app);

@@ -17,6 +17,10 @@ import '../application/image_gif_controller.dart';
 import '../application/image_gif_state.dart';
 import 'batch_parameter_form.dart' show ParamRow, SectionLabel;
 
+/// 图片数量上限(2026-08-07 用户确认:20 张实测安全,上限 40 张;
+/// 21-40 张经分段转换(ffv1 中间片)内存安全;超限选择截取前 N 张)。
+const int kMaxImages = 40;
+
 /// 图片制作 GIF 页(app 层组合壳,仿 batch_import_screen 模式)。
 ///
 /// 经路由 extra 接收有序图片路径列表;extra 为空(回退/深链)立即返回主页。
@@ -96,7 +100,23 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
         context.pop();
         return;
       }
-      _paths = List.of(paths);
+      // 图片数量上限(2026-08-07 用户确认:20 张实测安全,上限 40 张;
+      // 21-40 张走分段转换,内存安全;超限截取前 40 张)
+      if (paths.length > kMaxImages) {
+        _paths = List.of(paths).sublist(0, kMaxImages);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text('最多支持 $kMaxImages 张图片,已截取前 $kMaxImages 张'),
+              ),
+            );
+        });
+      } else {
+        _paths = List.of(paths);
+      }
       // 每图控制列表与图片数对齐(全 null = 未操作;generate 保证可增长,
       // 后续 removeAt 合法)
       _perControls = List<PerImageControl?>.generate(
@@ -192,6 +212,20 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
   Future<void> _appendImages() async {
     final more = await ref.read(importVideoUseCaseProvider).pickImages();
     if (more == null || more.isEmpty || !mounted) return;
+    // 数量上限守卫:追加后超限 → 拒绝并提示(用户可删减后重新追加)
+    if (_paths.length + more.length > kMaxImages) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              '最多支持 $kMaxImages 张图片(当前 $_paths.length 张,'
+              '本次选择了 ${more.length} 张)',
+            ),
+          ),
+        );
+      return;
+    }
     setState(() {
       _paths = [..._paths, ...more];
       // 追加图默认无控制(保持与 _paths 索引对齐)
