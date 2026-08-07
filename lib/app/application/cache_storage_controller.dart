@@ -271,6 +271,7 @@ class CacheStorageController extends Notifier<CacheStorageState> {
   Future<void> _cleanupWorkDirs({
     required Set<int> runningIds,
     required DateTime cutoff,
+    bool requireExpired = true,
   }) async {
     final root = Directory(_tempDir);
     if (!root.existsSync()) return;
@@ -278,11 +279,11 @@ class CacheStorageController extends Notifier<CacheStorageState> {
       if (f is! Directory || !_matchesGlob(f.path, 'gifforge_*')) {
         continue;
       }
-      // 目录名 gifforge_<taskId>
-      final id = int.tryParse(f.path.split('/').last.substring(9));
+      // 目录名 gifforge_<taskId>(Windows 路径分隔符为 \,双分隔符切分)
+      final id = int.tryParse(f.path.split(RegExp(r'[\\/]')).last.substring(9));
       try {
         if ((id == null || !runningIds.contains(id)) &&
-            f.statSync().modified.isBefore(cutoff)) {
+            (!requireExpired || f.statSync().modified.isBefore(cutoff))) {
           f.deleteSync(recursive: true);
         }
       } on FileSystemException catch (e) {
@@ -329,12 +330,18 @@ class CacheStorageController extends Notifier<CacheStorageState> {
         }
       }
     }
-    // workdir:仅清理非 running/queued(进行中任务的目录保留)
+    // workdir:仅清理非 running/queued(进行中任务的目录保留);
+    // 手动清空为"全清"语义,不看 mtime(requireExpired=false,
+    // 与文档"workdir(非 running)全清"一致)
     final activeIds = <int>{
       for (final t in await _tasks.all())
         if (t.state == TaskState.queued || t.state == TaskState.running) t.id,
     };
-    await _cleanupWorkDirs(runningIds: activeIds, cutoff: _now());
+    await _cleanupWorkDirs(
+      runningIds: activeIds,
+      cutoff: _now(),
+      requireExpired: false,
+    );
     // 缩略图全清
     final thumbsDir = Directory('$_tempDir/gifforge_thumbs');
     if (thumbsDir.existsSync()) {
