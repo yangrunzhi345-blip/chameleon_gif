@@ -17,6 +17,11 @@ import '../../../domain/exceptions/source_missing_exception.dart';
 class ErrorHandler {
   const ErrorHandler();
 
+  /// moov 缺失特征(`moov`/`atom` 紧邻,兼容 `moov atom not found` 与
+  /// `find moov atom` 两种语序;单纯 `moov` 子串会误伤含该子串的
+  /// 无关输出)。
+  static final _moovMissing = RegExp(r'moov.{0,16}atom');
+
   /// 分类结果;类型为 [DomainException] 以容纳 FilePick 系(源缺失/损坏)
   /// 与 Conversion 系(磁盘/权限/编码)两类异常。
   DomainException classify({required int exitCode, required String stderr}) {
@@ -29,7 +34,7 @@ class ErrorHandler {
         errorCode: 'GIF_${exitCode}_SOURCE_MISSING',
       );
     }
-    if (s.contains('invalid data') || s.contains('moov')) {
+    if (s.contains('invalid data') || _moovMissing.hasMatch(s)) {
       return SourceBrokenException(errorCode: 'GIF_${exitCode}_SOURCE_BROKEN');
     }
     if (s.contains('no space left')) {

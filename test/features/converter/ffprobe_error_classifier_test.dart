@@ -41,6 +41,15 @@ void main() {
       expect(e, isA<SourceBrokenException>());
     });
 
+    test('moov 子串但非 moov/atom 签名 → 兜底(不误判损坏)', () {
+      final e = classifier.classify(
+        stderr: 'mooving on to the next stream failed',
+        exitCode: 1,
+      );
+      expect(e, isA<FilePickException>());
+      expect(e.errorCode, 'GIF_1_PROBE_FAILED');
+    });
+
     test('exitCode 参与错误码前缀(GIF_<EXITCODE>_<KIND>)', () {
       final e = classifier.classify(
         stderr: 'Invalid data found when processing input',

@@ -44,6 +44,14 @@ void main() {
     expect(e.errorCode, 'GIF_1_SOURCE_BROKEN');
   });
 
+  test('moov 子串但非 moov/atom 签名 → 不误判 SourceBroken', () {
+    final e = handler.classify(
+      exitCode: 2,
+      stderr: 'mooving on to the next stream failed',
+    );
+    expect(e, isA<EncodeException>());
+  });
+
   test('No space left → DiskFullException', () {
     final e = handler.classify(exitCode: 1, stderr: 'No space left on device');
     expect(e, isA<DiskFullException>());

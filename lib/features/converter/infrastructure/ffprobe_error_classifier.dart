@@ -9,6 +9,10 @@ import '../../../domain/exceptions/source_missing_exception.dart';
 class FfprobeErrorClassifier {
   const FfprobeErrorClassifier();
 
+  /// moov 缺失特征(`moov`/`atom` 紧邻;单纯 `moov` 子串会误伤
+  /// 含该子串的无关输出)。
+  static final _moovMissing = RegExp(r'moov.{0,16}atom');
+
   /// 依据 ffprobe stderr 全文与退出码分类失败原因。
   ///
   /// 匹配前统一转小写,保证 `MOOV`/`Moov` 等大小写变体命中;
@@ -20,7 +24,7 @@ class FfprobeErrorClassifier {
         errorCode: 'GIF_${exitCode}_SOURCE_MISSING',
       );
     }
-    if (text.contains('invalid data found') || text.contains('moov')) {
+    if (text.contains('invalid data found') || _moovMissing.hasMatch(text)) {
       return SourceBrokenException(errorCode: 'GIF_${exitCode}_SOURCE_BROKEN');
     }
     return FilePickException(
