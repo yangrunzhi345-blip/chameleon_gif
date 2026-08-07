@@ -32,12 +32,13 @@ jobs:
       - name: 拉取依赖
         run: flutter pub get
 
-      - name: 安装 Linux 桌面构建依赖(Flutter 官方清单)
+      - name: 安装 Linux 桌面构建依赖(Flutter 官方清单 + media_kit 编译依赖)
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             clang cmake ninja-build pkg-config \
-            libgtk-3-dev liblzma-dev libstdc++-12-dev
+            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libmpv-dev
 
       - name: 构建 Linux release
         run: flutter build linux --release
