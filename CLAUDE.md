@@ -4,7 +4,7 @@
 
 我是一名 Flutter 开发者,正在开发 **Chameleon Gif**:一款 **MP4/多图片 → GIF** 的跨平台工具。**首发平台:Linux(主要开发平台)、Windows、Android**;macOS / Web / iOS 为预留平台(V3 及以后)。选择 Flutter 的核心原因是**全平台一套代码**;架构要求:首发三平台体验一致,预留平台不破坏现有接口(详见 docs/01-项目介绍.md 与 docs/16-V2.0扩展规划.md)。
 
-**完整技术设计说明书在 `docs/` 目录(17 篇),本文件与 docs/03-技术选型.md 版本锁定表同步维护,冲突时以 docs/ 为准。**
+**完整技术设计说明书在 `docs/` 目录(21 篇),本文件与 docs/03-技术选型.md 版本锁定表同步维护,冲突时以 docs/ 为准。**
 
 **核心功能:**
 
@@ -13,6 +13,7 @@
 3. 调用 FFmpeg 执行 MP4/图片 → GIF 转换,实时展示进度
 4. 转换记录持久化(历史列表、重转、删除)
 5. 保存/预览输出 GIF
+6. 素材采集(已实现,见 docs/18/19/20):**相机拍摄**(Android camera 插件/桌面 ffmpeg v4l2、dshow + 实时预览)与**屏幕录制**(Android MediaProjection 原生通道/桌面 ffmpeg x11grab、gdigrab、Wayland wf-recorder + 框选区域),产物 MP4 自动复用导入链路
 
 ## 二、Git 管理规范(强制性)
 
@@ -61,10 +62,11 @@ git push
 | 数据库 | `isar_community` + `isar_community_flutter_libs` + `isar_community_generator` | `^3.3.2` | 转换记录持久化 |
 | 轻量存储 | `shared_preferences` | `^2.5.5` | 用户偏好(默认参数等) |
 | 日志 | `logger` | `^2.7.0` | 统一日志 |
-| 视频解码 | `media_kit` | `^1.2.6` | 视频播放(预览) |
+| 视频解码 | `media_kit` | `^1.2.6` | 视频播放(预览与桌面相机实时预览);经 dependency_overrides 取 `third_party/media_kit` 补丁版(移除硬编码 cache-on-disk,否则不可 seek 流黑屏) |
 | 视频渲染 | `media_kit_video` | `^2.0.1` | 播放器控件 |
 | 原生库 | `media_kit_libs_video` | `^1.0.7` | 内置 FFmpeg 原生库(播放用) |
-| **转码引擎** | `ffmpeg_kit_flutter_minimal` | `^6.0.8` | FFmpeg CLI 封装(**GIF 转换核心**) |
+| **转码引擎** | `ffmpeg_kit_flutter_minimal` | `^6.0.8` | FFmpeg CLI 封装(**Android 转码核心**;无桌面实现,桌面走系统二进制) |
+| 原生载体(Android) | `ffmpeg_kit_flutter` | `path: third_party/ffmpeg_kit_flutter`(原版 6.0.3 本地化) | 仅提供 Android Java 桥 + ffmpeg-kit AAR(Dart 代码不 import 它);本地化补丁:Maven 坐标替换 + 删 v1 embedding 入口 |
 | 文件选择 | `file_picker` | `^11.0.3` | 选择 MP4 源文件 |
 | **相机拍摄** | `camera` | `^0.12.0` | Android 拍摄(CameraX 后端,自动带 camera_android_camerax;白平衡/ISO 无 API,自动白平衡) |
 | 文件选择 | `file_selector` | `^1.1.0` | 官方方案,保存 GIF 对话框 |
@@ -74,7 +76,6 @@ git push
 | 工具 | `meta` | `^1.18.0` | 注解(visibleForTesting 等) |
 | 文件路径 | `path_provider` | `^2.1.6` | 系统目录获取(临时/文档目录) |
 | 测试 | `fake_async` | `^1.3.3` | 节流/定时器测试 |
-| 转码引擎(iOS 预留) | `ffmpeg_kit_flutter` | `6.0.3`(固定,已停维护) | iOS 端 FFmpeg(预留评估) |
 | 转码引擎(Web 预留) | `ffmpeg.wasm` | 以 pub.dev 最新为准 | Web 端 WASM 转码(预留) |
 
 > **版本锁定说明**:代码生成器处于 analyzer 生态迁移期(analyzer 9→13),经交集验证的精确组合为 `freezed 3.2.5` + `json_serializable 6.13.0` + `isar_community_generator ^3.3.2` + `riverpod_generator 4.0.3` + `build_runner 2.15.1`(analyzer >=9 <11,source_gen >=4 <5),**禁止单独升级其中任一**(会破坏组合),整体升级需重新求解。
@@ -98,22 +99,26 @@ lib/
 ├── main.dart                  # 入口:初始化(Isar、Logger、ProviderScope 注入组合装配)
 ├── app/                       # 组合根
 │   ├── app.dart               # MaterialApp + GoRouter(主题枚举 → ThemeMode 映射)
-│   ├── router.dart            # 路由表定义(/、/preview、/batch-import、/image-gif、/history、/queue、/settings)
+│   ├── router.dart            # 路由表定义(/、/preview、/batch-import、/image-gif、/capture、/record、/image-control、/history、/queue、/settings)
 │   ├── application/           # 跨模块组合:会话控制器(batch_import/batch_session/image_gif/settings/
-│   │                          #   theme)+ 批量表单混入/用例 + 组合 providers
-│   ├── presentation/          # 页面壳(批量导入/图片制作/预览/设置/首页)+ 跨模块 UI 组件
+│   │                          #   theme/capture_session/record_session/camera_settings/record_settings/
+│   │                          #   cache_storage/captures_storage)+ 批量表单混入/用例 + 采集导入用例
+│   │                          #   (capture_import_use_case)+ capture_platform_factory + 组合 providers
+│   ├── presentation/          # 页面壳(批量导入/图片制作/预览/设置/首页/拍摄/录屏)+ 跨模块 UI 组件
 │   │                          #   (batch_parameter_form 等)+ 入口动作(import_actions)
 │   └── theme/                 # app_theme.dart(M3 主题,品牌色种子)
 ├── core/                      # 框架无关工具(纯 Dart)
 │   ├── logger/                # AppLogger 初始化与封装
 │   └── utils/                 # formatFfmpegTime/formatMmSs/parseFfmpegTime/formatHumanDuration/
-│                              #   formatFileSize/normalizeRange/throttleStream/startup_tracer
+│                              #   formatFileSize/normalizeRange/throttleStream/startup_tracer/
+│                              #   capture_paths(采集素材命名)/duration_*/orientation_fix/video_rotation
 ├── domain/                    # 零 Flutter 依赖(纯 Dart)
 │   ├── entities/              # video_info、export_task、export_history、export_preset、image_gif_source
-│   ├── value_objects/         # gif_setting、task_state、task_progress、app_theme_mode
+│   ├── value_objects/         # gif_setting、task_state、task_progress、app_theme_mode、per_image_control、
+│   │                          #   capture_params/record_params/capture_result/capture_source、camera_types/record_types
 │   ├── exceptions/            # 领域异常层级(FilePick/Conversion 两族,错误码规则见基类注释)
 │   └── repository_interfaces/ # 端口(parse_video/player/task/history/settings/ffmpeg_engine/
-│                              #   ffmpeg_service/file_pick/directory_pick/image_probe)
+│                              #   ffmpeg_service/file_pick/directory_pick/image_probe/camera_port/screen_recorder_port)
 ├── features/                  # 模块内部:application(纯 Dart,禁 Flutter)→ infrastructure → presentation
 │   ├── converter/             # 命令构造/进度解析/错误映射/服务编排(application)+ ffprobe 端口(infrastructure)
 │   ├── import/                # 导入用例 + 文件选择/图片探测端口(infrastructure)
@@ -121,9 +126,15 @@ lib/
 │   ├── task_queue/            # 任务调度状态机 + 会话生命周期混入(application)+ 队列页(presentation)
 │   ├── export/                # 导出会话控制器 + 参数面板/进度/完成弹窗 + 目录选择公共动作
 │   ├── history/               # 历史列表/详情/重转 + 缩略图提取(infrastructure)
-│   └── timeline/              # 起止选区状态机(application)+ 时间轴条(presentation,预览经控制器转发)
+│   ├── timeline/              # 起止选区状态机(application)+ 时间轴条(presentation,预览经控制器转发)
+│   ├── camera/                # 拍摄:命令构造/v4l2 解析(application)+ ffmpeg_camera_port/预览 provider
+│   │                          #   (infrastructure)+ 桌面实时预览视图(presentation)
+│   ├── screen_record/         # 录屏:命令构造/环境探测/区域几何(application)+ ffmpeg_screen_recorder/
+│   │                          #   Android MethodChannel(infrastructure)+ 框选遮罩(presentation)
+│   └── settings/              # 预留目录(设置实现在 app/application 会话控制器,见 docs/06 M06)
 └── shared/                    # 被所有层依赖,禁止反向依赖 features
-    ├── platform/              # PlatformAdapter + ffprobe/ffmpeg 执行器 + 引擎 + 取消管理器 + 相册结果
+    ├── platform/              # PlatformAdapter + ffprobe/ffmpeg 执行器 + 引擎 + 取消管理器 + 相册结果 +
+    │                          #   capture_process_runner(采集进程)+ android_media_store(相册视频分支)
     ├── providers/             # core_providers.dart(共享 provider 注册表,实现由 main 注入)
     └── repositories/          # Isar 仓储 + schema + settings 实现(内存版仅供测试注入)
 ```
@@ -254,7 +265,7 @@ bash tool/ascii_sync.sh                           # (可选)同步 ASCII 副本,
 
 ## 八、注意事项(避坑)
 
-- **不要**升级 Isar 到 4.0-dev;维持 `isar_community ^3.3.2` 系列(R-04 预案已启用,替换官方包需重新评审);`ffmpeg_kit_flutter` 仅为 iOS 预留,不进入 MVP。
+- **不要**升级 Isar 到 4.0-dev;维持 `isar_community ^3.3.2` 系列(R-04 预案已启用,替换官方包需重新评审);`ffmpeg_kit_flutter`(third_party 本地化版)仅作 Android 原生载体(AAR + Java 桥),Dart 代码不直接 import;iOS 转码方案仍为预留,引入前需评审。
 - FFmpeg 引擎分平台:**桌面(Linux/Windows)= 系统 ffmpeg/ffprobe 二进制**,Android = `ffmpeg_kit_flutter_minimal`(该 fork 无桌面实现,已实证);禁止在业务层写 `Platform.isXxx` 分支(差异归 PlatformAdapter,见 docs/08-FFmpeg设计.md §8.3.8;选型依据 docs/03-技术选型.md)。
 - 转码输出一致性:三平台同参输出需 SHA-256 一致(见 docs/14-测试计划.md §14.6)。
 - Web/iOS 的适配注意点(WASM 内存上限、iOS 沙盒)为预留评估项,落地时再实现,当前不写相关代码。

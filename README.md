@@ -20,7 +20,7 @@
 
 什么时候用它最合适?做表情包、给教程配动图、把游戏或录屏片段转出来分享、设计师给交互演示配图……这类需求它都管。偶尔转一次,开箱即用;天天要转的人,队列和历史能省下大量重复操作。
 
-它不做什么也很明确:不做视频格式转换、不做在线分享——定位就是纯粹的"视频和图片 → GIF"。macOS 和 Web 版在规划中,当前首发 Linux、Windows、Android;相机拍摄与录屏也在规划中(见 docs/18、docs/19)。
+它不做什么也很明确:不做视频格式转换、不做在线分享——定位就是纯粹的"视频和图片 → GIF"。macOS 和 Web 版在规划中,当前首发 Linux、Windows、Android。素材来源除了导入现成文件,还支持**相机拍摄**与**屏幕录制**(拍完/录完自动进入转换工作流,见 docs/18、docs/19、docs/20)。
 
 对了,名字叫 Chameleon(变色龙),因为做 GIF 这件事,色彩是灵魂——变色龙,颜色多嘛。
 
@@ -39,6 +39,12 @@
 - 每图停留时长(毫秒,下限 `ceil(1000/fps)` 防 0 帧图)、帧率、循环、质量独立配置
 - **统一画布 + 不扭曲**:画布尺寸 = 表单指定宽高 / 首图尺寸 / 按首图比例推算;未精细控制的图保持自身比例 contain 于画布,透明 pad 居中(`format=rgba` 保证真透明,`setsar=1` 归一 SAR)
 - **每张图精细控制**:齿轮入口 → 全屏控制页,单图设置等比缩放倍数/宽度/高度,实时预览最终呈现;双边显式指定按精确尺寸输出(允许变形,用户决定),单边/倍率保持比例;min 钳制防超画布;参数随任务/历史持久化,重转原样复现
+
+### 相机拍摄与录屏(素材采集)
+
+- **相机拍摄**:调用设备相机录一段短视频,拍完自动进入"视频 → GIF"工作流;Android 走 camera 插件(CameraX),桌面走系统 ffmpeg(v4l2/dshow)采集并支持实时预览;设置页可按设备能力调整相机参数
+- **屏幕录制**:全屏/框选区域录制,产物 MP4 自动导入;Android 走 MediaProjection(原生 MethodChannel),桌面走系统 ffmpeg(x11grab/gdigrab;Wayland 自动切换 wf-recorder),桌面支持框选录制范围
+- 采集素材持久落盘(桌面 capturesDir / Android 相册),历史记录可重转,素材被删时明确提示
 
 ### 队列与历史
 
@@ -88,6 +94,7 @@ dart run tool/convert_check.dart         # 真实转码 SHA-256 一致性验证
 ```
 app(组合根)     MaterialApp · GoRouter 路由 · 页面壳(跨模块 UI 组合收敛于此)
 features(模块)  converter · preview · export · history · task_queue · timeline · import
+                camera · screen_record(采集素材 → 复用导入链路)
                 每个模块内部:application(纯 Dart 功能层)→ infrastructure → presentation(UI 层)
 domain(领域)    实体 · 值对象 · 端口接口 · 异常层级(零 Flutter 依赖)
 shared(基础)    PlatformAdapter · FFmpegEngine · Isar 仓储 · 引擎执行器
@@ -109,7 +116,7 @@ shared(基础)    PlatformAdapter · FFmpegEngine · Isar 仓储 · 引擎执行
 - 三平台同参数输出 SHA-256 一致性验证(`tool/convert_check.dart`)
 - 生成式代码(freezed / isar / riverpod)只经 build_runner 产出,不手改
 
-架构细节、设计取舍、版本锁定表在 `docs/` 目录有 20 篇文档(需求、选型、架构、FFmpeg 设计、测试计划、发布计划、相机拍摄/录屏开发计划、合并执行方案等)。
+架构细节、设计取舍、版本锁定表在 `docs/` 目录有 21 篇文档(需求、选型、架构、FFmpeg 设计、测试计划、发布计划、相机拍摄/录屏开发计划、合并执行方案、代码检查报告等)。
 
 ## 接下来做什么
 
