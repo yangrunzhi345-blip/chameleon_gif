@@ -105,7 +105,7 @@ shared(基础)    PlatformAdapter · FFmpegEngine · Isar 仓储 · 引擎执行
 ## 质量保障
 
 - `flutter analyze` 零告警为提交门槛(Flutter 官方 lints)
-- `flutter test` 全绿,549 个测试:命令构造快照(视频/图片两路)、进度解析、Isar 仓储往返、控制器逻辑、页面 Widget 测试
+- `flutter test` 全绿,882 个测试:命令构造快照(视频/图片两路)、进度解析、Isar 仓储往返、控制器逻辑、页面 Widget 测试
 - 三平台同参数输出 SHA-256 一致性验证(`tool/convert_check.dart`)
 - 生成式代码(freezed / isar / riverpod)只经 build_runner 产出,不手改
 
