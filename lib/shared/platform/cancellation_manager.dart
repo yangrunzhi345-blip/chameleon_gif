@@ -106,9 +106,18 @@ class CancellationManager {
     }
     final dir = Directory(_workDir);
     if (await dir.exists()) {
-      final remaining = dir.listSync();
+      List<FileSystemEntity> remaining;
+      try {
+        remaining = dir.listSync();
+      } on FileSystemException {
+        return; // 目录被并发删除:尽力清理语义,放弃空目录删除
+      }
       if (remaining.isEmpty) {
-        await dir.delete();
+        try {
+          await dir.delete();
+        } on FileSystemException {
+          // 并发写入/文件占用(Windows):忽略,不阻断取消流程
+        }
       }
     }
   }
