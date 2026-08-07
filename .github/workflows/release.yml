@@ -1,0 +1,115 @@
+# 发布打包工作流(docs/15-发布计划.md §15.2)
+# 触发:标签 v* 推送(发布)→ 产物上传 GitHub Release;手动触发 → 产物上传 Artifact。
+# 平台:Linux(AppImage + deb)/ Android(APK);Windows 预留(独立 runner)。
+# 与本地一致的保证:
+#   - Flutter 锁 3.44.8(subosito/flutter-action,与本地版本对齐,引擎层不漂移)
+#   - appimagetool 锁 1.9.1(与本地 continuous 同 commit 8c8c91f)
+#   - 打包逻辑复用 tool/package_linux.sh(本地与 CI 同一脚本)
+#   - 体积门禁:APK/AppImage/deb 任一超 30MB → workflow 失败(硬性红线)
+name: Release 打包
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    name: Linux(AppImage + deb)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.8
+          cache: true
+
+      - name: 拉取依赖
+        run: flutter pub get
+
+      - name: 构建 Linux release
+        run: flutter build linux --release
+
+      - name: 下载 appimagetool(锁 1.9.1,与本地同 commit)
+        run: |
+          mkdir -p tool/appimage
+          wget -q \
+            https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage \
+            -O tool/appimage/appimagetool-x86_64.AppImage
+          chmod +x tool/appimage/appimagetool-x86_64.AppImage
+
+      - name: 打包 AppImage + deb(与本地共用脚本)
+        run: |
+          APPIMAGE_TOOL="$PWD/tool/appimage/appimagetool-x86_64.AppImage" \
+            bash tool/package_linux.sh
+
+      - name: 体积门禁(AppImage/deb ≤ 30MB)
+        run: |
+          for f in dist/package/*.AppImage dist/package/*.deb; do
+            SIZE=$(stat -c%s "$f")
+            echo "$f: $((SIZE / 1024 / 1024))MB"
+            if [ "$SIZE" -gt $((30 * 1024 * 1024)) ]; then
+              echo "::error::$f 超过 30MB 限制!"; exit 1
+            fi
+          done
+
+      - name: 上传产物(手动触发 → Artifact)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            dist/package/*.AppImage
+            dist/package/*.deb
+
+      - name: 上传 GitHub Release(标签触发)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/package/*.AppImage
+            dist/package/*.deb
+
+  android:
+    name: Android(APK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.8
+          cache: true
+
+      - name: 拉取依赖
+        run: flutter pub get
+
+      - name: 构建 Android release APK
+        run: flutter build apk --release
+
+      - name: 体积门禁(APK ≤ 30MB,用户红线)
+        run: |
+          SIZE=$(stat -c%s build/app/outputs/flutter-apk/app-release.apk)
+          echo "APK: $((SIZE / 1024 / 1024))MB"
+          if [ "$SIZE" -gt $((30 * 1024 * 1024)) ]; then
+            echo "::error::APK 超过 30MB 限制!"; exit 1
+          fi
+
+      - name: 上传产物(手动触发 → Artifact)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: 上传 GitHub Release(标签触发)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/app/outputs/flutter-apk/app-release.apk
