@@ -393,6 +393,23 @@ void main() {
     expect(find.textContaining('共 3 张'), findsOneWidget);
   });
 
+  testWidgets('图片列表缩略图按 cacheWidth 解码(禁 2048² 全尺寸解码)', (tester) async {
+    final (app, router, _) = buildApp();
+    await pumpApp(tester, app);
+    await enterScreen(tester, router);
+
+    final images = tester
+        .widgetList<Image>(find.byType(Image))
+        .where((w) => w.image is FileImage || w.image is ResizeImage)
+        .toList();
+    expect(images, isNotEmpty);
+    for (final img in images) {
+      // cacheWidth 非空时 Image 内部把 provider 包装为 ResizeImage
+      final resized = img.image as ResizeImage;
+      expect(resized.width, 96, reason: '48 逻辑 px × 2 DPR 的目标解码宽度');
+    }
+  });
+
   testWidgets('删除全部图片 → 转换按钮禁用', (tester) async {
     final (app, router, _) = buildApp();
     await pumpApp(tester, app);

@@ -395,6 +395,9 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
                           File(path),
                           width: 48,
                           height: 48,
+                          // 按目标尺寸解码,禁止 2048×2048 全尺寸解码
+                          // (16MB RGBA/张,100 张列表内存压力 → 闪退放大器)
+                          cacheWidth: 96,
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => const SizedBox(
                             width: 48,

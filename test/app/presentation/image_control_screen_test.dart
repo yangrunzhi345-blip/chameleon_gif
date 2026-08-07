@@ -90,6 +90,11 @@ void main() {
     // 预览:图片在画布比例框内
     expect(find.byType(Image), findsOneWidget);
     expect(find.textContaining('源图 640×480'), findsOneWidget);
+    // 预览按呈现尺寸解码(禁 2048² 全尺寸解码;DPR=1.0,约束宽 → cacheWidth
+    // 非空,Image 内部将 provider 包装为 ResizeImage)
+    final img = tester.widget<Image>(find.byType(Image));
+    expect(img.image, isA<ResizeImage>());
+    expect((img.image as ResizeImage).width, greaterThan(0));
   });
 
   testWidgets('选 2 倍 → 保存 → pop 返回 PerImageControl(倍率 2)', (tester) async {

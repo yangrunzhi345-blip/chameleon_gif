@@ -173,12 +173,19 @@ class _ImageControlScreenState extends ConsumerState<ImageControlScreen> {
               canvasH: widget.canvasH,
             ),
           )
-        : Center(
-            child: Image.file(
-              File(widget.path),
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) =>
-                  const Icon(Icons.broken_image, size: 64),
+        : LayoutBuilder(
+            builder: (context, c) => Center(
+              child: Image.file(
+                File(widget.path),
+                // 按实际呈现尺寸解码(禁 2048×2048 全尺寸解码)
+                cacheWidth:
+                    (c.maxWidth * MediaQuery.of(context).devicePixelRatio)
+                        .round()
+                        .clamp(1, 4096),
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) =>
+                    const Icon(Icons.broken_image, size: 64),
+              ),
             ),
           );
 
@@ -377,8 +384,15 @@ class _CanvasPreview extends StatelessWidget {
     final t = target;
     return LayoutBuilder(
       builder: (context, c) {
+        // 按画布呈现尺寸解码(禁 2048×2048 全尺寸解码;精细控制页大图
+        // 全解码为 16MB RGBA/张,与 ffmpeg 原生内存叠加致闪退风险)
+        final cacheWidth =
+            (c.maxWidth * MediaQuery.of(context).devicePixelRatio)
+                .round()
+                .clamp(1, 4096);
         final image = Image.file(
           File(path),
+          cacheWidth: cacheWidth,
           fit: t == null ? BoxFit.contain : BoxFit.fill,
           errorBuilder: (_, _, _) => const Icon(Icons.broken_image, size: 48),
         );
