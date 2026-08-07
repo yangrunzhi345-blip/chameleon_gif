@@ -53,24 +53,25 @@ class _FakeStatistics implements Statistics {
       throw UnimplementedError('fake statistics 未实现: ${invocation.memberName}');
 }
 
-/// executeAsync/cancel 的注入替身:记录命令与回调,手动触发 complete/statistics。
+/// executeArgumentsAsync/cancel 的注入替身:记录参数与回调,手动触发
+/// complete/statistics。
 class _FakeKit {
   _FakeKit({this.returnCodeValue = 0});
 
   final int? returnCodeValue;
-  String? command;
+  List<String>? arguments;
   FFmpegSessionCompleteCallback? completeCallback;
   LogCallback? logCallback;
   StatisticsCallback? statisticsCallback;
   final cancelCalls = <int?>[];
 
-  Future<FFmpegSession> executeAsync(
-    String command, [
+  Future<FFmpegSession> executeArgumentsAsync(
+    List<String> arguments, [
     FFmpegSessionCompleteCallback? completeCallback,
     LogCallback? logCallback,
     StatisticsCallback? statisticsCallback,
   ]) async {
-    this.command = command;
+    this.arguments = arguments;
     this.completeCallback = completeCallback;
     this.logCallback = logCallback;
     this.statisticsCallback = statisticsCallback;
@@ -87,10 +88,10 @@ const _request = ConvertRequest(
 );
 
 void main() {
-  group('FfmpegKitEngine.assembleCommand', () {
-    test('空格拼接(Kit 契约,无可执行名前缀:ffmpeg-kit 直接执行 ffmpeg 本体)', () {
+  group('FfmpegKitEngine.assembleArguments', () {
+    test('参数数组直传(Kit 契约,无可执行名前缀:ffmpeg-kit 直接执行 ffmpeg 本体)', () {
       expect(
-        FfmpegKitEngine.assembleCommand([
+        FfmpegKitEngine.assembleArguments([
           '-i',
           'a.mp4',
           '-frames:v',
@@ -98,17 +99,36 @@ void main() {
           '-y',
           'out.gif',
         ]),
-        '-i a.mp4 -frames:v 1 -y out.gif',
+        ['-i', 'a.mp4', '-frames:v', '1', '-y', 'out.gif'],
       );
     });
 
-    test('空参数列表返回空串', () {
-      expect(FfmpegKitEngine.assembleCommand([]), '');
+    test('空参数列表返回空数组', () {
+      expect(FfmpegKitEngine.assembleArguments([]), isEmpty);
+    });
+
+    test('路径含空格不被拆裂(字符串版按空格拆参数致 Android 真机源文件'
+        '不存在,2026-08-07 回归锁定)', () {
+      expect(
+        FfmpegKitEngine.assembleArguments([
+          '-i',
+          '/data/user/0/app/cache/file_picker/IMG 2024 test.jpg',
+          '-y',
+          '/data/user/0/app/cache/out gif.gif',
+        ]),
+        [
+          '-i',
+          '/data/user/0/app/cache/file_picker/IMG 2024 test.jpg',
+          '-y',
+          '/data/user/0/app/cache/out gif.gif',
+        ],
+        reason: '参数数组直传原生侧,路径空格保持完整',
+      );
     });
 
     test('剥离 -progress pipe:1 参数对(ffmpeg-kit 不支持,真机报 Invalid argument)', () {
       expect(
-        FfmpegKitEngine.assembleCommand([
+        FfmpegKitEngine.assembleArguments([
           '-ss',
           '00:00:01.000',
           '-i',
@@ -118,7 +138,7 @@ void main() {
           '-y',
           'out.gif',
         ]),
-        '-ss 00:00:01.000 -i a.mp4 -y out.gif',
+        ['-ss', '00:00:01.000', '-i', 'a.mp4', '-y', 'out.gif'],
       );
     });
   });
@@ -127,12 +147,17 @@ void main() {
     test('成功路径:命令透传、exitCode/elapsed/cancelled 正确', () async {
       final kit = _FakeKit();
       final engine = FfmpegKitEngine(
-        executeAsync: kit.executeAsync,
+        executeArgumentsAsync: kit.executeArgumentsAsync,
         cancel: kit.cancel,
       );
 
       final future = engine.convert(_request);
-      expect(kit.command, '-i a.mp4 -y out.gif', reason: '命令串契约(无 ffmpeg 前缀)');
+      expect(kit.arguments, [
+        '-i',
+        'a.mp4',
+        '-y',
+        'out.gif',
+      ], reason: '参数数组直传(无 ffmpeg 前缀)');
       kit.completeCallback!(_FakeSession(returnCodeValue: 0));
       final result = await future;
 
@@ -144,7 +169,7 @@ void main() {
     test('非零退出码透传(上层 ErrorHandler 分类)', () async {
       final kit = _FakeKit(returnCodeValue: 1);
       final engine = FfmpegKitEngine(
-        executeAsync: kit.executeAsync,
+        executeArgumentsAsync: kit.executeArgumentsAsync,
         cancel: kit.cancel,
       );
 
@@ -158,7 +183,7 @@ void main() {
     test('returnCode 为 null → exitCode -1', () async {
       final kit = _FakeKit(returnCodeValue: null);
       final engine = FfmpegKitEngine(
-        executeAsync: kit.executeAsync,
+        executeArgumentsAsync: kit.executeArgumentsAsync,
         cancel: kit.cancel,
       );
 
@@ -172,7 +197,7 @@ void main() {
     test('取消(执行中):token.cancel → cancel(sessionId)', () async {
       final kit = _FakeKit();
       final engine = FfmpegKitEngine(
-        executeAsync: kit.executeAsync,
+        executeArgumentsAsync: kit.executeArgumentsAsync,
         cancel: kit.cancel,
       );
       final token = CancelToken();
@@ -191,7 +216,7 @@ void main() {
     test('先于会话建立的取消:onCancel 立即执行(竞态覆盖)', () async {
       final kit = _FakeKit();
       final engine = FfmpegKitEngine(
-        executeAsync: kit.executeAsync,
+        executeArgumentsAsync: kit.executeArgumentsAsync,
         cancel: kit.cancel,
       );
       final token = CancelToken()..cancel();
@@ -209,7 +234,7 @@ void main() {
     test('statistics 合成 -progress 风格行喂 onProgress(与桌面解析复用)', () async {
       final kit = _FakeKit();
       final engine = FfmpegKitEngine(
-        executeAsync: kit.executeAsync,
+        executeArgumentsAsync: kit.executeArgumentsAsync,
         cancel: kit.cancel,
       );
       final lines = <String>[];
@@ -232,7 +257,7 @@ void main() {
     test('statistics time 为小数 → toInt 截断(微秒单位对齐桌面)', () async {
       final kit = _FakeKit();
       final engine = FfmpegKitEngine(
-        executeAsync: kit.executeAsync,
+        executeArgumentsAsync: kit.executeArgumentsAsync,
         cancel: kit.cancel,
       );
       final lines = <String>[];
@@ -248,7 +273,7 @@ void main() {
     test('超时兜底:原生回调永不触发 → 取消会话并返回 cancelled', () async {
       final kit = _FakeKit();
       final engine = FfmpegKitEngine(
-        executeAsync: kit.executeAsync,
+        executeArgumentsAsync: kit.executeArgumentsAsync,
         cancel: kit.cancel,
         timeout: const Duration(milliseconds: 20),
       );

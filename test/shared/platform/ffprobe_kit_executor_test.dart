@@ -33,7 +33,8 @@ void main() {
   group('FfprobeKitFfprobeExecutor', () {
     test('探测抛异常 → FilePickException(GIF_PROBE_UNREACHABLE)', () async {
       final executor = FfprobeKitFfprobeExecutor(
-        getMediaInformation: (path) async => throw StateError('kit down'),
+        getMediaInformation: (arguments, [waitTimeout]) async =>
+            throw StateError('kit down'),
       );
 
       expect(
@@ -50,7 +51,8 @@ void main() {
 
     test('exitCode 透传(成功 0)', () async {
       final executor = FfprobeKitFfprobeExecutor(
-        getMediaInformation: (path) async => _FakeSession(returnCodeValue: 0),
+        getMediaInformation: (arguments, [waitTimeout]) async =>
+            _FakeSession(returnCodeValue: 0),
       );
 
       final result = await executor.run('/tmp/a.mp4');
@@ -59,7 +61,7 @@ void main() {
 
     test('returnCode 为 null → exitCode -1', () async {
       final executor = FfprobeKitFfprobeExecutor(
-        getMediaInformation: (path) async => _FakeSession(),
+        getMediaInformation: (arguments, [waitTimeout]) async => _FakeSession(),
       );
 
       final result = await executor.run('/tmp/a.mp4');
@@ -68,7 +70,7 @@ void main() {
 
     test('stderr(output)透传', () async {
       final executor = FfprobeKitFfprobeExecutor(
-        getMediaInformation: (path) async =>
+        getMediaInformation: (arguments, [waitTimeout]) async =>
             _FakeSession(returnCodeValue: 1, output: 'ffprobe error line'),
       );
 
@@ -81,7 +83,7 @@ void main() {
         'format': {'filename': '/tmp/a.mp4', 'duration': '3.000000'},
       });
       final executor = FfprobeKitFfprobeExecutor(
-        getMediaInformation: (path) async =>
+        getMediaInformation: (arguments, [waitTimeout]) async =>
             _FakeSession(returnCodeValue: 0, info: info),
       );
 
@@ -103,7 +105,7 @@ void main() {
         ],
       });
       final executor = FfprobeKitFfprobeExecutor(
-        getMediaInformation: (path) async =>
+        getMediaInformation: (arguments, [waitTimeout]) async =>
             _FakeSession(returnCodeValue: 0, info: info),
       );
 
@@ -111,6 +113,28 @@ void main() {
       expect(result.probeJson, isNotNull, reason: 'probeJson 不得为空');
       expect(result.probeJson!['format'], isA<Map>());
       expect(result.probeJson!['streams'], isA<List>());
+    });
+  });
+
+  group('FfprobeKitFfprobeExecutor.probeArguments', () {
+    test('参数数组直传(不走空格拆分,路径含空格安全,2026-08-07 回归锁定)', () {
+      expect(
+        FfprobeKitFfprobeExecutor.probeArguments(
+          '/data/user/0/app/cache/file_picker/IMG 2024 test.jpg',
+        ),
+        [
+          '-v',
+          'error',
+          '-hide_banner',
+          '-print_format',
+          'json',
+          '-show_format',
+          '-show_streams',
+          '-show_chapters',
+          '-i',
+          '/data/user/0/app/cache/file_picker/IMG 2024 test.jpg',
+        ],
+      );
     });
   });
 }
