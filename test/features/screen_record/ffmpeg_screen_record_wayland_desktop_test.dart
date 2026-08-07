@@ -48,31 +48,37 @@ void main() {
     expect(caps.screenCaptureAvailable, isTrue, reason: 'wf-recorder 已装');
     expect(caps.supportsRegions, isTrue);
 
-    // 2. 真实录制 2s(requestStop SIGTERM 封口)
-    final future = recorder.record(
-      params: const RecordParams(fps: 15, maxDurationMs: 30000),
-      cancelToken: null,
-    );
-    await Future<void>.delayed(const Duration(seconds: 2));
-    await recorder.requestStop();
-    final result = await future;
-    expect(File(result.finalPath).existsSync(), isTrue, reason: '产物落位');
-    final probe = Process.runSync('ffprobe', [
-      '-v',
-      'error',
-      '-show_format',
-      result.finalPath,
-    ]);
-    expect(probe.exitCode, 0, reason: '产物可解析');
-    final duration = RegExp(
-      r'duration=([\d.]+)',
-    ).firstMatch(probe.stdout.toString());
-    expect(duration, isNotNull, reason: '含时长元数据');
-    expect(
-      double.parse(duration!.group(1)!),
-      greaterThanOrEqualTo(1.0),
-      reason: '实际录制时长',
-    );
+    // 2. 真实录制 2s(requestStop SIGTERM 封口)。wf-recorder 首帧
+    // 启动耗时受桌面负载影响(实测偶发 2s+),固定延时会导致产物
+    // 时长偏短的 flaky;产物时长不足 1s 时重录一次(不弱化实测语义)。
+    var finalPath = '';
+    var recordedDuration = 0.0;
+    ProcessResult? probe;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      final future = recorder.record(
+        params: const RecordParams(fps: 15, maxDurationMs: 30000),
+        cancelToken: null,
+      );
+      await Future<void>.delayed(const Duration(seconds: 2));
+      await recorder.requestStop();
+      final result = await future;
+      finalPath = result.finalPath;
+      expect(File(finalPath).existsSync(), isTrue, reason: '产物落位');
+      probe = Process.runSync('ffprobe', [
+        '-v',
+        'error',
+        '-show_format',
+        finalPath,
+      ]);
+      expect(probe.exitCode, 0, reason: '产物可解析');
+      final duration = RegExp(
+        r'duration=([\d.]+)',
+      ).firstMatch(probe.stdout.toString());
+      expect(duration, isNotNull, reason: '含时长元数据');
+      recordedDuration = double.parse(duration!.group(1)!);
+      if (recordedDuration >= 1.0) break;
+    }
+    expect(recordedDuration, greaterThanOrEqualTo(1.0), reason: '实际录制时长');
 
     // 3. 取消:无新产物(目录内容数与录制后一致,不含本次取消的半成品)
     final filesAfterRecord = capturesDir.existsSync()
