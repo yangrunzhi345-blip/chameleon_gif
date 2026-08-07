@@ -609,4 +609,121 @@ void main() {
       );
     });
   });
+
+  group('分段路径(大图集合 >20 张)', () {
+    const setting = GifSetting(frameDurationMs: 1000);
+
+    test('buildImageSegment:段内命令快照(ffv1/matroska、无 setpts、带进度)', () {
+      // 21 张 → [11, 10];取第 1 段(start=0, count=11)与第 2 段(start=11)
+      final seg0 = builder.buildImageSegment(
+        setting: setting,
+        source: ImageGifSource(
+          paths: [for (var i = 1; i <= 21; i++) '/img/$i.png'],
+          width: 640,
+          height: 480,
+        ),
+        start: 0,
+        count: 11,
+        workDir: '/tmp/work',
+        segmentPath: '/tmp/work/seg_0.mkv',
+      );
+      final args0 = seg0.args;
+      // 输入:11 图 × 8 参数(-loop 1 -t D -framerate F -i path)
+      expect(args0.where((a) => a == '-i').length, 11);
+      expect(args0[args0.indexOf('-loop')], '-loop');
+      expect(args0, containsAll(['-c:v', 'ffv1', '-f', 'matroska']));
+      expect(args0, containsAll(['-progress', 'pipe:1']));
+      expect(args0.last, '/tmp/work/seg_0.mkv');
+      expect(filterOf(args0), contains('concat=n=11:v=1:a=0[vout]'));
+      expect(filterOf(args0), isNot(contains('palettegen')));
+      expect(filterOf(args0), isNot(contains('setpts')));
+      expect(seg0.label, GifCommand.kSegmentLabel);
+
+      // 第 2 段:输入从 start=11 起(全局下标),滤镜链取 controlAt(11)
+      final seg1 = builder.buildImageSegment(
+        setting: setting,
+        source: ImageGifSource(
+          paths: [for (var i = 1; i <= 21; i++) '/img/$i.png'],
+          width: 640,
+          height: 480,
+        ),
+        start: 11,
+        count: 10,
+        workDir: '/tmp/work',
+        segmentPath: '/tmp/work/seg_1.mkv',
+      );
+      expect(seg1.args.where((a) => a == '-i').length, 10);
+      expect(filterOf(seg1.args), contains('concat=n=10:v=1:a=0[vout]'));
+    });
+
+    test('buildFromSegments:调色板两遍(concat → setpts → paletteuse)', () {
+      final commands = builder.buildFromSegments(
+        setting: setting,
+        segmentPaths: [
+          '/tmp/work/seg_0.mkv',
+          '/tmp/work/seg_1.mkv',
+          '/tmp/work/seg_2.mkv',
+        ],
+        workDir: '/tmp/work',
+        outputPath: '/tmp/work/out.gif',
+        usePalette: true,
+      );
+      expect(commands, hasLength(2));
+
+      // palettegen:无 -progress,concat n=3
+      final palette = commands[0];
+      expect(palette.label, GifCommand.kPaletteLabel);
+      expect(palette.args, isNot(contains('-progress')));
+      expect(
+        filterOf(palette.args),
+        contains('[0:v][1:v][2:v]concat=n=3:v=1:a=0[vout]'),
+      );
+      expect(filterOf(palette.args), contains('palettegen=max_colors=256'));
+
+      // paletteuse:palette 为第 3 个输入,带 -progress 与 -loop
+      final encode = commands[1];
+      expect(encode.label, GifCommand.kEncodeLabel);
+      expect(encode.args, containsAll(['-progress', 'pipe:1']));
+      expect(encode.args, containsAll(['-y', '-loop', '0']));
+      expect(
+        encode.args.where((a) => a == '-i').length,
+        4,
+        reason: '3 段 + palette.png',
+      );
+      expect(
+        filterOf(encode.args),
+        contains('[vout][3:v]paletteuse=dither=bayer:bayer_scale=5[gif]'),
+      );
+      expect(encode.args.last, '/tmp/work/out.gif');
+    });
+
+    test('buildFromSegments:单遍一条命令,speed=2 → concat 后统一 setpts', () {
+      const fast = GifSetting(frameDurationMs: 1000, playbackSpeed: 2);
+      final commands = builder.buildFromSegments(
+        setting: fast,
+        segmentPaths: ['/tmp/work/seg_0.mkv'],
+        workDir: '/tmp/work',
+        outputPath: '/tmp/work/out.gif',
+        usePalette: false,
+      );
+      expect(commands, hasLength(1));
+      final f = filterOf(commands[0].args);
+      // speed≠1:concat 无标签,链尾 setpts 统一加 [vout]
+      expect(f, contains('[0:v]concat=n=1:v=1:a=0,setpts=PTS/2[vout]'));
+      expect(commands[0].args, containsAll(['-progress', 'pipe:1']));
+    });
+
+    test('segmentProgressDenominator = count × 每图实际段长', () {
+      const setting = GifSetting(frameDurationMs: 1000, fps: 15);
+      // 1000ms @ 15fps → 15 帧 → 1000ms;11 图 = 11s
+      expect(
+        builder.segmentProgressDenominator(setting, 11),
+        const Duration(seconds: 11),
+      );
+      // 100ms @ 15fps → 2 帧 → 133.33ms;20 图 ≈ 2.67s
+      const q = GifSetting(frameDurationMs: 100, fps: 15);
+      final seg20 = builder.segmentProgressDenominator(q, 20);
+      expect(seg20.inMilliseconds, 2666, reason: '20 × 133.33ms 取整');
+    });
+  });
 }

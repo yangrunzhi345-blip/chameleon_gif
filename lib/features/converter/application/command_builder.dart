@@ -115,7 +115,7 @@ class GifCommandBuilder {
     bool usePalette = true,
   }) {
     final n = source.paths.length;
-    final inputs = _imageInputArgs(setting, source);
+    final inputs = _imageInputArgs(setting, source.paths);
     final canvas = _canvasSize(setting, source);
     final stages = [
       for (var i = 0; i < n; i++)
@@ -193,12 +193,145 @@ class GifCommandBuilder {
     return source.totalDuration(setting);
   }
 
+  /// 分段路径:单段编码命令(图片子集 → ffv1 无损中间片)。
+  ///
+  /// 大图集合(N > [kSegmentModeThreshold])由服务层按 [segmentSizes]
+  /// 切段后逐段调用本方法,每段独立执行(段内峰值内存与单次运行一致,
+  /// 消除 100 张 2048×2048 的 2-4GB 原生 RSS → 闪退根因)。
+  /// 段内**无调色板、无 setpts**:段输出为原始时间轴(时间长度 =
+  /// 段图数 × 每图实际段长),最终 concat 统一 setpts(播放速度)。
+  /// 滤镜链与 [buildFromImages] 逐字节一致(同画布 → 各段分辨率/
+  /// SAR/像素格式一致,最终 concat 校验通过)。
+  GifCommand buildImageSegment({
+    required GifSetting setting,
+    required ImageGifSource source,
+    required int start,
+    required int count,
+    required String workDir,
+    required String segmentPath,
+  }) {
+    final paths = source.paths.sublist(start, start + count);
+    final inputs = _imageInputArgs(setting, paths);
+    final canvas = _canvasSize(setting, source);
+    // 段内输入编号从 0 起,精细控制按全局下标取(start + i)
+    final stages = [
+      for (var i = 0; i < count; i++)
+        '[$i:v]${_perImageChain(setting, source, start + i, canvas: canvas)}[s$i]',
+    ].join(';');
+    final labels = [for (var i = 0; i < count; i++) '[s$i]'].join();
+    final concatChain = '$stages;${labels}concat=n=$count:v=1:a=0[vout]';
+    return GifCommand(
+      args: [
+        ...inputs,
+        '-filter_complex',
+        concatChain,
+        '-map',
+        '[vout]',
+        '-c:v',
+        'ffv1',
+        '-f',
+        'matroska',
+        '-progress',
+        'pipe:1',
+        '-y',
+        segmentPath,
+      ],
+      label: GifCommand.kSegmentLabel,
+    );
+  }
+
+  /// 分段路径:段中间片 → 最终 GIF 的命令列表(与 [buildFromImages] 的
+  /// palette/encode 结构对齐,输入换成各段 mkv)。
+  ///
+  /// - 段输入分辨率/SAR/fps 一致(同画布同参数)→ concat 直接校验通过;
+  /// - 播放速度统一在 concat 后 setpts(与单次运行语义一致);
+  /// - palette 模式:palettegen 遍无 `-progress`(进度由编排层冻结),
+  ///   paletteuse 遍带 `-progress pipe:1`;单遍:encode 一条带进度。
+  List<GifCommand> buildFromSegments({
+    required GifSetting setting,
+    required List<String> segmentPaths,
+    required String workDir,
+    required String outputPath,
+    required bool usePalette,
+  }) {
+    final n = segmentPaths.length;
+    final inputs = [
+      for (final p in segmentPaths) ...['-i', p],
+    ];
+    // 段流直接 concat(无逐段滤镜),播放速度链尾统一 setpts(规则同
+    // buildFromImages:speed≠1 时 concat 不加标签、由 setpts 加 [vout])
+    final speed = _speedFilterArgs(setting);
+    final concatChain =
+        '${[for (var i = 0; i < n; i++) '[$i:v]'].join()}'
+        'concat=n=$n:v=1:a=0'
+        '${speed.isEmpty ? '[vout]' : '$speed[vout]'}';
+    final tail = ['-y', '-loop', '${setting.loop}', outputPath];
+
+    if (!usePalette) {
+      return [
+        GifCommand(
+          args: [
+            ...inputs,
+            '-filter_complex',
+            concatChain,
+            '-map',
+            '[vout]',
+            '-progress',
+            'pipe:1',
+            ...tail,
+          ],
+          label: GifCommand.kEncodeLabel,
+        ),
+      ];
+    }
+    final palettePath = '$workDir/palette.png';
+    return [
+      // 第一遍:全局调色板(无 -progress;进度由编排层冻结在段编码后)
+      GifCommand(
+        args: [
+          ...inputs,
+          '-filter_complex',
+          '$concatChain;[vout]palettegen=max_colors=256[pal]',
+          '-map',
+          '[pal]',
+          '-y',
+          palettePath,
+        ],
+        label: GifCommand.kPaletteLabel,
+      ),
+      // 第二遍:应用调色板输出 GIF(palette 为第 N 个输入)
+      GifCommand(
+        args: [
+          ...inputs,
+          '-i',
+          palettePath,
+          '-filter_complex',
+          '$concatChain;[vout][$n:v]paletteuse=dither=bayer:bayer_scale=5[gif]',
+          '-map',
+          '[gif]',
+          '-progress',
+          'pipe:1',
+          ...tail,
+        ],
+        label: GifCommand.kEncodeLabel,
+      ),
+    ];
+  }
+
+  /// 分段路径:单段进度百分比分母 = `段图数 × 每图实际段长`
+  /// (段轴无 setpts,out_time_us 沿段原始时间轴增长)。
+  Duration segmentProgressDenominator(GifSetting setting, int count) {
+    return Duration(
+      microseconds: setting.quantizedFrameDuration.inMicroseconds * count,
+    );
+  }
+
   /// 图片输入参数序列(每图 `-loop 1 -t D -framerate F -i path`)。
-  List<String> _imageInputArgs(GifSetting setting, ImageGifSource source) {
+  List<String> _imageInputArgs(GifSetting setting, List<String> paths) {
     final d = formatFfmpegTime(setting.effectiveFrameDuration);
     final f = _formatFps(setting.fps);
     return [
-      for (final path in source.paths) ...[
+      for (final path in paths) ...[
         '-loop',
         '1',
         '-t',

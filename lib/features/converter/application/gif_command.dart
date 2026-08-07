@@ -8,9 +8,11 @@ class GifCommand {
   /// 参数列表,顺序即命令顺序(快照单测断言契约)。
   final List<String> args;
 
-  /// 阶段标签:'palette'(调色板第一遍)| 'encode'(编码第二遍/标准单遍)。
+  /// 阶段标签:'palette'(调色板第一遍)| 'encode'(编码第二遍/标准单遍)
+  /// | 'segment'(大图集合分段中间片编码)。
   final String label;
 
   static const kPaletteLabel = 'palette';
   static const kEncodeLabel = 'encode';
+  static const kSegmentLabel = 'segment';
 }
