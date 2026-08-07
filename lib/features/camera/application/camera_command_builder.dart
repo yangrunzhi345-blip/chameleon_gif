@@ -5,7 +5,8 @@
 ///   原始流带宽爆炸);`-video_size` 仅双边分辨率齐全时注入;
 /// - Windows dshow:设备名整串传入 `video="<名>"`(Process.start 直传
 ///   无 shell,ffmpeg 自解析引号,禁止外部拼接);
-/// - 统一:`-t` 前置输入限时(进程到时自退,exit 0)+ `-y` 显式
+/// - 统一:`-t` 前置输入限时(进程到时自退,exit 0;0 = 不限时长
+///   则省略,与 RecordCommandBuilder 同语义)+ `-y` 显式
 ///   (防 tmp 残留时 ffmpeg 因 stdin 非 tty 直接 abort)。
 library;
 
@@ -108,9 +109,7 @@ class CameraCommandBuilder {
     required String outputPath,
   }) {
     final fps = _formatFps(params.fps);
-    final limit = formatFfmpegTime(
-      Duration(milliseconds: params.maxDurationMs),
-    );
+    final limit = _durationLimit(params);
     final videoSize = _videoSize(params);
     final previewVf =
         'fps=${_formatFps(previewFrameRate)},scale=$previewScale:-2';
@@ -124,8 +123,7 @@ class CameraCommandBuilder {
           ...videoSize,
           '-framerate',
           fps,
-          '-t',
-          limit,
+          if (limit != null) ...['-t', limit],
           '-i',
           input,
           '-an',
@@ -158,8 +156,7 @@ class CameraCommandBuilder {
           '-framerate',
           fps,
           ...videoSize,
-          '-t',
-          limit,
+          if (limit != null) ...['-t', limit],
           '-i',
           'video="$input"',
           '-an',
@@ -199,9 +196,7 @@ class CameraCommandBuilder {
     required String outputPath,
   }) {
     final fps = _formatFps(params.fps);
-    final limit = formatFfmpegTime(
-      Duration(milliseconds: params.maxDurationMs),
-    );
+    final limit = _durationLimit(params);
     final videoSize = _videoSize(params);
 
     switch (kind) {
@@ -214,8 +209,7 @@ class CameraCommandBuilder {
           ...videoSize,
           '-framerate',
           fps,
-          '-t',
-          limit,
+          if (limit != null) ...['-t', limit],
           '-i',
           input,
           '-pix_fmt',
@@ -230,8 +224,7 @@ class CameraCommandBuilder {
           '-framerate',
           fps,
           ...videoSize,
-          '-t',
-          limit,
+          if (limit != null) ...['-t', limit],
           '-i',
           'video="$input"',
           '-pix_fmt',
@@ -240,6 +233,14 @@ class CameraCommandBuilder {
           outputPath,
         ];
     }
+  }
+
+  /// 时长上限(毫秒;0 = 不限,不加 `-t`,录制终止仅靠端口层手动停止/
+  /// 取消;与 RecordCommandBuilder 同语义)。
+  static String? _durationLimit(CaptureParams params) {
+    return params.maxDurationMs > 0
+        ? formatFfmpegTime(Duration(milliseconds: params.maxDurationMs))
+        : null;
   }
 
   /// 分辨率参数(双边齐全才注入 `-video_size`;单边/缺省 → 设备默认)。

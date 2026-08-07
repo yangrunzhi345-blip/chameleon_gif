@@ -79,6 +79,32 @@ void main() {
         containsAllInOrder(['-framerate', '30', '-t', '00:00:10.000']),
       );
     });
+
+    test('时长上限 0 → 不加 -t(不限时长,与录屏同语义)', () {
+      final params = base.copyWith(maxDurationMs: 0);
+      for (final kind in CameraInputKind.values) {
+        expect(
+          builder.build(
+            params: params,
+            kind: kind,
+            input: kind == CameraInputKind.v4l2 ? '/dev/video0' : 'Cam',
+            outputPath: '/tmp/capture.mp4',
+          ),
+          isNot(contains('-t')),
+          reason: '$kind 0 = 不限时长',
+        );
+        expect(
+          builder.buildWithPreview(
+            params: params,
+            kind: kind,
+            input: kind == CameraInputKind.v4l2 ? '/dev/video0' : 'Cam',
+            outputPath: '/tmp/capture.mp4',
+          ),
+          isNot(contains('-t')),
+          reason: '$kind 双输出同语义',
+        );
+      }
+    });
   });
 
   group('dshow(Windows)', () {

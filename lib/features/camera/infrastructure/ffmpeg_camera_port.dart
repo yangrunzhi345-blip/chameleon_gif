@@ -305,16 +305,20 @@ class FfmpegCameraPort implements CameraPort {
       );
     }
     ready.complete(session);
-    // 时长兜底 watchdog:`-t` 失效时强制停(保存),防进程挂死泄漏
-    final watchdog = Timer(
-      Duration(milliseconds: params.maxDurationMs + 5000),
-      () => session.stop(),
-    );
+    // 时长兜底 watchdog:`-t` 失效时强制停(保存),防进程挂死泄漏;
+    // maxDurationMs 0 = 不限时长,不启动 watchdog(与录屏同语义,
+    // 终止仅靠手动停止)
+    final watchdog = params.maxDurationMs > 0
+        ? Timer(
+            Duration(milliseconds: params.maxDurationMs + 5000),
+            () => session.stop(),
+          )
+        : null;
     final CaptureOutcome outcome;
     try {
       outcome = await session.waitExit();
     } finally {
-      watchdog.cancel();
+      watchdog?.cancel();
       _sessionReady = null;
     }
     if (outcome.cancelled) {
