@@ -21,6 +21,58 @@ import 'batch_parameter_form.dart' show ParamRow, SectionLabel;
 /// 21-40 张经分段转换(ffv1 中间片)内存安全;超限选择截取前 N 张)。
 const int kMaxImages = 40;
 
+/// 图片转换实时进度面板(转换中替换开始按钮)。
+///
+/// 纯渲染:进度条 + 百分比 + 预估剩余 + 取消;数据来自
+/// [imageGifProgressProvider](200ms 节流,按会话 taskId 过滤)。
+class _ImageGifProgressPanel extends ConsumerWidget {
+  const _ImageGifProgressPanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final progress = ref.watch(imageGifProgressProvider).value;
+    final percent = progress?.percent ?? 0.0;
+    final remaining = progress?.remaining;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: LinearProgressIndicator(value: percent, minHeight: 6),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '${(percent * 100).round()}%',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                remaining == null
+                    ? '正在生成调色板…'
+                    : '预计剩余 ${formatHumanDuration(remaining)}',
+                style: Theme.of(context).textTheme.bodySmall,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            TextButton(
+              onPressed: () =>
+                  ref.read(imageGifControllerProvider.notifier).cancelTask(),
+              child: const Text('取消'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 /// 图片制作 GIF 页(app 层组合壳,仿 batch_import_screen 模式)。
 ///
 /// 经路由 extra 接收有序图片路径列表;extra 为空(回退/深链)立即返回主页。
@@ -703,14 +755,21 @@ class _ImageGifScreenState extends ConsumerState<ImageGifScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: _paths.isEmpty || state.formError != null || exporting
-                ? null
-                : _startConvert,
-            icon: Icon(exporting ? Icons.hourglass_top : Icons.animation),
-            label: Text(exporting ? '转换中…' : '开始转换'),
-          ),
+          // 转换中:实时进度面板(进度条 + 百分比 + 预估剩余 + 取消;
+          // 2026-08-07 补"图片制作 GIF 无进度条"缺陷)
+          if (exporting) ...[
+            const SizedBox(height: 16),
+            const _ImageGifProgressPanel(),
+          ] else ...[
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _paths.isEmpty || state.formError != null || exporting
+                  ? null
+                  : _startConvert,
+              icon: const Icon(Icons.animation),
+              label: const Text('开始转换'),
+            ),
+          ],
         ],
       ),
     );

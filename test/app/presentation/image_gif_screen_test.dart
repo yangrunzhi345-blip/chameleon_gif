@@ -470,6 +470,29 @@ void main() {
     expect(btn.onPressed, isNull, reason: '空列表禁用转换');
   });
 
+  testWidgets('转换中:实时进度面板(进度条 + 取消按钮)替换开始按钮', (tester) async {
+    final svc = FakeFfmpegService(writeOutput: false, blockFirstConvert: true);
+    final (app, router, _) = buildApp(service: svc);
+    await pumpApp(tester, app);
+    await enterScreen(tester, router);
+
+    await tester.tap(find.text('开始转换'));
+    // 真实 IO(workDir 创建)在 fake async 中需 runAsync 推进至转换挂起
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 200)),
+    );
+    await tester.pump();
+
+    // 转换中:开始按钮消失,进度面板出现
+    expect(find.text('开始转换'), findsNothing);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.text('取消'), findsOneWidget);
+    expect(find.textContaining('%'), findsOneWidget, reason: '百分比文本');
+
+    // 解锁(完成弹窗链路由「完整流」测试覆盖)
+    svc.unblock();
+  });
+
   testWidgets('完整流:开始转换 → Fake 收到 source → 完成弹窗', (tester) async {
     final svc = FakeFfmpegService(writeOutput: false);
     final (app, router, _) = buildApp(service: svc);

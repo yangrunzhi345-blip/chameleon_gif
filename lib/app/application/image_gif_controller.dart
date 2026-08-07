@@ -4,10 +4,12 @@ import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meta/meta.dart';
 
+import '../../core/utils/throttle_stream.dart';
 import '../../domain/entities/export_task.dart';
 import '../../domain/entities/image_gif_source.dart';
 import '../../domain/value_objects/gif_setting.dart';
 import '../../domain/value_objects/per_image_control.dart';
+import '../../domain/value_objects/task_progress.dart';
 import '../../domain/value_objects/task_state.dart';
 import '../../features/export/application/output_dir_picker.dart'
     as output_dir_picker;
@@ -23,6 +25,20 @@ final imageGifControllerProvider =
     NotifierProvider.autoDispose<ImageGifController, ImageGifFormState>(
       ImageGifController.new,
     );
+
+/// 图片会话转换进度流(200ms 尾缘节流,按会话 taskId 过滤;与
+/// exportProgressProvider 同构)。图片模式进度面板消费(2026-08-07
+/// 补"图片制作 GIF 无进度条"缺陷)。autoDispose:页面卸载即销毁。
+final imageGifProgressProvider = StreamProvider.autoDispose<TaskProgress>((
+  ref,
+) {
+  final taskId = ref.watch(imageGifControllerProvider).taskId;
+  final manager = ref.watch(taskManagerProvider);
+  return throttleStream(
+    manager.progressStream.where((p) => p.taskId == taskId),
+    const Duration(milliseconds: 200),
+  );
+});
 
 /// 图片制作 GIF 会话控制器(app 层跨模块组合,autoDispose,
 /// 生命周期与 [ExportController] 同构)。
