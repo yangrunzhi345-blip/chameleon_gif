@@ -115,6 +115,28 @@ void main() {
       throwsA(isA<FFmpegMissingException>()),
     );
   });
+
+  group('ProcessFfprobeExecutor.decodeOutput 容错解码', () {
+    test('畸形字节(GBK 文件名回显)→ 替换符填充,不抛异常', () {
+      // 0xB2E2 = GBK「测」,非法 UTF-8 序列;容错解码以 U+FFFD 替换
+      final s = ProcessFfprobeExecutor.decodeOutput([
+        0x70,
+        0x3a,
+        0xb2,
+        0xe2,
+        0x2e,
+        0x6d,
+        0x70,
+        0x34,
+      ]);
+      expect(s, contains('p:'));
+      expect(s, endsWith('.mp4'));
+    });
+
+    test('对照基线:严格解码同字节抛 FormatException', () {
+      expect(() => utf8.decode([0xb2, 0xe2]), throwsFormatException);
+    });
+  });
 }
 
 class _FakeExecutor implements FfprobeExecutor {

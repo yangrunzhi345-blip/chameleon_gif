@@ -31,13 +31,17 @@ class ProcessFfprobeExecutor implements FfprobeExecutor {
           '-i',
           path,
         ],
-        stdoutEncoding: utf8,
-        stderrEncoding: utf8,
+        stdoutEncoding: null,
+        stderrEncoding: null,
       );
-      final stdout = result.stdout as String;
+      // 容错解码(与转码 ProcessEngine._drain 同策):非 UTF-8(GBK)
+      // 文件名的路径回显含畸形字节,严格解码抛 FormatException 会把
+      // 有效视频误判为解析失败
+      final stdout = decodeOutput(result.stdout as List<int>);
+      final stderr = decodeOutput(result.stderr as List<int>);
       return FfprobeResult(
         exitCode: result.exitCode,
-        stderr: (result.stderr as String?) ?? '',
+        stderr: stderr,
         probeJson: (result.exitCode == 0 && stdout.isNotEmpty)
             ? _decodeJson(stdout)
             : null,
@@ -45,6 +49,14 @@ class ProcessFfprobeExecutor implements FfprobeExecutor {
     } on ProcessException catch (e) {
       throw FFmpegMissingException(cause: e);
     }
+  }
+
+  /// 进程输出字节(null encoding → `List<int>`)→ 字符串(容错 UTF-8)。
+  ///
+  /// 静态暴露便于单测直接注入畸形字节(Dart 无法构造原始非 UTF-8
+  /// 字节文件名路径,端到端不可测)。
+  static String decodeOutput(List<int> bytes) {
+    return const Utf8Decoder(allowMalformed: true).convert(bytes);
   }
 
   /// stdout 非 JSON(异常输出)时返回 null,交由调用方按失败处理。
