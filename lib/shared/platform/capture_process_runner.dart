@@ -146,8 +146,11 @@ class CaptureProcessRunner {
         }
       }
     });
+    // stderr 容错解码(与转码 ProcessEngine._drain 同策:非 UTF-8
+    // 文件名会让 ffmpeg 输出畸形字节,严格解码器抛 FormatException
+    // 成为未处理流错误)
     process.stderr
-        .transform(utf8.decoder)
+        .transform(const Utf8Decoder(allowMalformed: true))
         .transform(const LineSplitter())
         .listen((line) {
           session.addStderrLine(line);
