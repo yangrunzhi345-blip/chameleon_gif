@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chameleon_gif/app/app.dart';
+import 'package:chameleon_gif/app/application/cache_storage_controller.dart';
 import 'package:chameleon_gif/app/presentation/batch_parameter_form.dart';
 import 'package:chameleon_gif/app/presentation/settings_screen.dart';
 import 'package:chameleon_gif/app/router.dart';
@@ -57,6 +58,8 @@ void main() {
     addTearDown(tester.view.reset);
     final adapter = _TestAdapter(tempRoot.path);
     final service = _FakeService();
+    final taskRepo = InMemoryTaskRepository();
+    final historyRepo = InMemoryHistoryRepository();
     final app = ProviderScope(
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
@@ -66,9 +69,16 @@ void main() {
         platformAdapterProvider.overrideWithValue(adapter),
         cameraPortProvider.overrideWithValue(FakeCameraPort()),
         appDocsDirProvider.overrideWithValue(Directory(tempRoot.path)),
-        taskRepositoryProvider.overrideWithValue(InMemoryTaskRepository()),
-        historyRepositoryProvider.overrideWithValue(
-          InMemoryHistoryRepository(),
+        taskRepositoryProvider.overrideWithValue(taskRepo),
+        historyRepositoryProvider.overrideWithValue(historyRepo),
+        // 缓存统计注入测试临时目录(默认扫真实系统临时目录 → 残留干扰)
+        cacheStorageControllerProvider.overrideWith(
+          () => CacheStorageController(
+            taskRepository: taskRepo,
+            historyRepository: historyRepo,
+            logger: AppLogger(),
+            systemTempDir: tempRoot.path,
+          ),
         ),
         ffmpegServiceProvider.overrideWithValue(service),
         taskManagerProvider.overrideWith(
@@ -105,6 +115,22 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
   }
+
+  testWidgets('存储管理组:统计文案与清理缓存按钮渲染(空缓存)', (tester) async {
+    await pumpApp(tester);
+    await enterSettings(tester);
+
+    expect(find.textContaining('导入副本/工作目录/缩略图'), findsOneWidget);
+    expect(find.text('清理缓存'), findsOneWidget);
+    // 空缓存 → 清理按钮禁用
+    final btn = tester.widget<OutlinedButton>(
+      find.ancestor(
+        of: find.text('清理缓存'),
+        matching: find.byType(OutlinedButton),
+      ),
+    );
+    expect(btn.onPressed, isNull, reason: '无缓存可清');
+  });
 
   testWidgets('渲染:主题三态 + 批量默认参数表单 + 保存按钮', (tester) async {
     await pumpApp(tester);

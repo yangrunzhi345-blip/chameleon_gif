@@ -55,6 +55,8 @@ class _Thumbnail extends ConsumerWidget {
           bytes,
           width: 96,
           height: 54,
+          // 按展示尺寸解码(旧版本大 PNG 缩略图兼容:内存不再按原图尺寸)
+          cacheWidth: 96,
           fit: BoxFit.cover,
           gaplessPlayback: true,
         ),

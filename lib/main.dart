@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'app/application/cache_storage_controller.dart';
 import 'app/application/capture_platform_factory.dart';
 import 'app/app.dart';
 import 'app/router.dart' show rootNavigatorKey;
@@ -19,6 +21,8 @@ import 'features/screen_record/application/region_picker.dart'
     show screenRegionPickerProvider;
 import 'shared/platform/platform_adapter.dart';
 import 'shared/providers/core_providers.dart';
+import 'shared/repositories/isar_history_repository.dart';
+import 'shared/repositories/isar_task_repository.dart';
 import 'shared/repositories/schemas/export_history_schema.dart';
 import 'shared/repositories/schemas/export_preset_schema.dart';
 import 'shared/repositories/schemas/export_task_schema.dart';
@@ -119,4 +123,16 @@ Future<void> main() async {
     tracer.mark('t5 首帧');
     tracer.dump();
   });
+
+  // 启动缓存自动清理(不阻塞首帧;异常仅记日志):
+  // file_picker 副本(未引用+超 7 天)/残留工作目录/缩略图超额,
+  // 详见 CacheStorageController.runStartupCleanup(缓存 1.3GB 膨胀修复)
+  unawaited(
+    CacheStorageController(
+      taskRepository: IsarTaskRepository(isar, logger: logger),
+      historyRepository: IsarHistoryRepository(isar, logger: logger),
+      logger: logger,
+      systemTempDir: adapter.systemTempDir,
+    ).runStartupCleanup(),
+  );
 }

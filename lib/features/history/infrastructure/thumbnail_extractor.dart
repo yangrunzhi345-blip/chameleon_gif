@@ -104,6 +104,10 @@ class ThumbnailExtractor {
             '0',
             '-i',
             videoPath,
+            // 缩略图限宽 160:原帧全分辨率 PNG 6-8MB/张(2048²)累积到
+            // 256 张上限可达 1.5-2GB(缓存膨胀主因之一),限宽后 ~15-25KB
+            '-vf',
+            'scale=160:-1:flags=bilinear',
             '-frames:v',
             '1',
             '-y',

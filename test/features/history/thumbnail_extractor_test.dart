@@ -76,6 +76,9 @@ void main() {
         '0',
         '-i',
         videoPath,
+        // 缩略图限宽 160(缓存压缩:原帧全分辨率 PNG 是 1.3GB 膨胀主因之一)
+        '-vf',
+        'scale=160:-1:flags=bilinear',
         '-frames:v',
         '1',
         '-y',

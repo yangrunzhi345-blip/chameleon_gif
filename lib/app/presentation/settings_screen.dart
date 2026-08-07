@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/utils/file_size.dart';
 import '../../domain/value_objects/app_theme_mode.dart';
+import '../application/cache_storage_controller.dart';
 import '../application/camera_settings_controller.dart';
 import '../application/captures_storage_controller.dart';
 import '../application/record_settings_controller.dart';
@@ -95,6 +96,82 @@ class _CapturesStorageGroup extends ConsumerWidget {
   }
 }
 
+/// 存储管理分组:缓存占用统计(导入副本/工作目录/缩略图)+ 一键清空。
+///
+/// 复刻 `_CapturesStorageGroup` 交互(统计 + 二次确认 + 连点守卫);
+/// 清空语义见 [CacheStorageController.clear](副本全清会破坏指向副本的
+/// 历史重转,文案明示)。
+class _CacheStorageGroup extends ConsumerWidget {
+  const _CacheStorageGroup();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(cacheStorageControllerProvider);
+    final controller = ref.read(cacheStorageControllerProvider.notifier);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            state.loading
+                ? '统计中…'
+                : '导入副本/工作目录/缩略图共 ${state.totalCount} 个,'
+                      '占用 ${formatFileSize(state.totalBytes)}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: state.totalCount == 0
+                ? null
+                : () async {
+                    // 一次性守卫:连点清空会第二次 pop,弹掉设置页路由
+                    var tapped = false;
+                    void guard(VoidCallback action) {
+                      if (tapped) return;
+                      tapped = true;
+                      action();
+                    }
+
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('清理缓存'),
+                        content: Text(
+                          '将删除未使用的导入副本与缓存文件(共 '
+                          '${state.totalCount} 个,占用 '
+                          '${formatFileSize(state.totalBytes)})。'
+                          '被清理副本对应的历史重转需重新选择源文件。确定清理?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () =>
+                                guard(() => Navigator.of(ctx).pop(false)),
+                            child: const Text('取消'),
+                          ),
+                          FilledButton(
+                            onPressed: () =>
+                                guard(() => Navigator.of(ctx).pop(true)),
+                            child: const Text('清理'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true) {
+                      await controller.clear();
+                    }
+                  },
+            icon: const Icon(Icons.cleaning_services_outlined),
+            label: const Text('清理缓存'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// 批量参数表单 key(保存前 flush 未回车的文本字段)。
   final _formKey = GlobalKey<BatchParameterFormState>();
@@ -108,6 +185,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ref.read(settingsControllerProvider.notifier).init();
       ref.read(cameraSettingsControllerProvider.notifier).probe();
       ref.read(capturesStorageControllerProvider.notifier).load();
+      ref.read(cacheStorageControllerProvider.notifier).load();
     });
   }
 
@@ -200,6 +278,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 16),
             const SectionLabel('素材存储'),
             _CapturesStorageGroup(),
+            const SizedBox(height: 24),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            const SectionLabel('存储管理'),
+            _CacheStorageGroup(),
             const SizedBox(height: 24),
             const Divider(height: 1),
             const SizedBox(height: 16),
