@@ -3,7 +3,7 @@ description: "Chameleon Gif — 跨平台 MP4 转 GIF 工具(技术选型版本�
 publish_to: 'none'
 
 # 语义化版本:major.minor.patch+build,遵循 docs/15-发布计划.md
-version: 0.1.0+1
+version: 0.2.0+2
 
 environment:
   sdk: ">=3.10.0 <4.0.0"
